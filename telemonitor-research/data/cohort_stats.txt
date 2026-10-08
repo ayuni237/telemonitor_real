@@ -1,0 +1,57 @@
+DESCRIPTIVE STATISTICS — REAL COHORT (patient_data.csv)
+For Chapter 1 (Problem Statement) and Chapter 6 (Discussion)
+==================================================================
+
+Patients with at least one recorded reading : 58
+Total readings                              : 81
+Median readings per patient                 : 1
+Maximum readings for any single patient     : 7
+
+FOLLOW-UP RETENTION
+------------------------------------------------------------------
+  Patients with >= 1 reading(s) :  58  (100.0%)
+  Patients with >= 2 reading(s) :   9  ( 15.5%)
+  Patients with >= 3 reading(s) :   6  ( 10.3%)
+  Patients with >= 5 reading(s) :   2  (  3.4%)
+  Patients with >= 7 reading(s) :   1  (  1.7%)
+  Patients with exactly 1 reading :  49  ( 84.5%)
+
+INTERVAL BETWEEN CONSECUTIVE VISITS (n=22 intervals)
+------------------------------------------------------------------
+  Median : 1.5 days
+  Mean   : 47.0 days (SD 92.6)
+  Range  : 1 to 414 days
+
+MEASUREMENT AVAILABILITY
+------------------------------------------------------------------
+  sbp     :  81 / 81 readings (100.0%)
+  dbp     :  81 / 81 readings (100.0%)
+  hr      :  81 / 81 readings (100.0%)
+  glucose :  19 / 81 readings ( 23.5%)
+
+CLINICAL VALUES (all readings; glucose in mmol/L)
+------------------------------------------------------------------
+         sbp    dbp  glucose     hr
+count   81.0   81.0     19.0   81.0
+mean   126.8   81.7      5.7   89.7
+std     21.2   17.3      0.9   16.7
+min     85.0   48.0      3.8   55.0
+25%    108.0   71.0      5.2   75.0
+50%    125.0   80.0      5.9   89.0
+75%    142.0   91.0      6.0  101.0
+max    183.0  137.0      7.6  132.0
+
+RISK LEVEL DISTRIBUTION (per-reading, clinical thresholds)
+------------------------------------------------------------------
+  stable   :  51  ( 63.0%)
+  moderate :  15  ( 18.5%)
+  high     :   9  ( 11.1%)
+  critical :   6  (  7.4%)
+
+KEY FINDING
+------------------------------------------------------------------
+  49 of 58 patients (84%) have only a single recorded reading.
+  Only 1 patient reaches 7 readings, and those span 134 days.
+  Longitudinal modelling on existing hospital records is therefore
+  not feasible for this cohort. This fragmentation is itself the
+  gap the proposed telemonitoring system is designed to close.

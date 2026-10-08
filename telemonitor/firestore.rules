@@ -1,0 +1,133 @@
+rules_version = '2';
+
+// TeleMonitor Firestore security rules.
+//
+// Change from the previous version: a patient may now register WITHOUT a
+// clinician, and link to one later — but only once. The
+// `assignedClinicianId` field can be written when it is absent, and never
+// changed once set. See the users/{userId} update rule.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function myProfileExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isClinician() {
+      return myProfileExists() && myProfile().role == 'clinician';
+    }
+
+    function isMyPatientDoc() {
+      return isClinician()
+        && resource.data.assignedClinicianId == request.auth.uid;
+    }
+
+    function isMyClinicianDoc(userId) {
+      return myProfileExists()
+        && myProfile().keys().hasAny(['assignedClinicianId'])
+        && myProfile().assignedClinicianId == userId;
+    }
+
+    function isAssignedClinicianOf(patientId) {
+      return isClinician()
+        && exists(/databases/$(database)/documents/users/$(patientId))
+        && get(/databases/$(database)/documents/users/$(patientId))
+             .data.assignedClinicianId == request.auth.uid;
+    }
+
+    function targetIsClinician(clinicianId) {
+      return exists(/databases/$(database)/documents/users/$(clinicianId))
+        && get(/databases/$(database)/documents/users/$(clinicianId)).data.role == 'clinician';
+    }
+
+    // The three fields a patient may never alter about themselves.
+    function touchesProtected() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['role', 'assignedClinicianId', 'email']);
+    }
+
+    // A one-time claim of a clinician: the ONLY field changing is
+    // assignedClinicianId, it was previously ABSENT, and the new value
+    // points at a genuine clinician. Because the rule requires absence,
+    // a patient cannot switch clinicians or detach once linked.
+    function isFirstClinicianLink() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['assignedClinicianId'])
+          && !resource.data.keys().hasAny(['assignedClinicianId'])
+          && request.resource.data.assignedClinicianId is string
+          && targetIsClinician(request.resource.data.assignedClinicianId);
+    }
+
+    // ---------------------------------------------------------------
+    // Clinician enrolment codes
+    // ---------------------------------------------------------------
+    match /clinician_codes/{code} {
+      // `get` — resolving ONE code you already know. Must be open to
+      // unauthenticated callers, because a patient signing up has no
+      // account yet at the moment they type the code.
+      //
+      // Safe because: the document holds only a clinician id and display
+      // name; you must already know the exact code to read it; and
+      // `list` below still blocks enumeration of the collection.
+      allow get: if true;
+
+      // `list` — querying the collection. Clinicians only, so nobody can
+      // discover codes they were not given.
+      allow list: if isClinician();
+
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // User profiles
+    // ---------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isSelf(userId)
+                  || isMyPatientDoc()
+                  || isMyClinicianDoc(userId);
+
+      // Self-registration. assignedClinicianId is now OPTIONAL, but when
+      // present it must point at a genuine clinician.
+      allow create: if isSelf(userId)
+                    && request.resource.data.role == 'patient'
+                    && request.resource.data.email == request.auth.token.email
+                    && (
+                         !request.resource.data.keys().hasAny(['assignedClinicianId'])
+                         || targetIsClinician(request.resource.data.assignedClinicianId)
+                       );
+
+      // Either an ordinary profile edit that leaves the protected fields
+      // untouched, or the one-time clinician link.
+      allow update: if isSelf(userId)
+                    && ( !touchesProtected() || isFirstClinicianLink() );
+
+      allow delete: if false;
+
+      match /readings/{readingId} {
+        allow read: if isSelf(userId) || isAssignedClinicianOf(userId);
+        allow create, update, delete: if isSelf(userId);
+      }
+
+      match /messages/{messageId} {
+        allow read: if isSelf(userId) || isAssignedClinicianOf(userId);
+        allow create: if (isSelf(userId) || isAssignedClinicianOf(userId))
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

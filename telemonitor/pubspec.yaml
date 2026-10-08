@@ -1,0 +1,47 @@
+name: telemonitor
+description: "Telemonitoring system for hypertension and diabetes patients."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  fl_chart: ^0.69.0
+  intl: ^0.19.0
+  firebase_core: ^4.12.1
+  firebase_auth: ^6.5.6
+  cloud_firestore: ^6.7.1
+  flutter_onnxruntime: ^1.8.3
+  shared_preferences: ^2.5.5
+  url_launcher: ^6.3.2
+  firebase_ai: ^4.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  # Files bundled inside the app. Without this line the risk model is
+  # never packaged, and the risk card fails the moment a patient
+  # reaches 7 readings.
+  assets:
+    - assets/models/telemonitor_risk_model.onnx
+
+# App icon generator — read at build time only, not bundled in the app.
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "assets/icon/icon_background.png"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  remove_alpha_ios: true
+  min_sdk_android: 21

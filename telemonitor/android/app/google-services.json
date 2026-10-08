@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "116195211340",
+    "project_id": "telemonitor",
+    "storage_bucket": "telemonitor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116195211340:android:14050ee405729ba714dce9",
+        "android_client_info": {
+          "package_name": "com.example.telemonitor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfVCl9w20xbWXv0A_zYz01K4RGvQnkJ_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

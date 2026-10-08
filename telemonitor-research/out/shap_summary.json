@@ -1,0 +1,44 @@
+{
+  "n_windows": 2340,
+  "n_features": 16,
+  "top5_shap": [
+    "sbp_mean",
+    "dbp_mean",
+    "sbp_last",
+    "dbp_last",
+    "glucose_mean"
+  ],
+  "top5_gain": [
+    "sbp_mean",
+    "dbp_mean",
+    "glucose_mean",
+    "hr_mean",
+    "sbp_last"
+  ],
+  "largest_rank_shifts": [
+    {
+      "feature": "sbp_trend",
+      "rank_gain": 16,
+      "rank_shap": 7,
+      "rank_shift": 9
+    },
+    {
+      "feature": "hr_std",
+      "rank_gain": 15,
+      "rank_shap": 8,
+      "rank_shift": 7
+    },
+    {
+      "feature": "glucose_last",
+      "rank_gain": 8,
+      "rank_shap": 15,
+      "rank_shift": -7
+    },
+    {
+      "feature": "glucose_std",
+      "rank_gain": 7,
+      "rank_shap": 12,
+      "rank_shift": -5
+    }
+  ]
+}

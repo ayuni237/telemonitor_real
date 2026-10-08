@@ -1,0 +1,46 @@
+{
+  "ablation": {
+    "mean only": {
+      "accuracy": 0.8658119658119658,
+      "recall_critical": 0.5609756097560976,
+      "recall_actionable": 0.8756476683937824,
+      "precision_actionable": 0.9135135135135135,
+      "critical_to_low": 0.0
+    },
+    "mean + last": {
+      "accuracy": 0.8564102564102564,
+      "recall_critical": 0.8048780487804879,
+      "recall_actionable": 0.883419689119171,
+      "precision_actionable": 0.8973684210526316,
+      "critical_to_low": 0.0
+    },
+    "mean + std + last": {
+      "accuracy": 0.8551282051282051,
+      "recall_critical": 0.6707317073170732,
+      "recall_actionable": 0.8860103626943006,
+      "precision_actionable": 0.8883116883116883,
+      "critical_to_low": 0.0
+    },
+    "mean + trend + last": {
+      "accuracy": 0.8525641025641025,
+      "recall_critical": 0.7682926829268293,
+      "recall_actionable": 0.8886010362694301,
+      "precision_actionable": 0.9002624671916011,
+      "critical_to_low": 0.0
+    },
+    "all four (current, 16)": {
+      "accuracy": 0.8491452991452991,
+      "recall_critical": 0.7560975609756098,
+      "recall_actionable": 0.8652849740932642,
+      "precision_actionable": 0.9027027027027027,
+      "critical_to_low": 0.0
+    },
+    "all four + covariates (19)": {
+      "accuracy": 0.8585470085470085,
+      "recall_critical": 0.6829268292682927,
+      "recall_actionable": 0.8523316062176166,
+      "precision_actionable": 0.8773333333333333,
+      "critical_to_low": 2.0
+    }
+  }
+}
