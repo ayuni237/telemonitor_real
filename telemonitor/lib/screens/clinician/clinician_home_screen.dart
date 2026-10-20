@@ -1,70 +1,141 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
 import '../../models/reading.dart';
 import '../../services/auth_service.dart';
+import '../../services/clinician_queue.dart';
 import '../../services/patients_service.dart';
 import '../../widgets/enrolment_code_card.dart';
+import '../../widgets/event_widgets.dart';
 import '../../theme/app_theme.dart';
 import 'patient_detail_screen.dart';
 
-/// Clinician roster: the enrolment code, then every assigned patient with
-/// their latest reading, updating live.
-class ClinicianHomeScreen extends StatelessWidget {
+/// Clinician home: the queue of unreviewed events in priority order
+/// (thesis ch.4 §Clinician dashboard), and the roster with the enrolment code
+/// and every assigned patient's latest reading, updating live.
+class ClinicianHomeScreen extends StatefulWidget {
   const ClinicianHomeScreen({super.key});
 
   @override
+  State<ClinicianHomeScreen> createState() => _ClinicianHomeScreenState();
+}
+
+class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
+  final _queue = ClinicianQueue(FirebaseFirestore.instance);
+  StreamSubscription<List<AppUser>>? _roster;
+  List<AppUser>? _patients;
+  Object? _rosterError;
+
+  @override
+  void initState() {
+    super.initState();
+    _roster = PatientsService.instance.watchMyPatients().listen(
+      (ps) {
+        setState(() => _patients = ps);
+        _queue.follow(ps);
+      },
+      onError: (Object e) => setState(() => _rosterError = e),
+    );
+  }
+
+  @override
+  void dispose() {
+    _roster?.cancel();
+    _queue.dispose();
+    super.dispose();
+  }
+
+  void _open(AppUser p) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p)),
+      );
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background(context),
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'My Patients',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        ),
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout, size: 20),
-            onPressed: () => AuthService.instance.signOut(),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.background(context),
+        appBar: AppBar(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          title: const Text(
+            'My Patients',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
-        ],
-      ),
-      body: StreamBuilder<List<AppUser>>(
-        stream: PatientsService.instance.watchMyPatients(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return _message(context, 
-              Icons.error_outline,
-              'Could not load patients.',
-              snapshot.error.toString(),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final patients = snapshot.data!;
-
-          // The enrolment code sits above the roster in BOTH states.
-          // An empty roster is precisely when a clinician most needs
-          // their code, so it must not be hidden behind having patients.
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const EnrolmentCodeCard(),
-              if (patients.isEmpty)
-                _emptyRoster(context)
-              else
-                ...patients.map((p) => _PatientCard(patient: p)),
+          elevation: 0,
+          actions: [
+            IconButton(
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout, size: 20),
+              onPressed: () => AuthService.instance.signOut(),
+            ),
+          ],
+          bottom: TabBar(
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
+            tabs: [
+              ListenableBuilder(
+                listenable: _queue,
+                builder: (_, _) => Tab(text: 'Queue (${_queue.items.length})'),
+              ),
+              const Tab(text: 'Patients'),
             ],
-          );
-        },
+          ),
+        ),
+        body: TabBarView(children: [_queueTab(), _rosterTab()]),
       ),
+    );
+  }
+
+  Widget _queueTab() {
+    return ListenableBuilder(
+      listenable: _queue,
+      builder: (context, _) {
+        if (_rosterError != null || _queue.error != null) {
+          return _message(context, Icons.error_outline, 'Could not load the queue.',
+              (_rosterError ?? _queue.error).toString());
+        }
+        if (_patients == null) return const Center(child: CircularProgressIndicator());
+        final items = _queue.items;
+        if (items.isEmpty) {
+          return _message(context, Icons.inbox_outlined, 'No alert to review.',
+              'Yellow and red readings, model alerts and patients who stopped sending '
+                  'readings appear here, the most urgent first.');
+        }
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            for (final it in items) QueueRow(item: it, onOpen: () => _open(it.patient)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _rosterTab() {
+    if (_rosterError != null) {
+      return _message(context, Icons.error_outline, 'Could not load patients.', _rosterError.toString());
+    }
+    final patients = _patients;
+    if (patients == null) return const Center(child: CircularProgressIndicator());
+
+    // The enrolment code sits above the roster in BOTH states.
+    // An empty roster is precisely when a clinician most needs
+    // their code, so it must not be hidden behind having patients.
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const EnrolmentCodeCard(),
+        if (patients.isEmpty)
+          _emptyRoster(context)
+        else
+          ...patients.map((p) => _PatientCard(patient: p)),
+      ],
     );
   }
 
@@ -217,11 +288,8 @@ class _LatestReadingLine extends StatelessWidget {
           );
         }
 
-        final r = Reading.fromFirestore(snapshot.data!.docs.first);
-        final isHigh = r.bpStatus == 'critical' ||
-            r.bpStatus == 'stage2' ||
-            r.glucoseStatus == 'critical' ||
-            r.glucoseStatus == 'high';
+        final r = Reading.effective(snapshot.data!.docs.map(Reading.fromFirestore)).first;
+        final isHigh = r.isAlert;
 
         final parts = <String>[];
         if (r.hasBP) parts.add('${r.sbp}/${r.dbp}');

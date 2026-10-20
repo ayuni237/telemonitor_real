@@ -1,0 +1,57 @@
+# Severity of a single reading — thesis ch.3 §Labelling, Table "tab:label-thresholds".
+#
+# Each rule assigns a level when its comparison holds; a channel's level is the
+# highest level among the rules that hold, and 0 (stable) when none does.
+# Boundaries are written in the unit of their source; glucose readings are
+# converted to that unit at comparison (see labels.py), so no rounding moves a
+# reading across a level.
+#
+# `source` is a key of memoire/references.bib (checked by the tests).
+
+version: "2026-10-19"
+setting: in-hospital monitoring (scenario D)
+
+levels: [stable, moderate, high, critical]
+
+channels:
+  sbp:
+    unit: mmHg
+    rules:
+      - {id: sbp_grade3,   level: 3, op: ge, value: 180, source: mancia2023}
+      - {id: sbp_grade2,   level: 2, op: ge, value: 160, source: mancia2023}
+      - {id: sbp_grade1,   level: 1, op: ge, value: 140, source: mancia2023}
+      - {id: sbp_news2_red, level: 3, op: le, value: 90, source: rcp2017news2}
+
+  dbp:
+    unit: mmHg
+    rules:
+      - {id: dbp_grade3, level: 3, op: ge, value: 110, source: mancia2023}
+      - {id: dbp_grade2, level: 2, op: ge, value: 100, source: mancia2023}
+      - {id: dbp_grade1, level: 1, op: ge, value: 90,  source: mancia2023}
+      # no lower diastolic threshold: no official source sets one
+
+  pulse:
+    unit: bpm
+    rules:
+      - {id: pulse_news2_red_low,  level: 3, op: le, value: 40,  source: rcp2017news2}
+      - {id: pulse_news2_red_high, level: 3, op: ge, value: 131, source: rcp2017news2}
+
+  glucose:
+    unit: mg/dL
+    rules:
+      - {id: glu_hypo_level2,   level: 3, op: lt, value: 54,  source: ihsg2017}
+      - {id: glu_hypo_level1,   level: 2, op: lt, value: 70,  source: ihsg2017}
+      - {id: glu_severe_hyper,  level: 3, op: gt, value: 300, source: cms871}
+      - {id: glu_treatment,     level: 2, op: ge, value: 180, source: ada2026hospital}
+      - {id: glu_hospital_hyper, level: 1, op: gt, value: 140, source: ada2026hospital}
+
+# Labels per condition (dual-task formulation): worst channel within a condition.
+conditions:
+  haemodynamic: [sbp, dbp, pulse]
+  glycaemic: [glucose]
+
+# Sensitivity analyses: each variant removes the listed rules.
+variants:
+  cap_severe_hyperglycaemia:
+    description: hyperglycaemia capped at the high level (no clinically accepted cut-off, cms871)
+    drop: [glu_severe_hyper]

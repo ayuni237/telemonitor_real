@@ -1,0 +1,24 @@
+# Selection cost of the inner folds — thesis ch.3 §Metrics.
+#
+# cost = sum_m w_m * z_m, where z_m is term m standardised (median / MAD) across
+# the configurations compared in the same inner fold, oriented so that lower is
+# better. The weights are a clinical value judgement; they cannot be tuned on
+# the data that judge the models (that would be circular).
+
+status: provisional   # equal weights until the partner physician states the costs of errors
+decided: "2026-10-19"
+
+terms:
+  overall:       {metric: rps,         direction: lower,  weight: 0.25}   # proper, ordinal
+  discrimination: {metric: auroc_alert, direction: higher, weight: 0.25}
+  calibration:   {metric: cal_error,   direction: lower,  weight: 0.25}   # |intercept| + |ln slope|
+  utility:       {metric: net_benefit, direction: higher, weight: 0.25}   # mean over thresholds
+
+# Decision thresholds for the net benefit. odds(threshold) = harm of a false
+# alarm / benefit of a true alert; 0.1 to 0.3 means 9 to 2.3 false alarms
+# accepted per true alert. Replaced by the elicited threshold.
+net_benefit_thresholds: [0.1, 0.2, 0.3]
+
+sensitivity:
+  dirichlet_alpha: 1.0   # uniform over the simplex of weights
+  draws: 1000

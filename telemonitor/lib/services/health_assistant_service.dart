@@ -1,8 +1,10 @@
 import 'package:firebase_ai/firebase_ai.dart';
 
+import '../models/app_user.dart';
 import '../models/reading.dart';
 import 'auth_service.dart';
 import 'readings_repository.dart';
+import 'risk_assessment_service.dart';
 
 /// Conversational health assistant backed by Gemini via Firebase AI Logic.
 ///
@@ -34,20 +36,32 @@ class HealthAssistantService {
   /// Flash is chosen over Pro deliberately: answers arrive in a couple of
   /// seconds rather than ten, which matters far more than depth for
   /// short patient questions on a slow mobile connection.
-  static const String _modelId = 'gemini-3.6-flash';
+  static const String modelId = 'gemini-3.6-flash';
 
   GenerativeModel? _model;
   ChatSession? _chat;
 
   bool get isStarted => _chat != null;
 
+  /// Most readings put in the instruction (newest first, within the window).
+  static const int maxReadings = 20;
+
+  /// Readings given to the assistant: those of the risk card's window (the
+  /// last four days before the latest reading), newest first, at most
+  /// [maxReadings].
+  static List<Reading> contextReadings(List<Reading> readings) =>
+      RiskAssessmentService.recent(Reading.effective(readings)).reversed.take(maxReadings).toList();
+
   /// Builds the system instruction, embedding the patient's own context.
+  ///
+  /// Only what the assistant needs leaves the phone (thesis ch.4 §The health
+  /// assistant): age, sex, conditions, medications and recent readings; never
+  /// the name, e-mail, phone or any other identifier.
   ///
   /// Rebuilt each time a session starts so a reading logged five minutes
   /// ago is reflected in the next conversation.
-  String _systemInstruction() {
-    final profile = AuthService.instance.currentProfile;
-    final readings = ReadingsRepository.instance.readings.take(7).toList();
+  static String buildInstruction({AppUser? profile, List<Reading> readings = const []}) {
+    readings = contextReadings(readings);
 
     final buffer = StringBuffer();
 
@@ -139,9 +153,6 @@ class HealthAssistantService {
     // ---- Patient context -----------------------------------------
     buffer.writeln('ABOUT THIS PATIENT:');
     if (profile != null) {
-      if (profile.name.isNotEmpty) {
-        buffer.writeln('- Name: ${profile.name}');
-      }
       if (profile.age != null) buffer.writeln('- Age: ${profile.age}');
       if (profile.sex != null) buffer.writeln('- Sex: ${profile.sex}');
       if (profile.conditions.isNotEmpty) {
@@ -171,13 +182,13 @@ class HealthAssistantService {
 
     if (readings.isEmpty) {
       buffer.writeln(
-        'They have not recorded any readings yet. Encourage them to log '
-        'their first one.',
+        'They have no reading in the last four days. Encourage them to log '
+        'one.',
       );
     } else {
       buffer.writeln(
-        'Their most recent readings (newest first). Blood pressure is in '
-        'mmHg, glucose in mmol/L:',
+        'Their readings of the last four days (newest first). Blood pressure '
+        'is in mmHg, glucose in mmol/L:',
       );
       for (final r in readings) {
         buffer.writeln('- ${_describe(r)}');
@@ -185,8 +196,8 @@ class HealthAssistantService {
       buffer.writeln();
       buffer.writeln(
         'You may refer to these numbers when answering. The app also '
-        'calculates a risk level from the last seven readings, shown on '
-        'their home screen.',
+        'works out a risk tier (green, yellow or red) from these same '
+        'readings of the last four days, shown on their home screen.',
       );
     }
     buffer.writeln();
@@ -202,7 +213,7 @@ class HealthAssistantService {
     return buffer.toString();
   }
 
-  String _describe(Reading r) {
+  static String _describe(Reading r) {
     final parts = <String>[];
     if (r.hasBP) parts.add('BP ${r.sbp}/${r.dbp}');
     if (r.hasGlucose) parts.add('glucose ${r.glucose}');
@@ -213,10 +224,17 @@ class HealthAssistantService {
   }
 
   /// Opens a fresh conversation. Call when the assistant screen opens.
-  void startSession() {
+  ///
+  /// [instruction] replaces the signed-in patient's context (adversarial
+  /// test set, integration_test/assistant_guardrails_test.dart).
+  void startSession({String? instruction}) {
     _model = FirebaseAI.googleAI().generativeModel(
-      model: _modelId,
-      systemInstruction: Content.system(_systemInstruction()),
+      model: modelId,
+      systemInstruction: Content.system(instruction ??
+          buildInstruction(
+            profile: AuthService.instance.currentProfile,
+            readings: ReadingsRepository.instance.readings,
+          )),
     );
     _chat = _model!.startChat();
   }

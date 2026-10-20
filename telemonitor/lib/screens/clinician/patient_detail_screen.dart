@@ -2,7 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
+import '../../models/clinical_event.dart';
 import '../../models/reading.dart';
+import '../../services/events_service.dart';
+import '../../services/queue_logic.dart';
+import '../../widgets/event_widgets.dart';
 import '../../widgets/risk_card.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
@@ -70,7 +74,14 @@ class PatientDetailScreen extends StatelessWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: _RiskSection(patientId: patient.uid),
+                  child: _RiskSection(patientId: patient.uid, age: patient.age, sex: patient.sex),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                  child: _EventsSection(patient: profile),
                 ),
               ),
 
@@ -97,18 +108,19 @@ class PatientDetailScreen extends StatelessWidget {
   }
 }
 
-/// Runs the risk model over this patient's most recent readings.
+/// Risk tier of this patient from their recent readings.
 ///
-/// Only the last [_windowSize] readings are fetched — that is all the
-/// model looks at, and limiting the query keeps this independent of how
-/// long the patient's full history grows.
+/// The rule floor and the online model look at the last four days
+/// (RiskAssessmentService.window); the newest readings are fetched and the
+/// service keeps those within the window.
 class _RiskSection extends StatelessWidget {
   final String patientId;
-  const _RiskSection({required this.patientId});
+  final int? age;
+  final String? sex;
+  const _RiskSection({required this.patientId, this.age, this.sex});
 
-  /// Kept in step with SlidingWindowFeatures.windowSize. If the model is
-  /// ever retrained on a different window, both must change together.
-  static const int _windowSize = 7;
+  /// Enough readings to cover four days at several readings a day.
+  static const int _fetch = 50;
 
   @override
   Widget build(BuildContext context) {
@@ -118,14 +130,12 @@ class _RiskSection extends StatelessWidget {
           .doc(patientId)
           .collection('readings')
           .orderBy('timestamp', descending: true)
-          .limit(_windowSize)
+          .limit(_fetch)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-        final readings = snapshot.data!.docs
-            .map(Reading.fromFirestore)
-            .toList();
-        return RiskCard(readings: readings);
+        final readings = Reading.effective(snapshot.data!.docs.map(Reading.fromFirestore));
+        return RiskCard(readings: readings, age: age, sex: sex, forClinician: true);
       },
     );
   }
@@ -427,9 +437,12 @@ class _ReadingsSliver extends StatelessWidget {
           );
         }
 
+        // Every document, corrected ones included and marked: the record is
+        // append-only and the clinician sees both versions.
         final readings = snapshot.data!.docs
             .map(Reading.fromFirestore)
             .toList();
+        final superseded = {for (final r in readings) if (r.supersedes != null) r.supersedes};
         if (readings.isEmpty) {
           return SliverToBoxAdapter(
             child: _note(
@@ -443,7 +456,10 @@ class _ReadingsSliver extends StatelessWidget {
           delegate: SliverChildBuilderDelegate(
             (context, i) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _ReadingTile(reading: readings[i]),
+              child: _ReadingTile(
+                reading: readings[i],
+                superseded: superseded.contains(readings[i].id),
+              ),
             ),
             childCount: readings.length,
           ),
@@ -471,7 +487,10 @@ class _ReadingsSliver extends StatelessWidget {
 
 class _ReadingTile extends StatelessWidget {
   final Reading reading;
-  const _ReadingTile({required this.reading});
+
+  /// Replaced by a later correction; shown for audit, not counted.
+  final bool superseded;
+  const _ReadingTile({required this.reading, this.superseded = false});
 
   String _formatted(DateTime ts) {
     const months = [
@@ -493,13 +512,20 @@ class _ReadingTile extends StatelessWidget {
     return '${ts.day} ${months[ts.month - 1]} · $time';
   }
 
+  /// How the reading was obtained: protocol pair, correction, late entry.
+  String get _provenance => [
+        if (superseded) 'replaced by a correction',
+        if (reading.isCorrection) 'correction of an earlier entry',
+        if (reading.readingCount == 2)
+          'second of two readings (first ${reading.firstSbp}/${reading.firstDbp})',
+        if (reading.isBackdated && reading.recordedAt != null)
+          'entered ${_formatted(reading.recordedAt!)}',
+      ].join(' · ');
+
   @override
   Widget build(BuildContext context) {
-    final isHigh =
-        reading.bpStatus == 'critical' ||
-        reading.bpStatus == 'stage2' ||
-        reading.glucoseStatus == 'critical' ||
-        reading.glucoseStatus == 'high';
+    // High or critical on either condition (thesis label, ClinicalLevels).
+    final isHigh = reading.isAlert && !superseded;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -579,6 +605,13 @@ class _ReadingTile extends StatelessWidget {
               ),
             ),
           ],
+          if (_provenance.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _provenance,
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
+            ),
+          ],
         ],
       ),
     );
@@ -611,6 +644,75 @@ class _ReadingTile extends StatelessWidget {
         Text(
           unit,
           style: TextStyle(fontSize: 10, color: AppColors.textMuted(context)),
+        ),
+      ],
+    );
+  }
+}
+
+/// The patient's event record and their checkup period (non-transmission
+/// alarm), with the verdict of each event.
+class _EventsSection extends StatelessWidget {
+  final AppUser patient;
+  const _EventsSection({required this.patient});
+
+  Future<void> _editPeriod(BuildContext context, int current) async {
+    final days = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Checkup period'),
+        children: [
+          for (final d in const [1, 2, 3, 5, 7, 14, 30])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, d),
+              child: Text('$d day${d == 1 ? '' : 's'}${d == current ? '  (current)' : ''}'),
+            ),
+        ],
+      ),
+    );
+    if (days == null || days == current) return;
+    try {
+      await EventsService.instance.setCheckupPeriod(patient.uid, days);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final period = patient.checkupPeriodDays ?? defaultCheckupPeriodDays;
+    final title = TextStyle(
+        fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text('Alerts and verdicts', style: title),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: () => _editPeriod(context, period),
+            icon: const Icon(Icons.timer_outlined, size: 16),
+            label: Text('Checkup every $period d${patient.checkupPeriodDays == null ? ' (default)' : ''}',
+                style: const TextStyle(fontSize: 12)),
+          ),
+        ]),
+        StreamBuilder<List<ClinicalEvent>>(
+          stream: EventsService.instance.watch(patient.uid, limit: 20),
+          builder: (context, snap) {
+            if (snap.hasError) {
+              return Text('Could not load alerts: ${snap.error}',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)));
+            }
+            final events = snap.data;
+            if (events == null) return const SizedBox(height: 24);
+            if (events.isEmpty) {
+              return Text('No alert recorded for this patient.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)));
+            }
+            return Column(children: [for (final e in events) EventLogTile(event: e)]);
+          },
         ),
       ],
     );

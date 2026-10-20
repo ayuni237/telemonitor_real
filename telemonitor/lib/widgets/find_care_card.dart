@@ -42,10 +42,7 @@ class _FindCareCardState extends State<FindCareCard> {
     final readings = ReadingsRepository.instance.readings;
     if (readings.isEmpty) return false;
     final Reading r = readings.first;
-    return r.bpStatus == 'critical' ||
-        r.bpStatus == 'stage2' ||
-        r.glucoseStatus == 'critical' ||
-        r.glucoseStatus == 'high';
+    return r.isAlert;
   }
 
   @override

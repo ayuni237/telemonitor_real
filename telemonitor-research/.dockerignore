@@ -1,0 +1,13 @@
+# The image needs only pyproject.toml, src/ and requirements-docker.txt;
+# everything else is mounted at run time.
+data/
+out/
+artifacts/
+.venv/
+**/__pycache__/
+*.ipynb
+*.onnx
+*.csv
+*.json
+*.npy
+*.joblib
