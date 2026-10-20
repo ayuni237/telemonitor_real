@@ -4,8 +4,10 @@ import 'log_reading_screen.dart';
 import 'profile_screen.dart';
 import 'history_screen.dart';
 import 'chat_screen.dart';
+import '../../services/clinical_levels.dart';
 import '../../models/reading.dart';
 import '../../services/auth_service.dart';
+import '../../services/queue_logic.dart' show trendWindow;
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/clinician_link_card.dart';
@@ -60,71 +62,67 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   Reading? get _latest => _readings.isEmpty ? null : _readings.first;
 
-  /// Threshold-based banner. This is deliberately NOT the ML model — it
+  /// Threshold-based banner. This is deliberately NOT the model — it
   /// reacts to the single most recent reading, whereas the risk card
-  /// below reasons over the last seven. Both are shown because they
+  /// below reasons over the last four days. Both are shown because they
   /// answer different questions: "is this reading alarming right now?"
   /// versus "where is this patient trending?"
   bool get _hasAlert {
     final r = _latest;
     if (r == null) return false;
-    return r.bpStatus == 'critical' ||
-        r.bpStatus == 'stage2' ||
-        r.glucoseStatus == 'critical' ||
-        r.glucoseStatus == 'high';
+    return r.isAlert;
   }
 
   String get _alertMessage {
     final r = _latest;
     if (r == null) return '';
-    if (r.bpStatus == 'critical') {
-      return 'Blood pressure critical — seek care immediately';
+    // Critical levels first, then high (thesis label, ClinicalLevels).
+    if (r.haemodynamicLevel == 3) {
+      return 'Blood pressure or pulse critical — seek care immediately';
     }
-    if (r.bpStatus == 'stage2') {
-      return 'Blood pressure elevated — clinician notified';
-    }
-    if (r.glucoseStatus == 'critical') {
+    if (r.glycaemicLevel == 3) {
       return 'Blood glucose critical — seek care immediately';
     }
-    if (r.glucoseStatus == 'high') {
-      return 'Blood glucose elevated — monitor closely';
+    if (r.haemodynamicLevel == 2) {
+      return 'Blood pressure high — contact your health centre';
+    }
+    if (r.glycaemicLevel == 2) {
+      return 'Blood glucose out of range — monitor closely';
     }
     return '';
   }
 
-  /// Up to the last seven readings carrying a BP value, oldest first.
+  /// Readings carrying a BP value in the fourteen-day window shown to the
+  /// patient (ch.4 §Trends), oldest first.
   List<Reading> get _bpHistory {
-    final withBp = _readings.where((r) => r.hasBP).take(7).toList();
-    return withBp.reversed.toList();
-  }
-
-  List<FlSpot> get bpTrendData => List.generate(
-    _bpHistory.length,
-    (i) => FlSpot(i.toDouble(), _bpHistory[i].sbp!.toDouble()),
-  );
-
-  /// Axis labels. Uses the date rather than the weekday name, because
-  /// several readings logged on the same day would otherwise render as
-  /// a row of identical labels.
-  List<String> get dayLabels {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return _bpHistory
-        .map((r) => '${r.timestamp.day} ${months[r.timestamp.month - 1]}')
+    final start = _windowStart;
+    return _readings
+        .where((r) => r.hasBP && r.timestamp.isAfter(start))
+        .toList()
+        .reversed
         .toList();
   }
+
+  DateTime get _windowStart => DateTime.now().subtract(trendWindow);
+
+  /// x = days since the start of the window, so gaps between readings show.
+  List<FlSpot> get bpTrendData => [
+        for (final r in _bpHistory)
+          FlSpot(r.timestamp.difference(_windowStart).inMinutes / (60 * 24),
+              r.sbp!.toDouble()),
+      ];
+
+  String _dayLabel(double x) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final d = _windowStart.add(Duration(days: x.round()));
+    return '${d.day} ${months[d.month - 1]}';
+  }
+
+  /// Home systolic target (ESH 2023 home threshold 135/85 mmHg).
+  static const double _homeTargetSbp = 135;
 
   /// Chart bounds follow the data rather than being fixed, so a reading
   /// outside a preset range is not clipped off the chart.
@@ -133,7 +131,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final lowest = _bpHistory
         .map((r) => r.sbp!)
         .reduce((a, b) => a < b ? a : b);
-    return (lowest - 15).clamp(40, 300).toDouble();
+    return (lowest - 15).clamp(40, _homeTargetSbp - 20).toDouble();
   }
 
   double get _maxY {
@@ -141,7 +139,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final highest = _bpHistory
         .map((r) => r.sbp!)
         .reduce((a, b) => a > b ? a : b);
-    return (highest + 15).clamp(60, 320).toDouble();
+    return (highest + 15).clamp(_homeTargetSbp + 10, 320).toDouble();
   }
 
   @override
@@ -162,8 +160,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   if (_hasAlert) _buildAlertBanner(),
                   if (_hasAlert) const SizedBox(height: 16),
 
-                  // The model's assessment over the last seven readings.
-                  RiskCard(readings: _readings),
+                  // Risk tier: guideline rule on the last four days, raised by the online model.
+                  RiskCard(
+                    readings: _readings,
+                    age: AuthService.instance.currentProfile?.age,
+                    sex: AuthService.instance.currentProfile?.sex,
+                    raiseEvents: true,
+                  ),
                   const SizedBox(height: 20),
 
                   _buildMetricCards(),
@@ -277,9 +280,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   Widget _buildMetricCards() {
     final r = _latest;
-    final bpAlert = r?.bpStatus == 'critical' || r?.bpStatus == 'stage2';
-    final glucoseAlert =
-        r?.glucoseStatus == 'critical' || r?.glucoseStatus == 'high';
+    final bpAlert = r?.isHaemodynamicAlert ?? false;
+    final glucoseAlert = r?.isGlycaemicAlert ?? false;
 
     return GridView.count(
       crossAxisCount: 2,
@@ -408,7 +410,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'BP Trend — Last 7 readings',
+                'Systolic trend — last 14 days',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -422,7 +424,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Target < 130',
+                  'Home target < 135/85',
                   style: TextStyle(
                     fontSize: 10,
                     color: AppColors.dangerText(context),
@@ -438,7 +440,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               height: 140,
               child: Center(
                 child: Text(
-                  'Log a blood pressure reading to start seeing your trend',
+                  'No blood pressure reading in the last 14 days',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -475,20 +477,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 24,
+                        interval: 7,
                         getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index < 0 || index >= dayLabels.length) {
-                            return const SizedBox();
-                          }
-                          // With few points every label fits; with many,
-                          // showing every other one keeps them legible.
-                          if (dayLabels.length > 5 && index.isOdd) {
-                            return const SizedBox();
-                          }
                           return Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
-                              dayLabels[index],
+                              _dayLabel(value),
                               style: TextStyle(
                                 fontSize: 9,
                                 color: AppColors.textMuted(context),
@@ -500,10 +494,21 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     ),
                   ),
                   borderData: FlBorderData(show: false),
+                  // Target band behind the series: the patient sees their
+                  // position relative to the home target.
+                  rangeAnnotations: RangeAnnotations(
+                    horizontalRangeAnnotations: [
+                      HorizontalRangeAnnotation(
+                        y1: _minY,
+                        y2: _homeTargetSbp,
+                        color: AppColors.successBg(context),
+                      ),
+                    ],
+                  ),
                   lineBarsData: [
                     LineChartBarData(
                       spots: bpTrendData,
-                      isCurved: true,
+                      isCurved: false,
                       color: const Color(0xFFE24B4A),
                       barWidth: 2.5,
                       dotData: FlDotData(
@@ -522,6 +527,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       ),
                     ),
                   ],
+                  minX: 0,
+                  maxX: trendWindow.inDays.toDouble(),
                   minY: _minY,
                   maxY: _maxY,
                 ),
@@ -600,23 +607,18 @@ class _PatientDashboardState extends State<PatientDashboard> {
     Color badgeFg;
     String badgeLabel;
 
-    final isHigh =
-        reading.bpStatus == 'critical' || reading.bpStatus == 'stage2';
-    final isWarn =
-        reading.bpStatus == 'stage1' || reading.bpStatus == 'elevated';
-
-    if (isHigh) {
+    // Badge from the thesis label: worst condition level of the reading.
+    final level = reading.level;
+    badgeLabel = ClinicalLevels.name(level);
+    if (level != null && level >= ClinicalLevels.alertLevel) {
       badgeBg = AppColors.dangerBg(context);
       badgeFg = AppColors.dangerText(context);
-      badgeLabel = 'High BP';
-    } else if (isWarn) {
+    } else if (level == 1) {
       badgeBg = AppColors.warningBg(context);
       badgeFg = AppColors.warningText(context);
-      badgeLabel = 'Elevated';
     } else {
       badgeBg = AppColors.successBg(context);
       badgeFg = AppColors.successText(context);
-      badgeLabel = 'Normal';
     }
 
     final valueText = reading.hasBP && reading.hasGlucose

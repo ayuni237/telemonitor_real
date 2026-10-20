@@ -1,27 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/clinical_levels.dart';
 import '../../models/reading.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 
+/// Manual entry of a reading (thesis ch.4 §Manual entry): fixed glucose
+/// unit, plausible ranges, coherent pressure pair, measurement context, the
+/// two blood pressure readings of the protocol (the second is retained), and
+/// the time the reading was taken when it is entered later.
+///
+/// With [correcting], the screen records a correction: a new reading that
+/// supersedes the old one, which stays in the record (append-only).
 class LogReadingScreen extends StatefulWidget {
-  const LogReadingScreen({super.key});
+  final Reading? correcting;
+  const LogReadingScreen({super.key, this.correcting});
 
   @override
   State<LogReadingScreen> createState() => _LogReadingScreenState();
 }
 
 class _LogReadingScreenState extends State<LogReadingScreen> {
+  // Retained reading (the second of the protocol pair, or the only one).
   final _sbpController = TextEditingController();
   final _dbpController = TextEditingController();
   final _glucoseController = TextEditingController();
   final _heartRateController = TextEditingController();
   final _notesController = TextEditingController();
 
+  // First reading of the protocol pair, kept for audit only.
+  final _sbp1Controller = TextEditingController();
+  final _dbp1Controller = TextEditingController();
+  final _hr1Controller = TextEditingController();
+
   String _selectedMeasurementType = 'Both';
   String _selectedContext = 'Fasting';
   bool _isLoading = false;
+
+  /// Protocol: two readings one minute apart, the second retained.
+  bool _twoReadings = true;
+
+  /// When the reading was taken; null means now (set at save).
+  DateTime? _measuredAt;
+
+  /// How far back a reading may be dated (the server accepts 30 days, to
+  /// leave room for readings queued offline).
+  static const Duration _maxBackdate = Duration(days: 7);
+
+  bool get _isCorrection => widget.correcting != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.correcting;
+    if (r == null) return;
+    _measuredAt = r.timestamp;
+    _selectedMeasurementType =
+        r.hasBP && r.hasGlucose ? 'Both' : (r.hasBP ? 'Blood Pressure' : 'Glucose');
+    if (_contextOptions.contains(r.context)) _selectedContext = r.context;
+    _sbpController.text = r.sbp?.toString() ?? '';
+    _dbpController.text = r.dbp?.toString() ?? '';
+    _heartRateController.text = r.hr?.toString() ?? '';
+    _glucoseController.text = r.glucose?.toString() ?? '';
+    _notesController.text = r.notes;
+    _twoReadings = r.readingCount == 2;
+    _sbp1Controller.text = r.firstSbp?.toString() ?? '';
+    _dbp1Controller.text = r.firstDbp?.toString() ?? '';
+    _hr1Controller.text = r.firstHr?.toString() ?? '';
+  }
 
   static const _measurementTypes = ['Both', 'Blood Pressure', 'Glucose'];
   static const _contextOptions = [
@@ -57,6 +104,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     _glucoseController.dispose();
     _heartRateController.dispose();
     _notesController.dispose();
+    _sbp1Controller.dispose();
+    _dbp1Controller.dispose();
+    _hr1Controller.dispose();
     super.dispose();
   }
 
@@ -65,37 +115,61 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
 
   /// Returns a human-readable problem with the input, or null if
   /// everything is plausible. Checked before any write.
+  String? _bpError(TextEditingController sbpC, TextEditingController dbpC,
+      TextEditingController hrC, String which) {
+    final sbp = int.tryParse(sbpC.text);
+    final dbp = int.tryParse(dbpC.text);
+
+    if (sbp == null || dbp == null) {
+      return 'Please enter valid blood pressure values$which.';
+    }
+    if (sbp < _sbpMin || sbp > _sbpMax) {
+      return 'Systolic $sbp$which is outside the plausible range '
+          '($_sbpMin–$_sbpMax mmHg). Please re-check the reading.';
+    }
+    if (dbp < _dbpMin || dbp > _dbpMax) {
+      return 'Diastolic $dbp$which is outside the plausible range '
+          '($_dbpMin–$_dbpMax mmHg). Please re-check the reading.';
+    }
+    if (sbp - dbp < _minPulsePressure) {
+      return 'Systolic ($sbp) should be at least $_minPulsePressure '
+          'higher than diastolic ($dbp)$which. Please re-check the reading.';
+    }
+
+    // Heart rate is optional — validated only when something is typed.
+    final hrText = hrC.text.trim();
+    if (hrText.isNotEmpty) {
+      final hr = int.tryParse(hrText);
+      if (hr == null) return 'Please enter a valid heart rate$which.';
+      if (hr < _hrMin || hr > _hrMax) {
+        return 'Heart rate $hr$which is outside the plausible range '
+            '($_hrMin–$_hrMax bpm). Please re-check the reading.';
+      }
+    }
+    return null;
+  }
+
   String? _validationError() {
+    final at = _measuredAt;
+    if (at != null) {
+      final now = DateTime.now();
+      if (at.isAfter(now.add(const Duration(minutes: 1)))) {
+        return 'The time of the reading cannot be in the future.';
+      }
+      if (now.difference(at) > _maxBackdate && !_isCorrection) {
+        return 'A reading can be dated at most ${_maxBackdate.inDays} days back.';
+      }
+    }
+
     if (_needsBP) {
-      final sbp = int.tryParse(_sbpController.text);
-      final dbp = int.tryParse(_dbpController.text);
-
-      if (sbp == null || dbp == null) {
-        return 'Please enter valid blood pressure values.';
+      if (_twoReadings) {
+        final first =
+            _bpError(_sbp1Controller, _dbp1Controller, _hr1Controller, ' (reading 1)');
+        if (first != null) return first;
       }
-      if (sbp < _sbpMin || sbp > _sbpMax) {
-        return 'Systolic $sbp is outside the plausible range '
-            '($_sbpMin–$_sbpMax mmHg). Please re-check the reading.';
-      }
-      if (dbp < _dbpMin || dbp > _dbpMax) {
-        return 'Diastolic $dbp is outside the plausible range '
-            '($_dbpMin–$_dbpMax mmHg). Please re-check the reading.';
-      }
-      if (sbp - dbp < _minPulsePressure) {
-        return 'Systolic ($sbp) should be at least $_minPulsePressure '
-            'higher than diastolic ($dbp). Please re-check the reading.';
-      }
-
-      // Heart rate is optional — validated only when something is typed.
-      final hrText = _heartRateController.text.trim();
-      if (hrText.isNotEmpty) {
-        final hr = int.tryParse(hrText);
-        if (hr == null) return 'Please enter a valid heart rate.';
-        if (hr < _hrMin || hr > _hrMax) {
-          return 'Heart rate $hr is outside the plausible range '
-              '($_hrMin–$_hrMax bpm). Please re-check the reading.';
-        }
-      }
+      final kept = _bpError(_sbpController, _dbpController, _heartRateController,
+          _twoReadings ? ' (reading 2)' : '');
+      if (kept != null) return kept;
     }
 
     if (_needsGlucose) {
@@ -115,53 +189,18 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   // Live interpretation
   // ---------------------------------------------------------------
 
-  String _bpStatus(int sbp, int dbp) {
-    if (sbp > 180 || dbp > 120) return 'critical';
-    // Checked before the hypertension bands: without it, a low reading
-    // such as 85/55 falls through to 'normal', which is misleading.
-    if (sbp < 90 || dbp < 60) return 'low';
-    if (sbp >= 140 || dbp >= 90) return 'stage2';
-    if (sbp >= 130 || dbp >= 80) return 'stage1';
-    if (sbp >= 120 && dbp < 80) return 'elevated';
-    return 'normal';
-  }
-
-  String _glucoseStatus(double bg) {
-    if (bg > 11.1) return 'critical';
-    if (bg > 7.0) return 'high';
-    if (bg < 3.9) return 'low';
-    return 'normal';
-  }
-
-  /// Label, foreground and background for a status. Severe states use the
-  /// danger palette; borderline states use warning; normal uses success.
-  (String, Color, Color) _statusStyle(String status, {bool glucose = false}) {
-    switch (status) {
-      case 'critical':
-        return (
-          glucose ? 'Very High' : 'Hypertensive Crisis',
-          AppColors.dangerText(context),
-          AppColors.dangerBg(context)
-        );
-      case 'stage2':
-        return ('Stage 2 Hypertension', AppColors.dangerText(context),
-            AppColors.dangerBg(context));
-      case 'high':
-        return ('High', AppColors.dangerText(context),
-            AppColors.dangerBg(context));
-      case 'stage1':
-        return ('Stage 1 Hypertension', AppColors.warningText(context),
-            AppColors.warningBg(context));
-      case 'elevated':
-        return ('Elevated', AppColors.warningText(context),
-            AppColors.warningBg(context));
-      case 'low':
-        return ('Low', AppColors.warningText(context),
-            AppColors.warningBg(context));
-      default:
-        return ('Normal', AppColors.successText(context),
-            AppColors.successBg(context));
+  /// Label, foreground and background for a level of the thesis label
+  /// (ClinicalLevels): high and critical use the danger palette, moderate
+  /// the warning palette, stable the success palette.
+  (String, Color, Color) _levelStyle(int? level) {
+    final label = ClinicalLevels.name(level);
+    if (level != null && level >= ClinicalLevels.alertLevel) {
+      return (label, AppColors.dangerText(context), AppColors.dangerBg(context));
     }
+    if (level == 1) {
+      return (label, AppColors.warningText(context), AppColors.warningBg(context));
+    }
+    return (label, AppColors.successText(context), AppColors.successBg(context));
   }
 
   Widget _buildLivePreview() {
@@ -197,19 +236,17 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           if (hasBP)
             _previewRow(
               'BP: $sbpText/$dbpText mmHg',
-              _statusStyle(_bpStatus(
-                int.tryParse(sbpText) ?? 0,
-                int.tryParse(dbpText) ?? 0,
+              _levelStyle(ClinicalLevels.haemodynamic(
+                sbp: int.tryParse(sbpText),
+                dbp: int.tryParse(dbpText),
+                hr: int.tryParse(_heartRateController.text.trim()),
               )),
             ),
           if (hasBP && hasBG) const SizedBox(height: 8),
           if (hasBG)
             _previewRow(
               'Glucose: $bgText mmol/L',
-              _statusStyle(
-                _glucoseStatus(double.tryParse(bgText) ?? 0),
-                glucose: true,
-              ),
+              _levelStyle(ClinicalLevels.glycaemic(double.tryParse(bgText))),
             ),
         ],
       ),
@@ -272,19 +309,25 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     final dbp = int.tryParse(_dbpController.text);
     final bg = double.tryParse(_glucoseController.text);
     final hr = int.tryParse(_heartRateController.text);
+    final pair = _needsBP && _twoReadings;
 
     setState(() => _isLoading = true);
 
     try {
       await ReadingsRepository.instance.addReading(
         Reading(
-          timestamp: DateTime.now(),
+          timestamp: _measuredAt ?? DateTime.now(),
           sbp: _needsBP ? sbp : null,
           dbp: _needsBP ? dbp : null,
           glucose: _needsGlucose ? bg : null,
           hr: _needsBP ? hr : null,
           context: _selectedContext,
           notes: _notesController.text.trim(),
+          readingCount: pair ? 2 : 1,
+          firstSbp: pair ? int.tryParse(_sbp1Controller.text) : null,
+          firstDbp: pair ? int.tryParse(_dbp1Controller.text) : null,
+          firstHr: pair ? int.tryParse(_hr1Controller.text) : null,
+          supersedes: widget.correcting?.id,
         ),
       );
     } catch (e) {
@@ -327,8 +370,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text(
-          'Log a Reading',
+        title: Text(
+          _isCorrection ? 'Correct a Reading' : 'Log a Reading',
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
@@ -349,47 +392,24 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             _buildSegmentedControl(),
             const SizedBox(height: 20),
 
+            _sectionLabel('When was it taken?'),
+            const SizedBox(height: 8),
+            _buildTimePicker(),
+            const SizedBox(height: 20),
+
             if (_needsBP) ...[
-              _sectionLabel('Blood Pressure (mmHg)'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _inputField(
-                      controller: _sbpController,
-                      hint: 'Systolic',
-                      label: 'SBP',
-                      maxLength: 3,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '/',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: AppColors.primaryText(context),
-                      fontWeight: FontWeight.w300,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _inputField(
-                      controller: _dbpController,
-                      hint: 'Diastolic',
-                      label: 'DBP',
-                      maxLength: 3,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _sectionLabel('Heart Rate (bpm) — optional'),
-              const SizedBox(height: 8),
-              _inputField(
-                controller: _heartRateController,
-                hint: 'e.g. 78',
-                label: 'HR',
-                maxLength: 3,
+              _buildProtocolSwitch(),
+              const SizedBox(height: 12),
+              if (_twoReadings) ...[
+                _bpInputs('Reading 1', _sbp1Controller, _dbp1Controller, _hr1Controller),
+                const SizedBox(height: 16),
+              ],
+              _bpInputs(_twoReadings ? 'Reading 2 — kept' : 'Blood Pressure (mmHg)',
+                  _sbpController, _dbpController, _heartRateController),
+              const SizedBox(height: 6),
+              Text(
+                'Pulse (HR, bpm) is optional.',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
               ),
               const SizedBox(height: 20),
             ],
@@ -449,14 +469,14 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Row(
+                    : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.save_outlined, size: 18),
-                          SizedBox(width: 8),
+                          const Icon(Icons.save_outlined, size: 18),
+                          const SizedBox(width: 8),
                           Text(
-                            'Save Reading',
-                            style: TextStyle(
+                            _isCorrection ? 'Save Correction' : 'Save Reading',
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -497,7 +517,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Enter your reading',
+                  _isCorrection ? 'Correct this reading' : 'Enter your reading',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -506,9 +526,14 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Type the values shown on your blood pressure monitor or '
-                  'glucometer. Logging both together gives your risk score '
-                  'the most to work with.',
+                  _isCorrection
+                      ? 'Your corrected values replace the old ones on your '
+                          'screens. The old entry stays in your record, marked '
+                          'as corrected, so your clinician can see both.'
+                      : 'Type the values shown on your blood pressure monitor or '
+                          'glucometer. For blood pressure, sit and rest for five '
+                          'minutes, then take two readings one minute apart: '
+                          'the second is the one kept.',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary(context),
@@ -520,6 +545,119 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _formatTime(DateTime t) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(t.day)}/${two(t.month)}/${t.year} ${two(t.hour)}:${two(t.minute)}';
+  }
+
+  Future<void> _pickTime() async {
+    final now = DateTime.now();
+    final initial = _measuredAt ?? now;
+    final earliest = now.subtract(_maxBackdate);
+    final day = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      // a correction keeps the original time, which may be older
+      firstDate: initial.isBefore(earliest) ? initial : earliest,
+      lastDate: now,
+    );
+    if (day == null || !mounted) return;
+    final time = await showTimePicker(
+        context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    if (time == null) return;
+    setState(() =>
+        _measuredAt = DateTime(day.year, day.month, day.day, time.hour, time.minute));
+  }
+
+  Widget _buildTimePicker() {
+    final at = _measuredAt;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border(context), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 18, color: AppColors.textSecondary(context)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              at == null ? 'Now' : _formatTime(at),
+              style: TextStyle(fontSize: 14, color: AppColors.textPrimary(context)),
+            ),
+          ),
+          if (at != null && !_isCorrection)
+            TextButton(
+                onPressed: () => setState(() => _measuredAt = null),
+                child: const Text('Now')),
+          TextButton(onPressed: _pickTime, child: const Text('Earlier…')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProtocolSwitch() {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionLabel('Two blood pressure readings'),
+              Text(
+                'One minute apart; the second is kept.',
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+            value: _twoReadings, onChanged: (v) => setState(() => _twoReadings = v)),
+      ],
+    );
+  }
+
+  Widget _bpInputs(String title, TextEditingController sbpC,
+      TextEditingController dbpC, TextEditingController hrC) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel(title),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _inputField(
+                  controller: sbpC, hint: 'Systolic', label: 'SBP', maxLength: 3),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '/',
+              style: TextStyle(
+                fontSize: 24,
+                color: AppColors.primaryText(context),
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _inputField(
+                  controller: dbpC, hint: 'Diastolic', label: 'DBP', maxLength: 3),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 76,
+              child: _inputField(
+                  controller: hrC, hint: 'Pulse', label: 'HR', maxLength: 3),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

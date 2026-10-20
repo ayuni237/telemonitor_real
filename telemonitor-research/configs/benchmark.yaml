@@ -1,0 +1,54 @@
+# Benchmark protocol — thesis ch.3 §Training protocol, §Candidate families.
+# Declared before any run; the number of configurations tried is reported.
+
+feature_set: primary            # secondary runs: extended, descriptors16
+window_hours: [24, 48, 72, 96]  # structural hyperparameter, searched in the inner folds
+lead_embargo_hours: [0, 12, 36] # H2: next reading, 24 h, 48 h ahead (0 is primary)
+
+validation:
+  outer_folds: 5               # grouped by hospital (development data)
+  inner_folds: 4               # grouped by patient
+  repeats: 3
+  seed: 20261019
+
+search:
+  sampler: tpe                  # Optuna TPE; the search objective is the inner RPS,
+  trials:                       # the final choice among trials uses the selection cost
+    ordinal_logistic: 15
+    pca_logistic: 15
+    forest: 20
+    catboost: 25
+    value_ridge: 15
+    value_catboost: 25
+    grud: 20
+    lstm: 20
+
+# Search spaces: [kind, low, high, log] for numbers; lists for categories.
+# "structural" changes the model's capacity or input; "training" changes how it is fitted.
+spaces:
+  common:
+    structural: {window: [24, 48, 72, 96]}
+    training:   {weights: [none, balanced]}
+  ordinal_logistic:
+    training:   {C: [float, 0.001, 100.0, true]}
+  pca_logistic:
+    structural: {n_components: [int, 1, 8, false]}
+    training:   {C: [float, 0.001, 100.0, true]}
+  forest:
+    structural: {max_features: [sqrt, 0.5, 1.0], min_samples_leaf: [int, 1, 50, true], max_depth: [3, 6, 12, none]}
+  catboost:
+    structural: {depth: [int, 2, 8, false], iterations: [int, 100, 1000, true]}
+    training:   {learning_rate: [float, 0.01, 0.3, true], l2_leaf_reg: [float, 1.0, 30.0, true]}
+  value_ridge:
+    training:   {alpha: [float, 0.001, 1000.0, true]}
+  value_catboost:
+    structural: {depth: [int, 2, 8, false], iterations: [int, 100, 1000, true]}
+    training:   {learning_rate: [float, 0.01, 0.3, true], l2_leaf_reg: [float, 1.0, 30.0, true]}
+  grud:
+    structural: {hidden: [4, 8, 16, 32]}
+    training:   {dropout: [float, 0.0, 0.5, false], lr: [float, 0.001, 0.03, true],
+                 weight_decay: [float, 0.000001, 0.01, true], aux_weight: [float, 0.0, 1.0, false]}
+  lstm:
+    structural: {hidden: [4, 8, 16, 32], layers: [1, 2]}
+    training:   {dropout: [float, 0.0, 0.5, false], lr: [float, 0.001, 0.03, true],
+                 weight_decay: [float, 0.000001, 0.01, true], aux_weight: [float, 0.0, 1.0, false]}

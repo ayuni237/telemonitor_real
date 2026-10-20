@@ -4,16 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/reading.dart';
+import 'auth_service.dart';
+import 'events_service.dart';
 
 /// Shared source of truth for a patient's readings — now backed by
 /// Firestore instead of an in-memory list.
 ///
-/// The public contract is deliberately unchanged from the in-memory
-/// version: `readings`, `isEmpty`, `addReading()`, and
-/// `lastNCompleteReadings()` behave the same, and the class is still a
-/// ChangeNotifier. That is why PatientDashboard and HistoryScreen need
-/// no modification for this step — they keep reading a synchronous
-/// cached list, which this class now keeps in sync with Firestore.
+/// Screens read a synchronous cached list, which this class keeps in sync
+/// with Firestore; it is a ChangeNotifier.
 ///
 /// Data lives at: users/{patientId}/readings/{readingId}
 class ReadingsRepository extends ChangeNotifier {
@@ -39,8 +37,12 @@ class ReadingsRepository extends ChangeNotifier {
   /// Which patient this repository is currently following, if any.
   String? get patientId => _patientId;
 
-  /// All readings for the bound patient, most recent first.
-  List<Reading> get readings => List.unmodifiable(_cache);
+  /// The readings that stand for the bound patient (corrected ones hidden),
+  /// most recent first.
+  List<Reading> get readings => List.unmodifiable(Reading.effective(_cache));
+
+  /// Every document, corrected ones included, for audit.
+  List<Reading> get allReadings => List.unmodifiable(_cache);
 
   bool get isEmpty => _cache.isEmpty;
 
@@ -92,7 +94,11 @@ class ReadingsRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Write a new reading for the bound patient.
+  /// Write a new reading for the bound patient, and with it, in one
+  /// batch, the rule event when its level reaches yellow or red.
+  ///
+  /// The record is append-only: to correct a reading, pass it as
+  /// [reading.supersedes]; the old document stays, [readings] hides it.
   ///
   /// Note there is no local mutation of `_cache` here and no manual
   /// notifyListeners(): the snapshot listener above echoes the write
@@ -106,20 +112,15 @@ class ReadingsRepository extends ChangeNotifier {
         'This normally happens automatically at sign-in.',
       );
     }
-    await _db
-        .collection('users')
-        .doc(id)
-        .collection('readings')
-        .add(reading.toFirestore());
-  }
-
-  /// The most recent [n] readings that have BOTH BP and glucose,
-  /// oldest first — the shape SlidingWindowFeatures expects. Returns
-  /// null when there isn't enough complete history yet.
-  List<Reading>? lastNCompleteReadings(int n) {
-    final complete = _cache.where((r) => r.hasBP && r.hasGlucose).toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    if (complete.length < n) return null;
-    return complete.sublist(complete.length - n);
+    final ref = _db.collection('users').doc(id).collection('readings').doc();
+    final batch = _db.batch()..set(ref, reading.toFirestore());
+    final event = EventsService.ruleEvent(
+      patientId: id,
+      clinicianId: AuthService.instance.currentProfile?.assignedClinicianId,
+      readingId: ref.id,
+      r: reading,
+    );
+    if (event != null) batch.set(EventsService.instance.events(id).doc(event.id), event.data);
+    await batch.commit();
   }
 }

@@ -34,15 +34,17 @@ class PatientsService {
             .toList());
   }
 
-  /// Most recent reading for a patient, for the at-a-glance status on
-  /// the roster.
+  /// Most recent readings for a patient, for the at-a-glance status on
+  /// the roster. A few rather than one: a correction carries the time of
+  /// the reading it supersedes, so the latest standing reading is found
+  /// with Reading.effective.
   Stream<QuerySnapshot> watchLatestReading(String patientId) {
     return _db
         .collection('users')
         .doc(patientId)
         .collection('readings')
         .orderBy('timestamp', descending: true)
-        .limit(1)
+        .limit(5)
         .snapshots();
   }
 

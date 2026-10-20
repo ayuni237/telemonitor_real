@@ -2,23 +2,47 @@ import 'package:flutter/material.dart';
 
 import '../models/reading.dart';
 import '../models/risk_assessment.dart';
+import '../services/clinical_levels.dart';
+import '../services/events_service.dart';
 import '../services/risk_assessment_service.dart';
 import '../theme/app_theme.dart';
 
-/// Shows the model's current risk assessment for a set of readings, or
-/// an honest explanation of why there isn't one yet.
+/// Shows the risk tier of a patient (green, yellow, red) and where it comes
+/// from: the guideline rule on the last readings, raised if needed by the
+/// online model (thesis ch.3 §Thresholds and the three levels).
 ///
-/// Self-contained: give it the patient's readings (most recent first)
-/// and it handles running the model, the loading state, and every
-/// unavailable case.
+/// Self-contained: give it the patient's readings (any order) and, when
+/// known, age and sex.
+///
+/// What each reader sees follows ch.4 §Trends and what the patient sees: the
+/// patient sees the tier, the reason and, at yellow or red, the permitted
+/// instruction, never a model score or a probability; the clinician also
+/// sees the model's calibrated alert probability, with its source.
 class RiskCard extends StatefulWidget {
   final List<Reading> readings;
+  final int? age;
+  final String? sex;
+
+  /// Clinician view: shows the model probabilities. Patient view otherwise.
+  final bool forClinician;
+
+  /// Patient view only: when the online model raises the tier, write a model
+  /// event for the clinician's queue.
+  final bool raiseEvents;
 
   /// Compact form for the clinician's patient list; full form for the
   /// patient dashboard and patient detail view.
   final bool compact;
 
-  const RiskCard({super.key, required this.readings, this.compact = false});
+  const RiskCard({
+    super.key,
+    required this.readings,
+    this.age,
+    this.sex,
+    this.forClinician = false,
+    this.raiseEvents = false,
+    this.compact = false,
+  });
 
   @override
   State<RiskCard> createState() => _RiskCardState();
@@ -37,251 +61,149 @@ class _RiskCardState extends State<RiskCard> {
   @override
   void didUpdateWidget(RiskCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-run when the readings actually change — a new reading logged
-    // elsewhere should update the score without a manual refresh.
-    if (oldWidget.readings.length != widget.readings.length ||
-        (widget.readings.isNotEmpty &&
-            oldWidget.readings.isNotEmpty &&
-            oldWidget.readings.first.timestamp !=
-                widget.readings.first.timestamp)) {
-      _run();
-    }
+    if (_signature(oldWidget.readings) != _signature(widget.readings)) _run();
   }
+
+  /// Changes when a reading is added or corrected.
+  static String _signature(List<Reading> rs) =>
+      '${rs.length}:${rs.map((r) => r.id ?? r.timestamp.toIso8601String()).join(',')}';
+
+  /// Latest reading by measurement time.
+  Reading? get _latest => widget.readings.isEmpty
+      ? null
+      : widget.readings.reduce((a, b) => a.timestamp.isAfter(b.timestamp) ? a : b);
 
   Future<void> _run() async {
     if (_running) return;
     setState(() => _running = true);
-    final result =
-        await RiskAssessmentService.instance.assess(widget.readings);
+    final result = await RiskAssessmentService.instance
+        .assess(widget.readings, age: widget.age, sex: widget.sex);
     if (!mounted) return;
     setState(() {
       _assessment = result;
       _running = false;
     });
-  }
-
-  /// Foreground and background for each risk level.
-  ///
-  /// The hue is constant across themes: red means danger whether the
-  /// device is light or dark. Only the background panel darkens, so the
-  /// mapping from colour to clinical meaning never shifts.
-  (Color, Color) _levelColors(BuildContext context, int level) {
-    switch (level) {
-      case 0:
-        return (AppColors.successText(context), AppColors.successBg(context));
-      case 1:
-        return (AppColors.warningText(context), AppColors.warningBg(context));
-      default:
-        return (AppColors.dangerText(context), AppColors.dangerBg(context));
+    final latest = _latest;
+    if (widget.raiseEvents && latest != null) {
+      EventsService.instance.raiseModelEvent(latest, result);
     }
   }
 
-  static const _levelLabels = <int, String>{
-    0: 'Stable',
-    1: 'Moderate',
-    2: 'High',
-    3: 'Critical',
-  };
+  /// The one instruction the patient may receive (ch.4 §Safety boundary):
+  /// contact the health centre; seek care now at red. Never a dose.
+  static String? patientInstruction(RiskTier t) => switch (t) {
+        RiskTier.red => 'Seek care today: go to your health centre or hospital. '
+            'If you feel chest pain, breathlessness, weakness or confusion, go now.',
+        RiskTier.yellow => 'Contact your health centre and measure again as your '
+            'clinician advised.',
+        RiskTier.green => null,
+      };
+
+  (Color, Color, String) _tierStyle(BuildContext context, RiskTier t) => switch (t) {
+        RiskTier.red => (AppColors.dangerText(context), AppColors.dangerBg(context), 'Red'),
+        RiskTier.yellow => (AppColors.warningText(context), AppColors.warningBg(context), 'Yellow'),
+        RiskTier.green => (AppColors.successText(context), AppColors.successBg(context), 'Green'),
+      };
+
+  static const _conditionNames = {'haemodynamic': 'Blood pressure / pulse', 'glycaemic': 'Glucose'};
 
   @override
   Widget build(BuildContext context) {
     final a = _assessment;
-
-    if (_running && a == null) {
-      return _shell(
-        child: const SizedBox(
-          height: 40,
-          child: Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ),
-      );
+    if (a == null) {
+      return _running ? _shell(child: const _Spinner()) : const SizedBox();
     }
-
-    if (a == null) return const SizedBox();
-
-    if (!a.isAvailable) return _unavailable(a);
-
-    final p = a.prediction!;
-    final (fg, bg) = _levelColors(context, p.levelIndex);
-    final label = _levelLabels[p.levelIndex]!;
+    final (fg, bg, label) = _tierStyle(context, a.tier);
 
     if (widget.compact) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: fg,
-          ),
-        ),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Text(a.hasData ? label : 'No data',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
       );
     }
 
+    if (!a.hasData) {
+      return _shell(
+        child: Text('No reading in the last four days — log a reading to see the risk tier.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
+      );
+    }
+
+    final muted = TextStyle(fontSize: 11, color: AppColors.textSecondary(context));
     return _shell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.insights_outlined, size: 16, color: fg),
-              const SizedBox(width: 8),
-              Text(
-                'Predicted risk level',
+          Row(children: [
+            Icon(Icons.insights_outlined, size: 16, color: fg),
+            const SizedBox(width: 8),
+            Text('Risk tier',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryText(context),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: fg,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                (p.riskScore * 100).toStringAsFixed(0),
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                  color: fg,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(width: 3),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text(
-                  '% risk score',
-                  style: TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary(context)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Probability of being in a high or critical state, based on '
-            'the last 7 readings.',
-            style: TextStyle(
-                fontSize: 11, color: AppColors.textSecondary(context)),
-          ),
-          if (a.isLowConfidence) ...[
-            const SizedBox(height: 12),
+                    fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
+            const Spacer(),
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.warningBg(context),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline,
-                      size: 14, color: AppColors.warningText(context)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Based partly on carried-forward values '
-                      '(${(a.completeness * 100).toStringAsFixed(0)}% measured). '
-                      'Log ${a.imputedChannels.join(' and ')} more regularly '
-                      'for a more reliable score.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.warningText(context),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+              child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
             ),
+          ]),
+          const SizedBox(height: 10),
+          Text('Guideline rule on the last readings: ${ClinicalLevels.name(a.ruleLevel)}', style: muted),
+          if (!widget.forClinician && a.tier.index > a.ruleTier.index) ...[
+            const SizedBox(height: 4),
+            Text('Your recent readings suggest a higher risk than the last value alone.', style: muted),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _unavailable(RiskAssessment a) {
-    if (widget.compact) {
-      return Text(
-        a.reason == RiskUnavailableReason.notEnoughReadings
-            ? 'Risk: pending'
-            : 'Risk: n/a',
-        style: TextStyle(fontSize: 10, color: AppColors.textMuted(context)),
-      );
-    }
-
-    return _shell(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.hourglass_empty,
-              size: 16, color: AppColors.textMuted(context)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Risk score not available yet',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  a.explanation,
-                  style: TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary(context)),
-                ),
-              ],
-            ),
+          if (widget.forClinician)
+            for (final e in a.conditions.entries) ...[
+              const SizedBox(height: 4),
+              Text(
+                  '${_conditionNames[e.key] ?? e.key}: '
+                  '${(e.value.alertProbability * 100).toStringAsFixed(0)}% calibrated probability of a high or '
+                  'critical reading at the next measurement (${e.value.tier.name}; ${e.value.model})',
+                  style: muted),
+            ],
+          if (!widget.forClinician && patientInstruction(a.tier) != null) ...[
+            const SizedBox(height: 10),
+            Text(patientInstruction(a.tier)!,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            a.source == RiskSource.online
+                ? (widget.forClinician
+                    ? 'Trigger: risk model (online) combined with the guideline rule; the model can raise the tier, never lower it.'
+                    : 'Checked with the risk service and the guideline rule.')
+                : 'Guideline rule only (${a.offlineReason ?? 'offline'}).',
+            style: TextStyle(fontSize: 10, color: AppColors.textMuted(context)),
           ),
+          if (widget.forClinician && a.provisionalThresholds)
+            Text('Tier cut-points are provisional until set with the clinician.',
+                style: TextStyle(fontSize: 10, color: AppColors.textMuted(context))),
         ],
       ),
     );
   }
 
-  Widget _shell({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context), width: 0.5),
-      ),
-      child: child,
-    );
-  }
+  Widget _shell({required Widget child}) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card(context),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(context), width: 0.5),
+        ),
+        child: child,
+      );
+}
+
+class _Spinner extends StatelessWidget {
+  const _Spinner();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+        height: 40,
+        child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
 }

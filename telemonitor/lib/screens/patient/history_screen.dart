@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../models/reading.dart';
+import '../../services/clinical_levels.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
+import 'log_reading_screen.dart';
 
 /// The patient's full reading history, with a filterable list and a
 /// summary tab.
@@ -27,7 +29,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   late final TabController _tabController;
   String _filter = 'All';
 
-  static const _filters = ['All', 'High BP', 'Elevated', 'Normal'];
+  static const _filters = ['All', 'High', 'Elevated', 'Normal'];
 
   @override
   void initState() {
@@ -52,24 +54,17 @@ class _HistoryScreenState extends State<HistoryScreen>
   /// Collapses the detailed BP and glucose statuses into three display
   /// bands, taking whichever of the two present values is more severe.
   _Band _bandOf(Reading r) {
-    const severity = {
-      'critical': 3, 'stage2': 3, 'high': 3,
-      'stage1': 2, 'elevated': 2, 'low': 2,
-      'normal': 1,
-    };
-    final statuses = [r.bpStatus, r.glucoseStatus].whereType<String>();
-    if (statuses.isEmpty) return _Band.normal;
-    final worst = statuses
-        .map((s) => severity[s] ?? 1)
-        .reduce((a, b) => a > b ? a : b);
-    if (worst >= 3) return _Band.high;
-    if (worst == 2) return _Band.elevated;
+    // Thesis label: high or critical -> high band; moderate -> elevated.
+    final level = r.level;
+    if (level == null) return _Band.normal;
+    if (level >= ClinicalLevels.alertLevel) return _Band.high;
+    if (level == 1) return _Band.elevated;
     return _Band.normal;
   }
 
   List<Reading> get _filtered {
     switch (_filter) {
-      case 'High BP':
+      case 'High':
         return _all.where((r) => _bandOf(r) == _Band.high).toList();
       case 'Elevated':
         return _all.where((r) => _bandOf(r) == _Band.elevated).toList();
@@ -211,7 +206,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   (String, Color, Color) _bandStyle(_Band b) {
     switch (b) {
       case _Band.high:
-        return ('High BP', AppColors.dangerText(context),
+        return ('High', AppColors.dangerText(context),
             AppColors.dangerBg(context));
       case _Band.elevated:
         return ('Elevated', AppColors.warningText(context),
@@ -225,7 +220,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   Widget _readingCard(Reading r) {
     final band = _bandOf(r);
     final (label, fg, bg) = _bandStyle(band);
-    final bpAlert = r.bpStatus == 'critical' || r.bpStatus == 'stage2';
+    final bpAlert = r.isHaemodynamicAlert;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -302,6 +297,31 @@ class _HistoryScreenState extends State<HistoryScreen>
               ],
             ),
           ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  [
+                    if (r.readingCount == 2) 'second of two readings',
+                    if (r.isCorrection) 'corrected entry',
+                    if (r.isBackdated) 'entered later',
+                  ].join(' · '),
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
+                ),
+              ),
+              // Append-only record: no edit or delete, a correction is a new
+              // reading that supersedes this one.
+              TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => LogReadingScreen(correcting: r)),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: const Text('Correct', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -438,7 +458,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           'Reading distribution',
           Column(
             children: [
-              _distributionBar('High BP', counts[_Band.high]!, total,
+              _distributionBar('High', counts[_Band.high]!, total,
                   AppColors.dangerText(context)),
               const SizedBox(height: 12),
               _distributionBar('Elevated', counts[_Band.elevated]!, total,
@@ -489,15 +509,13 @@ class _HistoryScreenState extends State<HistoryScreen>
       ));
     }
 
-    if (total < 7) {
-      out.add(const SizedBox(height: 10));
-      out.add(_insightRow(
-        Icons.hourglass_empty,
-        '${7 - total} more reading${7 - total == 1 ? '' : 's'} needed '
-        'before a risk score can be calculated.',
-        AppColors.textSecondary(context),
-      ));
-    }
+    out.add(const SizedBox(height: 10));
+    out.add(_insightRow(
+      Icons.schedule,
+      'Your risk tier is worked out from your readings of the last four '
+      'days.',
+      AppColors.textSecondary(context),
+    ));
 
     return out;
   }

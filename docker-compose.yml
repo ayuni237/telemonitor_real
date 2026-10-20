@@ -1,0 +1,74 @@
+# TeleMonitor infrastructure — run from C:\Projects (see INFRA.md).
+#
+#   docker compose build                                   build the images
+#   docker compose run --rm tests                          research test suite
+#   docker compose run --rm research python scripts/01_douala_audit.py
+#   docker compose --profile bench up -d                   both benchmarks, detached
+#   docker compose logs -f bench-haemodynamic              follow a benchmark
+#   docker compose up -d api                               risk service on http://localhost:8000
+#   docker compose run --rm thesis                         compile the thesis PDF
+#   docker compose run --rm app                            Flutter analyze + tests
+#
+# Every service mounts its project folder, so data, outputs and the PDF stay on the host.
+name: telemonitor
+
+x-research: &research
+  build: ./telemonitor-research
+  image: telemonitor/research:0.2
+  working_dir: /work
+  volumes:
+    - ./telemonitor-research:/work
+  environment:
+    TELEMONITOR_PROGRESS: "1"
+
+services:
+  research:
+    <<: *research
+    profiles: ["tools"]
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+  tests:
+    <<: *research
+    profiles: ["tools"]
+    environment:
+      TELEMONITOR_PROGRESS: "0"
+    command: ["python", "-m", "pytest", "-q"]
+
+  bench-haemodynamic:
+    <<: *research
+    profiles: ["bench"]
+    tty: true
+    command: ["python", "scripts/06_benchmark.py", "--tasks", "haemodynamic", "--leads", "0"]
+
+  bench-glycaemic:
+    <<: *research
+    profiles: ["bench"]
+    tty: true
+    command: ["python", "scripts/06_benchmark.py", "--tasks", "glycaemic", "--leads", "0"]
+
+  api:
+    <<: *research
+    environment:
+      TELEMONITOR_ARTIFACTS: /work/artifacts
+    command: ["uvicorn", "telemonitor.serve.app:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  thesis:
+    build: ./memoire
+    image: telemonitor/thesis:0.1
+    profiles: ["tools"]
+    working_dir: /doc
+    volumes:
+      - ./memoire:/doc
+
+  app:
+    build: ./telemonitor
+    image: telemonitor/app:3.44.2
+    profiles: ["tools"]
+    working_dir: /app
+    volumes:
+      - ./telemonitor:/app

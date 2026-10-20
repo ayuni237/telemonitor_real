@@ -1,0 +1,12 @@
+# Decision layer of the service — thesis ch.3 §Thresholds and the three levels.
+
+status: provisional          # cut-points from the costs of errors stated by the partner physician
+tiers:                       # cut-points on the calibrated alert probability
+  yellow: 0.1
+  red: 0.3
+# Guideline floor: the model may raise the tier set by the rule on the last reading, never lower it.
+rule_floor:                  # label level of the last reading -> tier
+  0: green
+  1: green
+  2: yellow
+  3: red

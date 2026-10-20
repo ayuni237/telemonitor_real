@@ -1,0 +1,16 @@
+# Pinned to the versions used to produce the thesis numbers (Python 3.10.11).
+# torch is installed separately from the CPU wheel index (see Dockerfile).
+numpy==2.2.6
+pandas==2.3.3
+scipy==1.15.3
+scikit-learn==1.7.2
+catboost==1.2.10
+optuna==5.0.0
+xgboost==3.2.0
+PyYAML==6.0.3
+tqdm==4.67.3
+pytest==9.1.1
+fastapi==0.149.0
+uvicorn==0.54.0
+joblib==1.5.3
+httpx==0.25.2

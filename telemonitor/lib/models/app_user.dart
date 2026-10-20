@@ -40,6 +40,10 @@ class AppUser {
   final List<String> medications;
   final String? emergencyContact;
 
+  /// Days without a reading after which a non-transmission event is raised;
+  /// set by the clinician, null for the default (queue_logic.dart).
+  final int? checkupPeriodDays;
+
   const AppUser({
     required this.uid,
     required this.email,
@@ -55,6 +59,7 @@ class AppUser {
     this.conditions = const [],
     this.medications = const [],
     this.emergencyContact,
+    this.checkupPeriodDays,
   });
 
   /// A patient with no assigned clinician appears on nobody's roster
@@ -122,6 +127,7 @@ class AppUser {
       conditions: _list(data['conditions']),
       medications: _list(data['medications']),
       emergencyContact: _str(data['emergencyContact']),
+      checkupPeriodDays: (data['checkupPeriodDays'] as num?)?.toInt(),
     );
   }
 
