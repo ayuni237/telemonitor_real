@@ -1,0 +1,1054 @@
+%==========================================================================
+% PART II
+%==========================================================================
+\part{Methodology, System Design and Results}
+
+%==========================================================================
+% CHAPTER 3 -- METHODOLOGY
+%==========================================================================
+\chapter{Research Methodology}\label{ch:methodology}\label{ch:data}
+
+\section{Introduction}\label{sec:meth-intro}
+
+This chapter describes how the research is conducted and justifies each methodological choice. It answers the research question of \cref{sec:intro-problem}: how to integrate consultation data, home measurements and mobile sensor data into a telemonitoring system that detects deterioration early enough to support a clinical decision, under the constraints of the Cameroonian context. More precisely, it sets out how the research questions of \cref{sec:research-questions} are investigated and how hypotheses H1 to H4 are tested.
+
+The literature imposes three requirements on the method: use longitudinal data whose instruments and quality can be assessed; evaluate predictive models without the biases found in previous work---label leakage, unsuitable metrics, overfitting on small samples; and respect an ethical and legal framework for real patient data. The chapter presents in turn the type and approach of the research, its setting and population, the data sources, the sampling plan, the analysis methods, the ethical considerations and the limits of the methodology, before a synthesis that prepares the presentation of the results.
+
+\section{Type and Approach of Research}\label{sec:research-type}
+
+The research is \textbf{applied}: it addresses a practical problem, the follow-up of patients with chronic diseases, by designing an artefact, a telemonitoring system. It follows a design-science logic in three stages: requirements are derived from the literature, the system is designed and built (\cref{ch:architecture}), and its predictive component is evaluated on retrospective data. Within this frame, the predictive component is \textbf{experimental}, since models are compared under a protocol fixed in advance, and the analysis of the cohort is \textbf{descriptive} (adherence, data quality, missing data).
+
+The approach is \textbf{quantitative}, with a limited qualitative component (\cref{tab:research-type}). The hypotheses are expressed as measurable comparisons---ranked probability score, calibration, lead time---which calls for quantitative methods. The labels, however, are clinical judgements: the partner physician validates the labelling rule and relabels a sample of readings.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Type of research by objective.}\label{tab:research-type}
+\begin{tabularx}{\textwidth}{@{}X >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{3.6cm}@{}}
+\toprule
+\textbf{Objective} & \textbf{Type} & \textbf{Approach} \\
+\midrule
+Design the telemonitoring system (RQ1) & applied, design science & requirements analysis, prototyping, traceability \\
+Compare predictive models (RQ2, H1, H3) & experimental & quantitative \\
+Validate the models on Cameroonian patients (RQ4, H4) & experimental & quantitative \\
+Evaluate short-horizon forecasting (RQ3, H2) & experimental & quantitative \\
+Describe the cohort, adherence and data quality & descriptive & quantitative \\
+Validate the labels & evaluative & relabelling by the partner physician \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Research Setting and Population}\label{sec:setting}
+
+The research is carried out at the Laboratory of Computer Engineering, Data Science and Artificial Intelligence of the National Advanced School of Engineering of Douala (ENSPD), in collaboration with a partner physician practising in a Cameroonian health facility. The physician facilitated access to the anonymised records, validates the labelling rule and relabels a sample of readings. The deployment context is that described in \cref{sec:lr-regional}: patients followed episodically, paper or fragmented records, few specialists and intermittent connectivity.
+
+\subsection{Target population and eligibility criteria}\label{sec:eligibility}
+
+The target population consists of adults with diagnosed hypertension, type~2 diabetes, or both, followed at the partner facility. The eligibility criteria of a prospective collection (\cref{tab:eligibility}) are adapted from the trial of \textcite{mihevc2025} to the local context; they would be finalised with the partner physician and the ethics committee before any recruitment.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Eligibility criteria.}\label{tab:eligibility}
+\begin{tabularx}{\textwidth}{@{}X X@{}}
+\toprule
+\textbf{Inclusion} & \textbf{Exclusion} \\
+\midrule
+Age 18 years or more & type~1 or gestational diabetes; pregnancy \\
+Hypertension and/or type~2 diabetes documented in the facility record & cognitive impairment preventing the use of the devices, without a caregiver \\
+Followed at the partner facility & severe condition requiring hospitalisation at enrolment \\
+Able to measure at home, alone or with a caregiver, with access to a smartphone & refusal or withdrawal of consent \\
+Written informed consent & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Collection scenarios}\label{sec:scenarios}
+
+The initial specification of the thesis subject foresaw real anonymised data from a partner physician in a hospital, which corresponds to scenario~A. Which streams are actually available determines most of what follows, so four scenarios are distinguished (\cref{tab:scenarios}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Collection scenarios and their consequences.}\label{tab:scenarios}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+ & \textbf{A: retrospective outpatient} & \textbf{B: prospective} & \textbf{C: mixed} & \textbf{D: retrospective inpatient} \\
+\midrule
+Source & consultation records & recruited cohort with home devices & records plus a prospective sub-cohort & in-hospital observation charts \\
+Streams & A only & A + B (+ C) & A + B on a subset & A only, daily \\
+Interval between readings & $\approx$ 90 days & 3--4 days & both & $\approx$ 1 day \\
+Ethics & secondary use & individual consent & both & secondary use \\
+Feasible horizon & next consultation & $\approx$ 3--7 days; 24--48~h in verification & per stream & 24--48~h \\
+Low-cost acquisition evaluated & no & yes & yes & no \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The target of that specification---at least thirty patients and three hundred measurements, about ten per patient---fits a prospective cohort followed for about five weeks, or an inpatient stay of about ten days with daily observations; it does not fit ninety-day outpatient intervals. The low-cost acquisition contribution can only be evaluated under scenario~B or~C, which require recruitment, individual consent and devices. The method is written so that it applies to any of these scenarios; only the numerical values of the window length, the horizon and the minimum counts change with the scenario.
+
+\paragraph{Data obtained.} Two datasets were obtained, both transcribed from anonymised paper records of a public hospital in Douala. The first corresponds to scenario~A: consultation records of 58 patients, 81 readings in all, of whom 49 (84\%) have a single reading. It documents the fragmentation of follow-up but cannot support longitudinal modelling, and it is used descriptively. The second corresponds to scenario~D: the observation charts of 32 inpatients, 366 readings taken between 8 June and 30 August 2026, morning and evening---two readings on 177 of the 189 patient-days, and no gap longer than one day. Blood pressure and pulse are recorded at almost every reading, capillary glucose at 69\% of them, and 8 of the 32 patients have no glucose at all. This second dataset fixes the numerical values of the scenario; it is too small to develop models (\cref{sec:sampling}) and is used for external validation. Scenario~B was not obtained, so the low-cost acquisition contribution is not evaluated in this work. The transcription does not record the admission diagnosis, so the eligibility criteria of \cref{tab:eligibility} cannot be verified patient by patient; this limit is stated in \cref{sec:meth-limits}.
+
+\section{Data Collection Methods and Instruments}\label{sec:data-collection}\label{sec:collection}
+
+The data of this work are secondary: no patient was recruited and no measurement was taken for it. Three sources are used, each for a single purpose (\cref{tab:datasets}). The home protocol, the instruments and the record schema of the system, designed for a prospective collection, are described with the system in \cref{ch:architecture}.
+
+\subsection{Data sources}\label{sec:datasets}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The three data sources and their role.}\label{tab:datasets}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{2.7cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Content} & \textbf{Collection} & \textbf{Role} \\
+\midrule
+eICU Collaborative Research Database \parencite{pollard2018} & intensive-care stays in 208 United States hospitals, 2014--2015; open demonstration subset of 2\,520 stays in 186 hospitals \parencite{eicudemo} & electronic records of routine care, de-identified & training and comparison of the models only \\
+Douala inpatient charts & 32 patients, 366 readings, 8 June to 30 August 2026; blood pressure, pulse and capillary glucose, morning and evening & paper observation charts of a public hospital, transcribed without names & external validation only \\
+Douala consultation records & 58 outpatients, 81 readings, 49 patients with a single reading & paper consultation records of the same hospital, transcribed without names & description of the fragmentation of follow-up \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The Douala charts were transcribed by hand, one row per reading. The transcription records whether a reading was taken in the morning or the evening but not its hour, and it does not record the admission diagnosis. In the wards, blood pressure and pulse follow the nursing schedule, whereas capillary glucose is ordered according to the clinical picture; the consequences of this difference for missing data are treated in \cref{sec:missingness}. In eICU, vital signs come from nurse charting and from periodic monitoring, and glucose from bedside measurements; how these dense records are brought to the rhythm of the charts is described in \cref{sec:sampling}.
+
+\paragraph{Units.} Values are stored in one canonical unit per parameter and converted at entry (\cref{tab:units}). Glucose is the riskiest field, because three conventions coexist ($1~\text{mmol/L} = 18.016~\text{mg/dL} = 0.1802~\text{g/L}$, from the molar mass of glucose, 180.16~g/mol) and Cameroonian practice uses g/L; a value whose magnitude matches the wrong convention is flagged. The exact factor matters: with the rounded value of 18.0, a reading of 1.80~g/L falls just below the 180~mg/dL threshold of \cref{tab:label-thresholds}.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Units and plausible ranges.}\label{tab:units}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{2.8cm} X@{}}
+\toprule
+\textbf{Parameter} & \textbf{Unit} & \textbf{Plausible range} & \textbf{Role} \\
+\midrule
+SBP / DBP & mmHg & 60--260 / 30--160 & clinical \\
+Blood glucose & mmol/L & 1.0--35.0 & clinical \\
+Heart rate & bpm & 30--220 & clinical (label, \cref{sec:labelling}) \\
+SpO$_2$ & \% & 50--100 & covariate \\
+Temperature & \textdegree C & 30.0--45.0 & covariate \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Validity and reliability}\label{sec:validity}
+
+Validity and reliability are assessed at three levels. For the \textbf{instruments}, the devices used in the Douala wards are not named, so their type and the consequences of their tolerance are inferred from the readings themselves (\cref{sec:instruments-obtained}); the eICU records come from routine monitoring devices whose validation is not reported either. For the \textbf{data}, controls applied at entry detect implausible, duplicated and carried-forward values (\cref{sec:quality}). For the \textbf{labels}, a written protocol fixes the labelling rule, and the partner physician relabels a sample, with agreement measured by the weighted kappa (\cref{sec:labelling}).
+
+\subsubsection{Instruments of the data obtained}\label{sec:instruments-obtained}
+
+A blood pressure device is validated when it meets the universal standard ISO 81060-2 \parencite{stergiou2018,iso81060-2}: against a reference, the mean of the differences must not exceed 5~mmHg and their standard deviation 8~mmHg. A glucose meter meets ISO 15197:2013 when 95\% of its results lie within 15~mg/dL of the laboratory value below 100~mg/dL, and within 15\% above \parencite{iso15197}. The observation charts do not name the devices, so their validation cannot be checked; two analyses of the readings bound what this uncertainty implies.
+
+\paragraph{Type of instrument.} A manual aneroid or mercury scale is graduated in steps of 2~mmHg, so manual readings end in even digits, with an excess of zeros; an electronic display shows any integer \parencite{kottke2022}. In the charts, 50\% of systolic and 46\% of diastolic values end in an odd digit, zeros account for 10\% and 13\%, and the terminal digits do not depart from uniformity ($\chi^2$ test, $p = 0.74$ and $0.26$). The readings were therefore taken with an electronic device. Pulse values behave differently: 84\% end in an even digit ($p < 10^{-50}$), consistent with values read from the graphical pulse curve of the chart, with a resolution of about 2~beats per minute. The pulse thresholds of the label lie far from this resolution: the four readings at or above 131~beats per minute range from 135 to 144.
+
+\paragraph{Label uncertainty.} A reading close to a threshold may change level under an error that a validated device is allowed to make. Shifting each reading by the tolerance of its standard---5~mmHg for pressure, 15~mg/dL or 15\% for glucose---changes the level of 27\% of systolic, 39\% of diastolic and 56\% of glucose readings. Part of the disagreement between a model and the label is therefore measurement noise that no model can remove. Two consequences follow: an error between adjacent levels must weigh less than an error across several levels (\cref{sec:metrics}), and the relabelling by the partner physician measures how much of this noise reaches clinical judgement.
+
+\subsubsection{Quality controls at entry}\label{sec:quality}\label{sec:ingestion}
+
+Errors are cheapest to catch at entry, when the information needed to correct them is still available. The controls of \cref{tab:quality-controls} learn nothing from the data and can be applied to all records before the train--test split. Flagged records are kept, not deleted: a run of identical values is itself information about how the data were produced. Impossible values (\cref{tab:outlier-categories}) are the exception: they are removed from features and labels. In the inpatient charts the controls remove one diastolic value of 24~mmHg and one pair of 102/100~mmHg, and flag runs of identical values (6 diastolic, 9 pulse) and seven extreme values, all contradicted by the next reading and sent for clinician review.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Quality controls applied at entry.}\label{tab:quality-controls}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} X >{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+\textbf{Control} & \textbf{Rule} & \textbf{On violation} \\
+\midrule
+Plausibility & value within the range of \cref{tab:units} & flag \texttt{out\_of\_range} \\
+Coherence & SBP $>$ DBP and SBP $-$ DBP $\geq$ 10~mmHg & flag; pair excluded, since one of its values is wrong and which cannot be known \\
+Duplicate & same patient, parameter and minute & keep one, flag the rest \\
+Carried forward & three or more identical consecutive values & flag \texttt{carried\_forward} \\
+Unit & magnitude consistent with another convention & flag \texttt{unit\_suspect} \\
+Device & unvalidated device for BP or glucose & reject; device unknown in retrospective charts: flag \\
+Time & measurement time later than record time (prospective only) & flag \\
+Protocol & reading pair present, 45--180~s apart (prospective only) & informational flag \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%##########################################################################
+
+\subsubsection{Label leakage}\label{sec:reference-impl}\label{sec:device-validation}\label{sec:efendi-appraisal}\label{sec:leakage}
+
+The main threat to the validity of the labels is the circularity found in the classifier of \textcite{efendi2025} (\cref{sec:lr-ml}). Their label \emph{stable} is defined as all three parameters lying in their normal ranges, and each feature is recoded as low, normal or high using the same ranges, so the label is a deterministic function of the inputs:
+\begin{equation}
+  y = 1 \iff (x_1 = 1) \wedge (x_2 = 1) \wedge (x_3 = 1).
+\end{equation}
+The classifiers recover a rule instead of predicting a state, and the perfectly balanced classes (2\,250 against 2\,250) confirm that the dataset was constructed rather than observed. The same circularity arises in this work if the risk label is derived from guideline thresholds and the features include the current values; the way out is to predict a future state from a past window (\cref{sec:principle}).
+
+%##########################################################################
+
+\section{Sampling Plan}\label{sec:sampling}
+
+\paragraph{Sample size.} The initial specification targets at least thirty patients and three hundred measurements, about ten per patient; the inpatient cohort meets it, with 32 patients and 366 readings. Whether that is enough to develop a prediction model is a separate question, answered with the criteria of \textcite{riley2019partII,riley2020bmj}. For a binary outcome, the minimum sample size must keep the optimism of the model small (a global shrinkage factor of at least 0.9), keep the apparent and adjusted Nagelkerke $R^2$ within 0.05 of each other, and estimate the overall risk within $\pm 0.05$. The first criterion gives
+\begin{equation}
+  n \;\geq\; \frac{p}{(S - 1)\,\ln\!\bigl(1 - R^2_{\mathrm{CS}}/S\bigr)},
+\end{equation}
+for $p$ candidate parameters, a shrinkage $S = 0.9$ and an anticipated Cox--Snell $R^2_{\mathrm{CS}}$, derived from an anticipated C statistic \parencite{riley2021cstat}. The criteria are computed with a Python port of the reference implementation \parencite{pmsampsize}, checked against its published example. The outcome is the alert of each condition (level high or critical at the target). The samples of one patient are correlated, so the effective sample size divides the number of samples by the design effect $1 + (\bar m - 1)\rho$ \parencite{kish1965}, where $\bar m$ is the size-weighted mean number of samples per patient and $\rho$ the intraclass correlation of the alert.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Sample size of the inpatient cohort against the criteria of Riley et al. Parameter budget for an anticipated C statistic of 0.70 to 0.80.}\label{tab:sample-size}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+ & \textbf{Haemodynamic alert} & \textbf{Glycaemic alert} \\
+\midrule
+Samples (patients) & 282 (32) & 190 (24) \\
+Prevalence of the alert & 0.23 & 0.59 \\
+Intraclass correlation $\rho$; design effect & 0.32; 3.9 & 0.31; 3.6 \\
+Effective sample size & 72 & 53 \\
+Sample size for the overall risk ($\pm 0.05$) & 270 & 372 \\
+Parameters allowed, samples taken as independent & 2--6 & 2--6 \\
+Parameters allowed, effective sample size & 0--1 & 0--1 \\
+Patients needed for 8 parameters (C = 0.75) & $\approx 215$ & $\approx 170$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The inpatient cohort is therefore far below the minimum for developing a model (\cref{tab:sample-size}): even the overall risk cannot be estimated to the required precision, and the parameter budget is at most one. Flexible learners need more still: random forests, support vector machines and neural networks may need several times as many events per variable as logistic regression to reach the same optimism \parencite{vanderploeg2014}.
+
+\paragraph{Two datasets with distinct roles.} The modelling study is therefore exploratory, and it separates development from validation. The candidate models are trained and compared on the eICU Collaborative Research Database, a public multi-centre database of 200\,000 intensive-care stays in 208 United States hospitals \parencite{pollard2018,goldberger2000}, and on it only; its open demonstration subset of 2\,520 stays of 1\,841 patients from 186 hospitals \parencite{eicudemo} is used to build and test the pipeline, and the full database, available under a data use agreement, for the reported benchmark. eICU is preferred to the other public intensive-care databases, such as MIMIC-IV, because it covers many hospitals: the outer folds can then be grouped by hospital, which estimates how a model transfers between sites before it meets the Douala charts (\cref{sec:training}); a single-centre database cannot provide that estimate. The Douala cohort is used for external validation only: it measures whether models developed on United States data transfer to Central African inpatients, the question raised by \textcite{segun2025} (RQ4). No study identified in the region has measured such a transfer for a learned model. The closest work concerns early warning scores: in African wards, scores derived elsewhere lose discrimination, which motivated a score derived on African patients \parencite{moore2017uva}; a recent review of these scores in low- and middle-income countries, most of them African, concludes that local validation and recalibration are required \parencite{tomas2026ews}; and a Ghanaian study is validating intensive-care scores derived in high-income countries on West African patients \parencite{hayfronbenjamin2026}. The intercept update of \cref{sec:calibration} answers the same need. External validation has its own sample size requirements---about 100 events and 100 non-events as a rule of thumb, and formal criteria on calibration and discrimination \parencite{collins2016,riley2021external}. The Douala cohort has about 64 haemodynamic and 112 glycaemic alert targets, so its estimates are reported with patient-level confidence intervals and read as exploratory.
+
+\paragraph{Sampling method and harmonisation.} In eICU, every adult stay with hypertension or diabetes recorded in the diagnoses or the past history is eligible, which makes eligibility verifiable, unlike in the charts (\cref{sec:scenarios}). Intensive-care monitoring is far denser than a ward chart, so each eICU stay is resampled to the rhythm of the charts: two slots a day, at 08:00 and 20:00, each taking the non-invasive cuff pressure, the pulse and the bedside capillary glucose nearest to the slot within two hours. The slot hours are an assumption, since the charts record only morning and evening; the two-hour tolerance balances completeness against the risk of taking a reading that belongs to another slot, and a sensitivity analysis varies it. The choice matters mostly for glucose, which is measured rarely in intensive care: in the demonstration subset, tolerances of one, two and three hours give 645, 1\,356 and 1\,983 glycaemic samples, against 4\,018 to 4\,249 haemodynamic samples. Both datasets then share the sample definition of \cref{sec:windows}, and the remaining differences---intensive care against the ward, the United States against Cameroon---are the shift that external validation measures. \Cref{fig:harmonisation} illustrates the resampling.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, x=0.36cm, y=1cm]
+  % time axis: hours from 06:00 on day 1 to 06:00 on day 3
+  \draw[-{Stealth[length=2mm]}] (0,0) -- (38,0) node[right]{time};
+  \foreach \h/\lab in {0/06:00, 2/08:00, 14/20:00, 26/08:00, 36/18:00} {
+    \draw (\h,0.08) -- (\h,-0.08); \node[below, font=\tiny] at (\h,-0.08) {\lab};
+  }
+  % tolerance windows around the slots
+  \foreach \s in {2,14,26} \fill[cRef!15] (\s-2,0.25) rectangle (\s+2,1.85);
+  \foreach \s/\name in {2/M, 14/S, 26/M} {
+    \draw[cRef, thick, dashed] (\s,0.2) -- (\s,1.95); \node[cRef, above, font=\tiny] at (\s,1.95) {slot \name};
+  }
+  % row 1: cuff pressure (dense in intensive care)
+  \node[anchor=east, font=\tiny] at (-0.3,1.4) {cuff BP};
+  \foreach \h in {0.6,1.3,3.1,4.2,5.5,7.0,9.2,10.6,13.4,15.9,17.0,18.8,20.3,30.0,31.6,33.2,35.0}
+    \fill[cGrey] (\h,1.4) circle (2.2pt);
+  \fill[cAfrica] (1.3,1.4) circle (3pt);   % nearest to 08:00 within 2 h
+  \fill[cAfrica] (13.4,1.4) circle (3pt);  % nearest to 20:00
+  \node[cAfrica, font=\tiny] at (26,1.4) {$\times$ none within 2 h};
+  % row 2: bedside glucose (sparse)
+  \node[anchor=east, font=\tiny] at (-0.3,0.7) {glucose};
+  \foreach \h in {2.8,11.0,24.9} \fill[cGrey] (\h,0.7) circle (2.2pt);
+  \fill[cAfrica] (2.8,0.7) circle (3pt);
+  \fill[cAfrica] (24.9,0.7) circle (3pt);
+  \node[cAfrica, font=\tiny] at (14,0.7) {$\times$};
+  % legend
+  \fill[cAfrica] (0,-0.9) circle (3pt); \node[anchor=west, font=\tiny] at (0.4,-0.9) {kept for the slot};
+  \fill[cGrey] (9,-0.9) circle (2.2pt); \node[anchor=west, font=\tiny] at (9.4,-0.9) {not used};
+  \fill[cRef!15] (17,-1.05) rectangle (18.2,-0.75); \node[anchor=west, font=\tiny] at (18.4,-0.9) {$\pm 2$~h around the slot};
+\end{tikzpicture}
+\caption{Harmonisation of an intensive-care stay to the rhythm of the ward charts. At each 08:00 and 20:00 slot, the reading nearest in time within two hours is kept for each channel; a slot with none is missing for that channel, as an unrecorded value on a chart would be.}\label{fig:harmonisation}
+\end{figure} In Douala, all the charts made available by the hospital are used; this is a convenience sample at a single site, and its characteristics are reported so that its representativeness can be judged.
+
+\subsection{Sample size and model capacity}\label{sec:capacity}\label{sec:temporal}
+
+The 282 haemodynamic and 190 glycaemic samples of the Douala cohort have an effective size of 72 and 53 (\cref{tab:sample-size}). This is small against the capacity of any flexible model, and above all of a recurrent one. An LSTM layer has
+\begin{equation}
+  P = 4\bigl[u(f+u) + u\bigr]
+\end{equation}
+parameters for $u$ units and $f$ inputs; even a small layer ($u = 16$, $f = 10$) has 1\,728 parameters, that is 24 to 33 per independent sample. Trained on the Douala cohort, a recurrent model would fail for lack of data, and the comparison of H3 would measure the sample size rather than the models. A second risk follows: rare levels concentrated in a few patients or hospitals could leave a fold with no positive case, so the folds are stratified on the presence of events.
+
+Four responses were possible: increase the sampling frequency for a sub-cohort; run the model comparison on a public dataset and use the local cohort as external validation; restrict the comparison to a few simple models; or report a recurrent model as a negative result limited by capacity. The second is adopted (\cref{sec:sampling}): it gives the deep models a sample on which their comparison means something, and it turns the small local cohort into a test of transportability rather than a development set. On the development data the parameter budget is recomputed with the same criteria, and the hyperparameter search is sized to it. The forecast horizon follows the choice of \cref{sec:horizon}.
+
+\section{Data Analysis Methods}\label{sec:analysis}
+
+The analysis has two parts. A \textbf{descriptive} part characterises the cohorts, data quality and missing data, with medians and interquartile ranges for continuous variables and proportions for categorical ones. A \textbf{predictive} part follows five steps: preprocessing, labelling, feature engineering, model formulation, and training and evaluation. \Cref{fig:study-design} shows how they connect and where each dataset enters. The software tools are listed at the end of the section.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=8.5mm, text width=2.5cm},
+  dev/.style={box, fill=cRef!12},
+  ext/.style={box, fill=cAfrica!12},
+  com/.style={box, fill=cGrey!12},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  % sources
+  \node[dev] (eicu) at (-4.2, 0.2) {eICU\\ 208 hospitals};
+  \node[dev] (harm) at (-4.2,-1.2) {harmonisation to\\ 08:00 / 20:00 slots};
+  \node[ext] (douala) at (4.2,-1.2) {Douala charts\\ 32 inpatients};
+  % common pipeline
+  \node[com] (qc)   at (0,-1.2) {quality controls\\ (impossible values removed)};
+  \node[com] (lab)  at (0,-2.5) {labels\\ per condition};
+  \node[com] (win)  at (0,-3.8) {samples: window $L$,\\ target after $\varepsilon$};
+  \node[com] (feat) at (0,-5.1) {features or\\ raw sequences};
+  % development and validation
+  \node[dev] (bench) at (-2.4,-6.7) {nested benchmark\\ outer: hospitals\\ inner: patients};
+  \node[dev] (sel)   at (-2.4,-8.3) {selection cost\\ $\rightarrow$ chosen model};
+  \node[ext] (val)   at ( 2.4,-8.3) {external validation,\\ applied once};
+  \node[ext] (ci)    at ( 2.4,-9.7) {patient bootstrap,\\ intercept update};
+  % arrows
+  \draw[arr] (eicu) -- (harm);
+  \draw[arr] (harm) -- (qc);
+  \draw[arr] (douala) -- (qc);
+  \draw[arr] (qc) -- (lab);
+  \draw[arr] (lab) -- (win);
+  \draw[arr] (win) -- (feat);
+  \draw[arr] (feat.south) -- ++(0,-0.35) -| node[pos=0.8, left, font=\tiny]{eICU} (bench.north);
+  \draw[arr] (feat.south) -- ++(0,-0.35) -| node[pos=0.9, right, font=\tiny]{Douala} (val.north);
+  \draw[arr] (bench) -- (sel);
+  \draw[arr] (sel) -- node[above, font=\tiny]{refit on all eICU} (val);
+  \draw[arr] (val) -- (ci);
+  % legend
+  \node[dev, text width=1.7cm, minimum height=5mm] at (-2.4,-11.0) {development};
+  \node[ext, text width=1.7cm, minimum height=5mm] at ( 0.0,-11.0) {external};
+  \node[com, text width=1.7cm, minimum height=5mm] at ( 2.4,-11.0) {both};
+\end{tikzpicture}
+\caption{Study design. The same preprocessing, labelling and sample definition apply to both datasets; models are developed and compared on eICU only, and the Douala charts are used once, for external validation.}\label{fig:study-design}
+\end{figure}
+
+\subsection{Preprocessing}\label{sec:preprocessing}
+
+This section specifies what happens between the database and the model. It is where label leakage, invented temporal structure and biased imputation are either prevented or built in. The operation performed is a temporal aggregation over several channels (blood pressure, glucose, heart rate), each sampled on its own schedule; the only grouping above the patient is the hospital, used to split the development data.
+
+\subsubsection{A two-phase pipeline}\label{sec:pipeline}
+
+Every step that learns a parameter from the data must be fitted on the training fold only. The pipeline is therefore split into two phases separated by the train--test split (\cref{fig:pipeline-phases}), and it is implemented as a single pipeline object rather than as a sequence of notebook cells. A step placed on the wrong side of the split does not cause an error: it silently produces an optimistic estimate that fails in deployment.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=0.5cm,
+  ph/.style={draw,rounded corners,align=left,font=\scriptsize,inner sep=5pt,minimum width=5.0cm},
+  sp/.style={draw,rounded corners,align=center,font=\scriptsize\bfseries,fill=cAfrica!18,minimum width=5.0cm,minimum height=0.85cm},
+  ar/.style={-{Stealth[length=2.5mm]},thick}]
+  \node[ph,fill=cGrey!12] (p1) {\textbf{Phase 1 --- deterministic, all data}\\[2pt]
+    schema validation, unit conversion\\ range and coherence checks\\ deduplication, carried-forward detection};
+  \node[sp,below=of p1] (split) {SPLIT: by hospital (outer), by patient (inner),\\ stratified on event presence};
+  \node[ph,fill=cRef!12,below=of split] (p2) {\textbf{Phase 2 --- learned, training fold only}\\[2pt]
+    normalisation statistics, outlier thresholds\\ any imputation, feature selection\\ class balancing, scaling};
+  \draw[ar] (p1) -- (split);
+  \draw[ar] (split) -- (p2);
+\end{tikzpicture}
+\caption{The two-phase preprocessing pipeline.}\label{fig:pipeline-phases}
+\end{figure}
+
+\subsubsection{Outliers: artefact or event?}\label{sec:outliers}\label{sec:mad-shrinkage}
+
+In a risk-detection system the outlier is often the event of interest. A systolic reading of 185~mmHg is a statistical outlier for a patient whose median is 138, and it is also a red alert. An automatic cleaning step would silently delete the positive class, and the model would then perform well on a series in which crises never occur. The dividing line is therefore physiological plausibility, not statistical rarity (\cref{tab:outlier-categories}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Three kinds of extreme value.}\label{tab:outlier-categories}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} X >{\raggedright\arraybackslash}p{4.2cm}@{}}
+\toprule
+\textbf{Category} & \textbf{Criterion} & \textbf{Action} \\
+\midrule
+Impossible & outside the range of \cref{tab:units} (e.g.\ 400~mmHg) & excluded from features and labels \\
+Possible but extreme & within range, beyond the statistical threshold (e.g.\ 195~mmHg) & kept: it may be the event \\
+Contradicted & extreme value contradicted by a reading within hours & flagged for clinician review \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+When a statistical threshold is used, for flagging only, it relies on the median absolute deviation (MAD), which is not inflated by the outliers it is meant to detect:
+\begin{equation}
+  z_{i,t} = \frac{x_{i,t} - \operatorname{median}(x_i)}{1.4826\,\mathrm{MAD}_i}.
+\end{equation}
+With about ten readings per patient, a personal MAD is unstable, so it is shrunk towards the cohort value:
+\begin{equation}
+  \widehat{\mathrm{MAD}}_i = w_i\,\mathrm{MAD}_i + (1-w_i)\,\mathrm{MAD}_{\text{pooled}},
+  \qquad w_i = \frac{n_i}{n_i + n_0}.
+\end{equation}
+With $n_0 = 20$, a patient with ten readings takes one third of the estimate from their own data and two thirds from the cohort; as the series grows, the estimate becomes personal. The value of $n_0$ is the number of readings at which a patient's own estimate and the cohort estimate weigh equally; no source fixes it, so the flags are recomputed with $n_0 = 10$ and $40$: in the Douala charts they flag 5, 7 and 9 readings for $n_0 = 10$, 20 and 40, so the choice changes little. Because flags serve clinician review and never enter the features, the patient's whole series is used to compute them. A reading is flagged when $\lvert z_{i,t}\rvert > 3.5$, the cut-off recommended for this modified z-score \parencite{iglewicz1993}, and it is marked as contradicted when the next reading of the same patient is not extreme. This implements the personalised threshold missing from the fixed protocol, in a way that degrades gracefully when data are scarce.
+
+\subsubsection{Irregular sampling and windows}\label{sec:irregular}\label{sec:windows}\label{sec:interval-features}\label{sec:window-length}\label{sec:overlap}
+
+The two datasets used here are aligned on two slots a day, but the home readings for which the system is designed are irregularly spaced, and the method is written for both. Interpolating home readings onto a daily grid would invent five values for every two real ones, and because interpolation smooths the series, it would understate variability, one of the quantities of interest. The raw timestamps are therefore kept, and the interval structure enters the features explicitly, per channel: time since the last observation, number of observations in the window, and their regularity. Blood pressure and glucose are never assumed to share a time axis, since at home they are measured on different days.
+
+A training sample is a window of past observations and a label taken outside it:
+\begin{equation}
+  \mathcal{S}_{i,t} = \Bigl( \{x_{i,s} : t - L \leq s \leq t\},\; g\bigl(x_{i,t'}\bigr) \Bigr),
+  \qquad t' \in [\,t + \varepsilon,\; t + \Delta\,],
+\end{equation}
+where $L$ is the window length and $\varepsilon > 0$ an embargo that guarantees no observation is used both as input and as label (\cref{fig:window-embargo}). Because readings are irregular, the label is the first observation in the search interval; a sample with no observation there is discarded.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize]
+  \draw[thick,-{Stealth[length=2mm]}] (0,0) -- (11.4,0) node[right,font=\scriptsize]{time};
+  \fill[cRef!18] (0.6,-0.3) rectangle (5.4,0.3);
+  \node[anchor=south,font=\scriptsize,text=cRef!60!black] at (3.0,0.35) {input window, length $L$};
+  \foreach \x in {0.9,2.2,3.4,4.0,5.1} \node[circle,fill=cRef,inner sep=1.6pt] at (\x,0) {};
+  \fill[cGrey!30] (5.4,-0.3) rectangle (6.4,0.3);
+  \node[anchor=north,font=\scriptsize,text=cGrey!70!black] at (5.9,-0.35) {embargo $\varepsilon$};
+  \fill[cAfrica!16] (6.4,-0.3) rectangle (9.6,0.3);
+  \node[anchor=south,font=\scriptsize,text=cAfrica] at (8.0,0.35) {label search interval};
+  \node[circle,fill=cAfrica,inner sep=2.2pt] at (7.5,0) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (7.5,-0.35) {label};
+  \draw[dotted] (5.4,-0.55) -- (5.4,0.55); \node[font=\scriptsize,anchor=north] at (5.4,-0.6) {$t$};
+  \draw[dotted] (9.6,-0.55) -- (9.6,0.55); \node[font=\scriptsize,anchor=north] at (9.6,-0.6) {$t+\Delta$};
+\end{tikzpicture}
+\caption{Construction of one training sample.}\label{fig:window-embargo}
+\end{figure}
+
+Windows are defined in time (the last $L$ hours) rather than in count (the last $k$ readings), because every clinical reference is expressed in time---the seven-day profile, the one-to-four-week confirmation, the monthly follow-up---and five readings may span four days for one patient and seven months for another. A feature is computed only if the window contains at least two observations for a level and three for a slope; otherwise it is missing, and the number of such windows is reported as a measure of adherence.
+
+In the inpatient charts, readings are taken morning and evening; the hours are not recorded, so the two slots are placed 12~h apart, and every interval in the cohort is then exactly 12~h. Each reading $t$ of a patient is a candidate anchor, the last reading of an input window. Because the window length is a hyperparameter searched in the inner folds (\cref{sec:training}), the set of anchors must not depend on it, or each length would be evaluated on different targets. An anchor is therefore eligible when the shortest window considered, $L = 24$~h, holds at least two blood pressure readings; longer windows add history to the same anchors. The candidate lengths and the features they support follow from the number of readings they contain (\cref{tab:window-length}): a window can carry at most as many independent quantities as it contains observations (\cref{sec:ceiling}).
+
+\begin{table}[htbp]
+\centering\small
+\caption{Window length and the features it can support, at two readings a day.}\label{tab:window-length}\label{tab:ceiling}
+\begin{tabular}{@{}ccl@{}}
+\toprule
+\textbf{$L$ (h)} & \textbf{Readings} & \textbf{Features supported} \\
+\midrule
+24 & 2 & level only \\
+48 & 4 & level and slope; variability marginal \\
+72 & 6 & level, slope and variability \\
+96 & 8 & level, slope and variability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Overlapping windows multiply the number of rows but not the information: two windows of the same patient that share readings are not independent. The 283 samples of the cohort come from 32 patients; the patient is the independent unit, confidence intervals are computed at the patient level, and all the windows of a patient fall on the same side of every train--test split.
+
+\subsubsection{Missing data}\label{sec:missingness}\label{sec:bias-direction}\label{sec:masking}\label{sec:mask-models}
+
+Imputation is valid when data are missing completely at random (MCAR) or at random given observed values (MAR), and invalid when missingness depends on the unobserved value itself (MNAR). Consultation data are MNAR, because attendance depends on the patient's state; home data are MNAR by a different route, because discouraging readings may be omitted; only sensor gaps (battery, connection) are approximately MCAR. In hospital, the vital signs follow the chart schedule, but glucose is ordered according to the clinical picture, so whether it is measured depends on the patient's state: its absence is MNAR as well.
+
+The direction of the resulting bias matters. If abnormal values are less likely to be recorded, the observed values are biased towards normal. Mean imputation and forward filling then teach the model that absence predicts stability, whereas in reality absence predicts deterioration. This is a sign error that more data cannot correct, and it contradicts the system's own rule that silence must raise an alarm (\cref{sec:decision-flow}). Imputation, which suits cross-sectional datasets such as the one used by \textcite{chatrati2022}, is therefore not the default here.
+
+Absence is instead represented as information (\cref{tab:mask-features}); the feature sets of \cref{tab:feature-sets} carry it through the number of glucose readings and the time since the last one. The adherence ratio applies to home deployment: since the home protocol fixes the expected number of readings, the ratio of observed to expected readings measures adherence continuously, and retention is the most robust finding of the Cameroonian studies (\cref{sec:cameroon-joint}). In the charts the schedule is the nurses', not the patient's, so the ratio is not used.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Missingness features, per channel.}\label{tab:mask-features}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.4cm} X@{}}
+\toprule
+\textbf{Feature} & \textbf{Meaning} \\
+\midrule
+$m^{(c)} \in \{0,1\}$ & was channel $c$ observed in the window \\
+$n^{(c)}_W$ & how many times \\
+$\Delta t^{(c)}_{\text{last}}$ & time since the last observation \\
+$r^{(c)} = n^{(c)}_W / n^{(c)}_{\text{expected}}$ & adherence ratio against the protocol \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Tree ensembles that support missing values learn, at each split, which branch to follow when a value is missing. A recurrent model must be adapted, with the mask as an extra input, no loss computed on padded positions, and a decay of the last observed value towards the mean of the channel in the training data as the gap grows, as in the GRU-D model \parencite{che2018}:
+\begin{equation}
+  \tilde{x}^{(c)}_t = m^{(c)}_t x^{(c)}_t
+  + \bigl(1 - m^{(c)}_t\bigr)\Bigl[\gamma^{(c)}_t\, x^{(c)}_{\text{last}}
+  + \bigl(1-\gamma^{(c)}_t\bigr)\,\bar{x}^{(c)}\Bigr],
+  \qquad
+  \gamma^{(c)}_t = \exp\bigl(-\kappa_c\,\Delta t^{(c)}_{\text{last}}\bigr).
+\end{equation}
+The decay rate $\kappa_c$ differs by channel, because a three-day-old blood pressure is more informative about today than a three-day-old fasting glucose. The decay is always used together with the mask, since on its own it would again assert stability during long gaps. In the sequence models, blood pressure and glucose are never imputed; only covariate sensor channels may be, with the mask kept. The proportional-odds model cannot accept missing inputs, so its missing features are replaced by the training median together with a missingness indicator, which keeps the absence visible to the model (\cref{tab:model-prep}).
+
+\subsubsection{Scale of the inputs}\label{sec:normalisation}\label{sec:expanding}
+
+The label is defined on absolute thresholds, so the features keep their clinical units. Normalising each patient's values by their own median and dispersion would hide how far a reading lies from a threshold, which is precisely what the label measures; the patient's own distribution is used only to flag extreme values (\cref{sec:mad-shrinkage}). The proportional-odds model and the neural networks are sensitive to the scale of their inputs, so each input is standardised with the mean and standard deviation of the training fold (\cref{tab:model-prep}); the tree ensembles need no scaling.
+
+%##########################################################################
+
+\subsection{Labelling}\label{sec:labelling}\label{sec:label-rules}\label{sec:agreement}
+
+The label states how much clinical attention a reading calls for, on four ordered levels: stable, moderate, high, critical. It must satisfy six requirements: every threshold comes from an official source; low values count as well as high ones; it applies to a single reading; a missing channel does not bias it; thresholds are versioned; and its agreement with clinical judgement is measured. The thresholds below are those of in-hospital monitoring, the setting of the data actually collected (scenario~D, \cref{sec:scenarios}); a home deployment would substitute the out-of-office thresholds of \cref{tab:thresholds}.
+
+\paragraph{Grades as severity bands.} The ESH grades classify a patient's usual blood pressure from repeated measurements \parencite{mancia2023}; they are not defined for one reading. They are used here as severity bands of a single reading, and the repetition that diagnosis requires is carried by the input window (\cref{sec:windows}). The other thresholds keep their own function: 135/85~mmHg governs the home triage of \cref{sec:triage}, and 140/90~mmHg the epidemiological comparisons \parencite{who2023hypertension}.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Severity of a single reading, per channel. BP in mmHg, pulse in beats per minute, capillary glucose in mmol/L.}\label{tab:label-thresholds}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Level} & \textbf{Haemodynamic channels} & \textbf{Glucose} \\
+\midrule
+3 critical & SBP $\geq$ 180 or DBP $\geq$ 110, grade~3 \parencite{mancia2023}; SBP $\leq$ 90; pulse $\leq$ 40 or $\geq$ 131 \parencite{rcp2017news2} & $<$ 3.0, level~2 hypoglycaemia \parencite{ihsg2017,ada2026glycemic}; $>$ 16.7 (300~mg/dL), severe hyperglycaemia \parencite{cms871} \\
+2 high & SBP 160--179 or DBP 100--109, grade~2 & 3.0 to $<$ 3.9, level~1 hypoglycaemia; $\geq$ 10.0 (180~mg/dL), treatment threshold \parencite{ada2026hospital} \\
+1 moderate & SBP 140--159 or DBP 90--99, grade~1 & $>$ 7.8 (140~mg/dL), in-hospital hyperglycaemia \parencite{ada2026hospital} \\
+0 stable & otherwise & otherwise \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Four choices in \cref{tab:label-thresholds} need a justification.
+\begin{itemize}[nosep]
+  \item \textbf{Low pressure and pulse.} The National Early Warning Score~2 (NEWS2) adds the scores of six physiological parameters; only a score of~3 in a single parameter, the ``red score'', calls on its own for urgent review by a clinician \parencite{rcp2017news2}. Only that threshold is used for the two NEWS2 parameters recorded here, systolic pressure and pulse; the intermediate bands have meaning only inside the aggregate score. No official source sets a lower threshold for diastolic pressure, so none is used.
+  \item \textbf{Pulse.} Tachycardia and hypotension accompany the hypovolaemia of hyperglycaemic crises \parencite{umpierrez2024}, so the pulse belongs in the label of these patients, at the NEWS2 red-score threshold only.
+  \item \textbf{Hypoglycaemia.} Level~1 ($<$ 3.9~mmol/L) is an alert value and level~2 ($<$ 3.0~mmol/L) is clinically significant \parencite{ihsg2017}; they map to high and critical. Level~3 is defined by a clinical event, not a glucose value, and cannot be observed in the records.
+  \item \textbf{Severe hyperglycaemia.} The diagnostic criteria of ketoacidosis and of the hyperosmolar state require ketones, pH or osmolality, which the charts do not record \parencite{umpierrez2024}. No clinically accepted cut-off for severe hyperglycaemia exists; the 300~mg/dL threshold is the one adopted by the official hospital-harm measure \parencite{cms871}, and it is used as a convention. A sensitivity analysis caps hyperglycaemia at the high level; a conclusion that changes between the two versions depends on this convention and is reported as such.
+\end{itemize}
+Boundaries are stored in the unit of their source and converted at comparison, so that no rounding moves a reading across a level (\cref{tab:units}).
+
+\paragraph{One label per condition.} Within a condition, the worst channel governs: an additive score is validated only on the complete NEWS2 parameter set, not on two or three of its parameters. Across conditions, one label is computed per condition, following the dual-task formulation (\cref{sec:dual-task}):
+\begin{gather}
+  y^{\mathrm{H}}_t = \max\bigl(s_{\mathrm{SBP},t},\, s_{\mathrm{DBP},t},\, s_{\mathrm{pulse},t}\bigr),
+  \qquad
+  y^{\mathrm{G}}_t = s_{\mathrm{glu},t} \ \text{if glucose is measured at } t, \\
+  y_t = \max\bigl(y^{\mathrm{H}}_t, y^{\mathrm{G}}_t\bigr),
+\end{gather}
+where $s$ is the level of a channel in \cref{tab:label-thresholds} and the maximum runs over the labels available at $t$. A single label would mistake a missing glucose value for a normal one; since glucose is ordered for some patients and not for others, the absence of a measurement is itself informative (\cref{sec:missingness}), and the error would be systematic. The glucose label is therefore defined only where glucose is measured. \Cref{fig:label-construction} summarises the construction.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  ch/.style={draw, rounded corners=2pt, align=center, text width=1.9cm, minimum height=8mm, fill=cGrey!12},
+  rule/.style={draw, rounded corners=2pt, align=center, text width=2.6cm, minimum height=8mm, fill=white},
+  cond/.style={draw, rounded corners=2pt, align=center, text width=2.4cm, minimum height=9mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  % channels at the target reading
+  \node[ch] (sbp) at (0, 0)    {SBP};
+  \node[ch] (dbp) at (0,-1.1)  {DBP};
+  \node[ch] (hr)  at (0,-2.2)  {pulse};
+  \node[ch] (glu) at (0,-3.6)  {capillary\\ glucose};
+  % per-channel severity
+  \node[rule] (rs) at (3.3, 0)   {ESH grades;\\ NEWS2 red: $\leq 90$};
+  \node[rule] (rd) at (3.3,-1.1) {ESH grades\\ (no lower threshold)};
+  \node[rule] (rh) at (3.3,-2.2) {NEWS2 red:\\ $\leq 40$ or $\geq 131$};
+  \node[rule] (rg) at (3.3,-3.6) {IHSG hypo levels;\\ ADA, CMS hyper};
+  % condition labels
+  \node[cond, fill=cRef!12] (yh) at (7.0,-1.1) {$y^{\mathrm{H}}$ haemodynamic\\ worst of three channels};
+  \node[cond, fill=cRef!12] (yg) at (7.0,-3.6) {$y^{\mathrm{G}}$ glycaemic\\ only if measured};
+  % overall
+  \node[cond, fill=cAfrica!12, text width=2.2cm] (y) at (10.3,-2.35) {alert $y$\\ worst available};
+  \foreach \a/\b in {sbp/rs, dbp/rd, hr/rh, glu/rg} \draw[arr] (\a) -- (\b);
+  \foreach \a in {rs, rd, rh} \draw[arr] (\a.east) -- (yh.west);
+  \draw[arr] (rg) -- (yg);
+  \draw[arr] (yh.east) -- (y.west);
+  \draw[arr] (yg.east) -- (y.west);
+  % missing glucose
+  \node[font=\tiny, text=cAfrica, align=left, anchor=north west] at (5.2,-4.25) {glucose not measured:\\ no glycaemic label, never ``stable''};
+  % level scale
+  \node[font=\tiny, align=center] at (3.3, 0.85) {level of the reading: 0 stable, 1 moderate, 2 high, 3 critical};
+\end{tikzpicture}
+\caption{Construction of the label at a target reading. Each channel is graded by its sourced thresholds (\cref{tab:label-thresholds}); the worst channel governs within a condition; the alert is the worst of the condition labels that exist.}\label{fig:label-construction}
+\end{figure}
+
+Four rules prevent the label from leaking into the features:
+\begin{enumerate}[nosep]
+  \item the label is computed on the first reading of the label interval $[t+\varepsilon, t+\Delta]$ and the features on readings of the input window, with no overlap;
+  \item no feature measuring the distance to a threshold is computed at the label instant;
+  \item the guideline rule applied to the last observed value is a mandatory baseline, and the contribution of the model is its margin over that rule;
+  \item performance is also reported against the physician's relabelling, which is not derived from the thresholds.
+\end{enumerate}
+The labelling rule and its threshold table are versioned so that someone else can reproduce them. The partner physician relabels a random sample of readings without seeing the rule's output, and agreement is reported with the quadratically weighted kappa, which suits ordered levels. The sample is sized so that the 95\% confidence interval of the kappa has a half-width of at most 0.10: a simulation on the observed distribution of levels gives about 100 readings for a kappa near 0.75 and about 150 for a kappa near 0.6, that is about a third of the 366 readings of the charts.
+
+\subsection{Feature Engineering}\label{sec:feature-eng}
+
+The tabular models receive descriptors computed on the input window; the sequence models receive the readings themselves. This subsection fixes how many descriptors a window can support, which ones are computed, and how many enter the models.
+
+\subsubsection{How much a short window can say}\label{sec:ceiling}\label{sec:small-sample}
+
+Every descriptor computed from a window of $n$ readings is a function of the same $n$ numbers, so no set of descriptors can carry more than $n$ independent quantities. The case $n = 2$ shows this exactly. The sample standard deviation is $s = \lvert x_2 - x_1\rvert / \sqrt{2}$, the mean absolute successive difference is $\mathrm{MASD} = \lvert x_2 - x_1 \rvert$, so that
+\begin{equation}
+  s = \frac{\mathrm{MASD}}{\sqrt{2}},
+\end{equation}
+the slope is $\pm\mathrm{MASD}/\Delta t$, and the median equals the mean. Level, dispersion, slope and last value are then only two quantities, a level and a signed difference. Supplying all four adds columns without adding information, and columns are the scarce resource here (\cref{sec:budget}). Robust statistics such as the median and MAD need observations to be robust with, so they are used at the level of the patient's history, not within a short window.
+
+Learned representations, such as the convolutional feature learning described by \textcite{liu2025review}, are designed for densely sampled signals and large samples; with two readings a day over stays of a few days they are not applicable to the tabular models, and hand-constructed descriptors are used instead. The sequence models receive the raw readings of the window, with a mask of what was measured.
+
+\subsubsection{The feature families}\label{sec:features}\label{sec:descriptors}\label{sec:threshold-features}\label{sec:cross-channel}\label{sec:leak-boundary}\label{sec:threshold-table}
+
+\Cref{tab:feature-set} lists the candidate features, computed per channel on the readings of the input window only. The slope is the ordinary least-squares coefficient on the real reading times, which handles gaps without resampling:
+\begin{equation}
+  \beta^{(c)} = \frac{\sum_{k}(t_k - \bar t)(x_k - \bar x)}{\sum_{k}(t_k - \bar t)^2},
+\end{equation}
+expressed per day. Its variance explodes when the readings are bunched in time, so it is computed only from at least three readings spanning at least half the window; a dispersion also needs three readings. A feature the window cannot support is missing, not zero: zero would assert a stability that was not observed.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Candidate features, per channel $c \in \{$SBP, DBP, pulse, glucose$\}$.}\label{tab:feature-set}\label{tab:threshold-features}\label{tab:cross-features}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{4.2cm} X@{}}
+\toprule
+\textbf{Family} & \textbf{Feature} & \textbf{Definition or purpose} \\
+\midrule
+Level & last value, window mean & current and typical level \\
+Trend & slope $\beta^{(c)}$ & change per day \\
+Variability & standard deviation & dispersion within the window \\
+Cross-channel & pulse pressure & SBP $-$ DBP of the last complete reading, a marker of arterial stiffness \\
+Measurement & count, time since the last value & how much was measured; for glucose, whether it was ordered at all \\
+Static & age, sex & the only covariates recorded in both datasets \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Four remarks explain what is not in the table.
+\begin{itemize}[nosep]
+  \item \textbf{No signed margin to a threshold.} For a fixed threshold $\theta$, the margin $x_{\text{last}} - \theta$ is an affine function of the last value. A linear model absorbs it into its intercept, and a tree, which splits on order, finds exactly the same partitions; the margin adds a column and no information. The same holds for the grade band, a coarsening of the last value.
+  \item \textbf{No disease duration or regimen.} Years since diagnosis and treatment are recorded neither in the charts nor in eICU; a feature that exists in only one dataset cannot be validated externally.
+  \item \textbf{Pulse pressure helps trees.} A tree splits on one variable at a time and would need many splits to approximate a condition on SBP $-$ DBP; supplying it explicitly turns that staircase into one split.
+  \item \textbf{The glucose count is informative.} Glucose is ordered for some patients and not for others (\cref{sec:missingness}); the count of glucose readings lets the model use that pattern openly instead of through imputed values.
+\end{itemize}
+
+\subsubsection{The dimensionality budget}\label{sec:budget}\label{sec:np}\label{sec:candidate-sets}
+
+A feature set built without restraint grows quickly: four channels with six descriptors each, plus cross-channel and static features, already give about thirty columns. The number of parameters a dataset can support is set by the criteria of \cref{sec:sampling}, recomputed on the development data. Three feature sets are defined in advance (\cref{tab:feature-sets}); the primary set gives the main result, the others are secondary analyses, and every result is reported with its number of features.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Feature sets, fixed before any result.}\label{tab:feature-sets}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.4cm} c X@{}}
+\toprule
+\textbf{Set} & \textbf{$p$} & \textbf{Features} \\
+\midrule
+Primary & 8 & last SBP, slope of SBP, last DBP, last pulse, last glucose, slope of glucose, number of glucose readings, age \\
+Extended & 16 & primary, plus the standard deviations of SBP and glucose, the slopes of DBP and pulse, pulse pressure, time since the last glucose, mean SBP, sex \\
+Descriptors & 16 & mean, standard deviation, slope and last value of the four channels, as in the preliminary exploratory model of this project, kept for comparison \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The primary set spends its columns on the channels that carry the decision: systolic pressure and glucose get a level and a trend, diastolic pressure and pulse a level, and the glucose count summarises how the patient is monitored. Dispersion is left out of the primary set because a short window estimates it poorly. The window length is not a feature choice but a hyperparameter, searched in the inner folds over 24, 48, 72 and 96~hours (\cref{tab:window-length}).
+
+\subsubsection{Feature selection and scaling}\label{sec:selection}\label{sec:nested}\label{sec:scaling}
+
+The primary feature set is fixed in advance on clinical grounds, which removes a source of variance and makes the result reproducible. A data-driven selection, such as the LASSO used by \textcite{mendoza2025}, is run only as a secondary analysis, inside the cross-validation loop (\cref{sec:cv-structure}); selecting on the full dataset would let the test data choose the features. How often each feature is selected across folds is reported, as a measure of stability.
+
+Model families differ in their preparation needs (\cref{tab:model-prep}). Every preparation step that learns from the data is fitted on the training fold only.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Preparation required by model family.}\label{tab:model-prep}
+\begin{tabularx}{\textwidth}{@{}X c X@{}}
+\toprule
+\textbf{Model} & \textbf{Scaling required} & \textbf{Missing values} \\
+\midrule
+Proportional-odds logistic regression & yes & median imputation with missing indicators \\
+Random forest, CatBoost & no & handled natively \\
+GRU-D, masked LSTM & yes & mask and decay (\cref{sec:mask-models}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Baselines}\label{sec:baselines}
+
+Physiological series are strongly autocorrelated, so carrying the current level forward is a strong predictor. When the label is the guideline rule applied to a reading, persistence and the guideline rule applied to the last reading are the same baseline; it is turned into probabilities by the matrix of transitions between levels observed in the training data. Every candidate is compared with two baselines (\cref{tab:baselines}). The contribution of the modelling work is the gap between persistence and the candidates. If that gap is small, the honest conclusion is that, at this sampling density and sample size, the models add little to the guideline rule---a result in itself, and more useful to a clinician than an inflated accuracy.
+
+\begin{table}[htbp]
+\centering\small
+\caption{The baselines.}\label{tab:baselines}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} X@{}}
+\toprule
+\textbf{Baseline} & \textbf{Description} \\
+\midrule
+Prior & the frequency of each level in the training data, the same for every sample \\
+Persistence & the guideline level of the last reading of each channel, with the training transition probabilities to each level at the target \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%##########################################################################
+
+\subsection{Learning problem and candidate models}\label{sec:ml}\label{sec:learning}
+
+This subsection states which models are compared, how the prediction task is constructed, and which horizon is predicted.
+
+\subsubsection{Candidate algorithm families}\label{sec:families}
+
+No model is chosen in advance: the candidates are the families that published benchmarks of comparable problems put forward, and the benchmark of this work selects among them (\cref{tab:candidates}). The problem is a small tabular one, derived from short, irregular and incomplete clinical series. On clinical prediction tasks, machine learning has shown no systematic benefit over logistic regression \parencite{christodoulou2019}. On tabular data, tree ensembles generally match or beat deep networks \parencite{grinsztajn2022}, and in the most recent living benchmark CatBoost is the best gradient-boosting model when tuned without ensembling \parencite{erickson2025}. Only the deep temporal models read the data as a sequence, which is what hypotheses H1 and H3 compare; among them, GRU-D was designed for multivariate series with missing values \parencite{che2018}, and the masked LSTM \parencite{hochreiter1997}, the most widely used recurrent architecture, serves as its reference.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Candidate families and their justification.}\label{tab:candidates}\label{tab:inductive-bias}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{3.6cm} X@{}}
+\toprule
+\textbf{Family} & \textbf{Candidate} & \textbf{Why it is in the pool} \\
+\midrule
+Linear & proportional-odds logistic regression \parencite{mccullagh1980} with an L2 penalty; the same on principal components & no systematic loss against machine learning in clinical prediction \parencite{christodoulou2019}; the order of the levels is part of the model; principal components address the redundancy of the descriptors \\
+Bagging & random forest \parencite{breiman2001} & the reference of the reviewed literature \parencite{mendoza2025} \\
+Boosting & CatBoost \parencite{prokhorenkova2018} & best tuned gradient-boosting model of the living benchmark \parencite{erickson2025} \\
+Value forecast & ridge or CatBoost regression per channel, levels from the threshold table & the second formulation of \cref{sec:formulation} \\
+Deep temporal & GRU-D \parencite{che2018}; masked LSTM \parencite{hochreiter1997} & hypothesis H3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Four families are left out, each for a stated reason. A single decision tree is dominated by its ensembles. Support vector machines produce poorly calibrated probabilities, and the outputs here are probabilities shown to clinicians. XGBoost ranks below CatBoost and LightGBM in the same benchmark, so one gradient-boosting model is enough. The tabular foundation model TabPFN leads on small datasets, but only up to 10\,000 training samples \parencite{hollmann2025,erickson2025}, which the development data exceed; it is a candidate for future work on smaller development sets.
+
+\paragraph{Hyperparameter search.} Each candidate has a search space declared before any run, split into structural hyperparameters, which change the capacity or the input of the model (window length, depth, number of units, number of components), and training hyperparameters, which change how it is fitted (learning rate, penalties, dropout, class weights, weight of the regression head). The search uses the tree-structured Parzen estimator of Optuna \parencite{bergstra2011,akiba2019}, inside the inner folds only: each proposed configuration is scored by its ranked probability score on pooled inner-validation predictions, and the configuration kept is the one with the lowest selection cost among those tried (\cref{sec:metrics}). The number of configurations per candidate is fixed in advance and reported, since the optimism of a selection grows with the number of configurations tried \parencite{cawley2010}. The spaces and budgets are listed with the code. \Cref{fig:search} shows the procedure in one outer fold.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, text width=3.4cm, minimum height=10mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  % inner loop, repeated for each candidate family
+  \node[box, fill=cGrey!12] (prop) at (0,0)     {Optuna TPE proposes a\\ configuration (structural\\ and training)};
+  \node[box, fill=cGrey!12] (inner) at (4.4,0)  {fit on inner-train folds,\\ predict inner-validation\\ (grouped by patient)};
+  \node[box, fill=cGrey!12] (score) at (8.8,0)  {score the pooled predictions:\\ RPS as search objective,\\ all measures recorded};
+  \draw[arr] (prop) -- (inner);
+  \draw[arr] (inner) -- (score);
+  \draw[arr] (score.north) -- ++(0,0.4) -| node[pos=0.25, above, font=\tiny]{next trial, until the declared budget} (prop.north);
+  \begin{scope}[on background layer]
+    \node[draw=cGrey, dashed, rounded corners, fit=(prop)(inner)(score), inner sep=6pt] (loop) {};
+  \end{scope}
+  \node[font=\tiny, text=cGrey!70!black, anchor=north west] at (loop.south west) {inner loop, inside one outer training set, for each candidate family};
+  % selection among trials, refit, test
+  \node[box, fill=cRef!12]    (cost)  at (8.8,-2.3) {among the trials: lowest\\ selection cost};
+  \node[box, fill=cRef!12]    (refit) at (4.4,-2.3) {refit on the outer\\ training hospitals};
+  \node[box, fill=cAfrica!12] (test)  at (0,-2.3)   {evaluate once on the\\ outer test hospitals};
+  \draw[arr] (score.south) -- ++(0,-0.75) -- (cost.north);
+  \draw[arr] (cost) -- (refit);
+  \draw[arr] (refit) -- (test);
+  % across families
+  \node[box, fill=cRef!12, text width=8.0cm] (fam) at (4.4,-3.9) {across families: the lowest inner selection cost gives the \emph{selected} model of the fold;\\ its outer result estimates the whole procedure};
+  \draw[arr] (cost.south) |- (fam.east);
+\end{tikzpicture}
+\caption{Hyperparameter search and selection in one outer fold. The search objective is the ranked probability score; the configuration kept is the one with the lowest selection cost; the outer test hospitals are used once.}\label{fig:search}
+\end{figure}
+
+The benchmarks support an expectation, stated before the results so that the comparison is not read as a surprise: on tabular inputs, the deep temporal models should not outperform the tree ensembles and the penalised linear model, which is hypothesis H3.
+
+\subsubsection{Task construction determines reported performance}\label{sec:reported}\label{sec:task-not-algo}\label{sec:principle}
+
+The same algorithm, XGBoost, is reported as the best model by \textcite{efendi2025} and as no better than chance by \textcite{mendoza2025} (\cref{sec:lr-ml}). The difference does not come from the algorithm: the first study measures the recovery of a rule already encoded in the features (\cref{sec:leakage}), the second a genuine prediction from weak predictors. Reported performance depends first on how the task is built---the integrity of the label and the informativeness of the features---and only last on the algorithm.
+
+For this work, the consequence is direct. If the label $y_t$ is a threshold rule applied to the current reading $x_t$ and the model sees $x_t$, the task is label recovery:
+\begin{equation}
+  \hat{y}_t = g(x_t) \quad\text{with}\quad y_t = h(x_t).
+\end{equation}
+The legitimate task predicts a future state from a past window,
+\begin{equation}
+  \hat{y}_{t+\Delta} = g(x_{t-k}, \dots, x_t),
+\end{equation}
+in which the label lies outside the input by construction (\cref{fig:leak-vs-forecast}). Its performance will be much lower, and that lower figure is the honest one. The forecasting formulation is therefore not an extra ambition but the condition for the result to mean anything.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize]
+  \draw[thick,-{Stealth[length=2mm]}] (0,1.6) -- (8.6,1.6);
+  \fill[cAfrica!25] (3.6,1.35) rectangle (4.4,1.85);
+  \node[anchor=south,font=\scriptsize] at (4.0,1.9) {$x_t$};
+  \node[circle,fill=cAfrica,inner sep=2pt] at (4.0,1.6) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (4.0,1.3) {$y_t = h(x_t)$};
+  \node[anchor=west,font=\footnotesize\bfseries] at (8.7,1.6) {leaks};
+  \node[anchor=east] at (-0.15,1.6) {(a)};
+  \draw[thick,-{Stealth[length=2mm]}] (0,0) -- (8.6,0);
+  \fill[cRef!22] (1.2,-0.25) rectangle (4.4,0.25);
+  \node[anchor=south,font=\scriptsize] at (2.8,0.3) {input window $x_{t-k}\dots x_t$};
+  \foreach \x in {1.4,2.0,2.6,3.2,3.8,4.3} \node[circle,fill=cRef,inner sep=1.5pt] at (\x,0) {};
+  \draw[dashed,cGrey] (4.4,-0.45) -- (4.4,0.45);
+  \node[circle,fill=cAfrica,inner sep=2pt] at (6.6,0) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (6.6,-0.15) {$y_{t+\Delta}$};
+  \draw[{Stealth[length=2mm]}-{Stealth[length=2mm]},cGrey] (4.4,0.55) -- (6.6,0.55)
+    node[midway,above,font=\scriptsize,text=cGrey]{$\Delta$};
+  \node[anchor=west,font=\footnotesize\bfseries] at (8.7,0) {does not};
+  \node[anchor=east] at (-0.15,0) {(b)};
+\end{tikzpicture}
+\caption{(a) Classifying the current state when the label is a rule applied to the same reading. (b) Forecasting a state outside the input window.}\label{fig:leak-vs-forecast}
+\end{figure}
+
+\subsubsection{Hypotheses, forecast horizon and sampling frequency}\label{sec:forecasting}\label{sec:horizon}
+
+The literature gives each hypothesis of \cref{sec:intro-hypotheses} a different standing. For \textbf{H1}, persistence is a strong baseline for autocorrelated physiological series (\cref{sec:baselines}), and the only comparable result, a recurrent network predicting lupus readmission with an AUC of 0.70, suggests a modest margin at best. \textbf{H2} has never been tested: no source forecasts physiological state from series of blood pressure and glucose readings, which is the strongest claim to novelty of this work and also its main risk. \textbf{H3} is the best supported, since tree ensembles generally match or beat deep networks on tabular data \parencite{grinsztajn2022}. \textbf{H4} follows from the loss of performance of scores transferred between settings \parencite{moore2017uva,tomas2026ews}.
+
+H2 meets a constraint that follows from the protocol. With routine readings at a rate $\lambda$, the expected number of readings inside a horizon of length $\Delta$ is
+\begin{equation}
+  \mathbb{E}[N_\Delta] = \lambda\Delta, \qquad \lambda = \frac{2}{168\,\text{h}},
+\end{equation}
+which gives 0.29 readings within 24 hours and 0.57 within 48 hours (\cref{fig:sampling-horizon}). Most prediction points would have nothing to predict. The horizon is therefore matched to the regime of the patient. In the \emph{routine} regime, the model predicts the next scheduled reading or the next seven-day mean, a horizon of three to seven days that is both estimable and clinically meaningful. In the \emph{verification} regime, where the protocol prescribes two readings a day, a 24 to 48 hour horizon contains about four readings; this is also the moment when a clinical decision is pending, so a short-horizon forecast would change an action.
+
+The inpatient charts follow the verification regime: a reading every 12~h. The lead time is then set by the embargo $\varepsilon$ of the sample definition. With $\varepsilon = 0$ the target is the next reading, 12~h ahead; with $\varepsilon = 12$~h it is the reading 24~h ahead; with $\varepsilon = 36$~h, the one 48~h ahead. The primary task uses the next reading, and H2 is tested by how performance decays with lead time, on 283, 251 and 187 samples respectively. A forecast that only matches the guideline rule applied to the last reading anticipates nothing, so the comparison is always made against that rule at the same lead time.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.74\textwidth,height=4.8cm,
+  xlabel={Forecast horizon $\Delta$ (hours)},
+  ylabel={Expected readings},
+  xmin=0,xmax=180,ymin=0,ymax=5.2,
+  grid=major,grid style={gray!20},legend pos=north west,legend style={font=\scriptsize}]
+\addplot[thick,cAfrica,domain=0:180,samples=2]{2*x/168};
+\addplot[thick,cRef,domain=0:180,samples=2]{14*x/168};
+\addplot[dashed,cGrey,domain=0:180,samples=2]{1};
+\draw[dotted,thick,cGrey] (axis cs:48,0) -- (axis cs:48,5.2);
+\legend{routine, 2 readings/week, verification, 2 readings/day, one reading}
+\end{axis}
+\end{tikzpicture}
+\caption{Expected number of readings inside the forecast horizon, by sampling regime.}\label{fig:sampling-horizon}
+\end{figure}
+
+Finally, the data are split by hospital and by patient (\cref{sec:training}), and every preprocessing step that learns from the data (imputation, scaling, feature selection) is fitted on the training fold only; within a patient, the embargo of \cref{sec:windows} prevents any look-ahead.
+
+%##########################################################################
+
+\subsubsection{Formulation}\label{sec:formulation}\label{sec:dual-task}\label{sec:horizon-adopted}
+
+Two formulations reach the same clinical output---the probability of each level at the target---and neither is assumed better; both enter the benchmark (\cref{sec:ml}).
+\begin{itemize}[nosep]
+  \item \textbf{Value forecast.} The model forecasts the value of each channel at the target, and the level follows from the threshold table of \cref{tab:label-thresholds}:
+  \begin{equation}
+    \hat{x}^{(c)}_{i,t'} = f\bigl(\mathbf{v}_{i,t}\bigr),
+    \qquad c \in \{\mathrm{SBP}, \mathrm{DBP}, \text{pulse}, \text{glucose}\},
+  \end{equation}
+  where $\mathbf{v}_{i,t}$ is the feature vector of the window ending at $t$ and $t'$ the target time. The forecast error distribution turns the value into level probabilities (\cref{sec:risk-score}). Every sample gives a training signal in clinical units, a 5~mmHg error near a threshold is distinguished from one far from it, and a guideline revision changes the decision layer without retraining. The price is an assumption on how the errors of correlated channels combine within a condition.
+  \item \textbf{Direct ordinal classification.} The model predicts the level of each condition directly. It needs no assumption on the channels, but it sees only the level, not the distance to a boundary, and suffers more from the imbalance between levels.
+\end{itemize}
+
+The prediction is ``dual-task'' in two complementary senses, both adopted: one target per condition, haemodynamic and glycaemic, as defined in \cref{sec:labelling}; and, where the model family allows it, a regression head and a classification head trained together, the regression loss providing a training signal on every sample when high levels are rare. Each condition is evaluated on the targets where its label exists, and the overall alert on the targets where both exist. The horizon is the next reading, 12~h ahead, with longer lead times for H2 (\cref{sec:horizon}).
+
+\subsubsection{The label}\label{sec:label-design}\label{sec:two-labels}
+
+The four risk levels---stable, moderate, high, critical---are ordered. A standard multi-class loss would treat predicting ``critical'' for a stable patient as no worse than predicting ``moderate''; the value forecast carries the order naturally, and the classification formulation must use an ordinal loss. Two label sources are reported separately: the rule-derived label, available for every sample and used as the primary endpoint, and the physician's relabelling of a sample of Douala readings (\cref{sec:labelling}), which does not derive from the thresholds and is used as a secondary endpoint. Once the system is deployed, the clinician verdicts of the event record (\cref{sec:record-schema}) will provide a third, larger source. The prevalence of each level at the targets is measured before any balancing and reported with the results. Among inpatients the alert (high or critical) is frequent: 17\% of haemodynamic targets in the eICU demonstration subset and 23\% in Douala, 29\% and 59\% of glycaemic targets. No source gives the corresponding prevalence among outpatients followed at home, so the sizing of a home deployment (\cref{sec:alert-volume}) uses $\pi = 0.02$ for critical readings as an explicit planning assumption, and shows how the conclusions change with $\pi$ (\cref{fig:ppv-prevalence}).
+
+\subsection{Training and evaluation}\label{sec:evaluation}
+
+Models are trained and evaluated under a protocol fixed in advance, with metrics suited to rare events.
+
+\subsubsection{Training protocol}\label{sec:training}\label{sec:cv-structure}\label{sec:repeats}\label{sec:xgb-config}\label{sec:lstm-config}
+
+All constraints combine into a nested cross-validation on the development data (\cref{fig:nested-cv}). Five outer folds estimate performance; they are grouped by \emph{hospital}, so that every test fold contains hospitals the model has never seen. This internal--external validation estimates how a model transfers across sites before it meets the Douala charts \parencite{steyerberg2016}. Inside each outer training set, four inner folds, grouped by patient, select the window length and the hyperparameters; every step that learns from the data is fitted there and nowhere else. Five outer folds leave about forty hospitals of the full database, and about 37 of the demonstration subset, in each test fold; four inner folds keep three quarters of the outer training set for fitting while bounding the cost of the search. Selecting a model on the same folds that estimate its performance biases the estimate upwards, and the bias grows with the number of configurations tried \parencite{cawley2010}; the outer test fold is therefore used once, and the size of the search is reported. eICU does not release calendar dates, so folds cannot be ordered in time across patients; within a patient, the embargo of \cref{sec:windows} already prevents any look-ahead.
+
+The whole procedure is repeated three times with different fold assignments, a number set by the cost of the search, and the mean and spread across repetitions are reported. Two models evaluated on the same folds are compared with the corrected resampled $t$ test, which accounts for the overlap between training sets; a plain test across repetitions treats them as independent and overstates significance \parencite{nadeau2003}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize]
+  \node[anchor=east] at (-0.2,2.2) {outer};
+  \foreach \i in {0,...,4} {
+    \pgfmathsetmacro{\xa}{\i*2.1}
+    \ifnum\i=2
+      \fill[cAfrica!25] (\xa,1.9) rectangle (\xa+1.9,2.5);
+      \node at (\xa+0.95,2.2) {test};
+    \else
+      \fill[cRef!18] (\xa,1.9) rectangle (\xa+1.9,2.5);
+      \node at (\xa+0.95,2.2) {train};
+    \fi
+    \draw (\xa,1.9) rectangle (\xa+1.9,2.5);
+  }
+  \node[anchor=west] at (10.7,2.2) {grouped by hospital};
+  \draw[-{Stealth[length=2mm]},thick] (5.0,1.75) -- (5.0,1.15);
+  \node[anchor=west] at (5.15,1.45) {the training hospitals are split again};
+  \node[anchor=east] at (-0.2,0.6) {inner};
+  \foreach \i in {0,...,3} {
+    \pgfmathsetmacro{\xb}{\i*2.1}
+    \ifnum\i=1
+      \fill[cGrey!35] (\xb,0.3) rectangle (\xb+1.9,0.9);
+      \node at (\xb+0.95,0.6) {validation};
+    \else
+      \fill[cRef!12] (\xb,0.3) rectangle (\xb+1.9,0.9);
+      \node at (\xb+0.95,0.6) {train};
+    \fi
+    \draw (\xb,0.3) rectangle (\xb+1.9,0.9);
+  }
+  \node[anchor=west,align=left] at (8.6,0.6) {grouped by patient:\\ window, hyperparameters,\\ calibration, thresholds};
+\end{tikzpicture}
+\caption{Nested cross-validation on the development data, repeated with different fold assignments.}\label{fig:nested-cv}
+\end{figure}
+
+After the cross-validation, each retained configuration is refitted on all the development data, with the window length and hyperparameters chosen by the same inner procedure, and applied once to the Douala charts. Nothing is tuned on them. Their confidence intervals come from a bootstrap that resamples patients rather than samples, so that the correlation between the samples of a patient is kept \parencite{collins2016}.
+
+\subsubsection{Class imbalance}\label{sec:imbalance-training}
+
+Three mechanisms handle imbalance (\cref{tab:imbalance-mechanisms}). The first two are the most common; the third is often the best, because it leaves the probabilities intact and only moves the operating point, which is a clinical choice anyway (\cref{sec:volume-response}). Any resampling is applied inside the training fold: oversampling before the split places copies of the same window in training and test, and the resulting estimate is meaningless. A model trained with class weights has its probabilities corrected before use (\cref{sec:prior-correction}), and per-level measures are always reported, since an aggregate hides exactly the failure that matters.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Mechanisms for handling imbalance.}\label{tab:imbalance-mechanisms}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.6cm} X c@{}}
+\toprule
+\textbf{Mechanism} & \textbf{Implementation} & \textbf{Effect on probabilities} \\
+\midrule
+Class weighting & a weight $w$ on positive cases in the loss & distorted \\
+Oversampling & duplicate or synthesise positive cases & distorted \\
+Threshold adjustment & move the decision point only & none \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Metrics}\label{sec:metrics}\label{sec:accuracy-trap}\label{sec:positive-class}\label{sec:sens-spec}
+
+With prevalence $\pi$ of the positive class, accuracy decomposes as
+\begin{equation}
+  \text{Accuracy} = \pi\,\text{Sensitivity} + (1-\pi)\,\text{Specificity}.
+\end{equation}
+When positives are rare, a model that never predicts them reaches an accuracy of $1-\pi$. The logistic regression of \textcite{mendoza2025} illustrates this: its accuracy of 0.70 is close to the proportion of controlled patients, while its specificity is 0.03. The same study shows two reporting errors to avoid: the positive class is not the same in all rows of its results table, and the discussion attributes to random forest a sensitivity of 0.98 that is in fact its specificity; its true sensitivity is 0.51.
+
+The measures are therefore not chosen by habit but by explicit criteria \parencite{vancalster2025}. A measure is admissible when it has a clear focus---discrimination, calibration, overall accuracy of the probabilities, or clinical utility---and, for overall accuracy, when it is a proper scoring rule, one that a model cannot improve by reporting probabilities other than its own \parencite{gneiting2007}. Accuracy, the F1 score and recall at a fixed threshold fail these criteria: they are improper, depend on an arbitrary cut-point and mix statistical with decision performance. \Cref{tab:metrics} lists the admissible measures; the positive class is the alert (level high or critical), and every measure carries a patient-level confidence interval.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Admissible performance measures.}\label{tab:metrics}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{4.0cm} X@{}}
+\toprule
+\textbf{Focus} & \textbf{Measure} & \textbf{Why} \\
+\midrule
+Overall, four levels & ranked probability score \parencite{epstein1969} & proper for ordered levels: an error across several levels costs more than an adjacent one, which matters when a large share of labels lies near a threshold (\cref{sec:instruments-obtained}) \\
+Overall, alert & Brier score, log loss & proper \\
+Discrimination & area under the ROC curve of the alert & independent of any threshold; read against 0.5 \\
+Calibration & calibration intercept and slope \parencite{vancalster2019} & a probability shown to a clinician must mean what it says \\
+Clinical utility & net benefit and decision curve \parencite{vickers2006} & weighs true alerts against false alarms at the clinical threshold \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Selection cost.} In the inner folds, configurations are compared on one number. The four foci are standardised across the configurations of the same comparison---minus the median, divided by the scaled median absolute deviation, oriented so that lower is better---and combined:
+\begin{equation}
+  C = \sum_{m} w_m\, z_m, \qquad \sum_m w_m = 1,
+\end{equation}
+with one term per focus: the ranked probability score, the area under the curve, the calibration error $\lvert a\rvert + \lvert \ln b\rvert$ for intercept $a$ and slope $b$, and the net benefit averaged over the decision thresholds. The weights express how much each focus matters clinically, so they are a value judgement, not a parameter: tuning them on the data that judge the models would let any weighting favour a chosen model. They are fixed before the search, equal in the provisional analysis, and replaced by weights derived from the costs of errors stated by the partner physician. The decision threshold $p_t$ follows from the same statement: alerting at $p_t$ means accepting $(1 - p_t)/p_t$ false alarms per true alert, so the range $0.1 \leq p_t \leq 0.3$ used provisionally covers from nine to about two. A sensitivity analysis draws the weights at random, uniformly over all weightings, and reports how often the selected configuration remains first; a choice that changes with the weights is reported as such. The outer folds report every admissible measure separately, never the composite alone. Performance is also reported by sex and by age band (below and above 65~years), so that a model that serves one group worse than another is detected, and across the hospitals of the outer folds, whose spread measures the heterogeneity between sites; the Douala validation extends that comparison to a population the development data do not contain.
+
+\subsubsection{Interpretability}\label{sec:interpretability}\label{sec:imbalance}
+
+\Textcite{mendoza2025} explain their models with two complementary tools: permutation importance for random forest and SHAP values for XGBoost \parencite{lundberg2017}. Both ranked age and years since diagnosis first, but the rankings differ in detail. Two lessons follow. First, an explanation describes a model, not a phenomenon: explaining a model that does not discriminate, such as an XGBoost at an AUC of 0.54, has little value, so interpretability is reported only for a model whose discrimination has first been shown to be better than that of persistence. Second, importance measures are unreliable when features are correlated: permuting one of two correlated features lets the model fall back on the other, and gain-based importance credits whichever happens to be chosen at a split \parencite{strobl2008,gregorutti2017}. Systolic and diastolic pressure are strongly correlated here, so the features of one channel are permuted together, and the loss in ranked probability score measures what the channel contributes (\emph{grouped permutation importance}). The measure applies to every candidate, the deep models included, so all are explained on the same scale; for CatBoost, exact tree SHAP values are reported in addition, and the direction of their effects is checked against physiology.
+
+\subsubsection{From model output to risk score}\label{sec:risk-score}\label{sec:prior-correction}\label{sec:calibration}\label{sec:brier}
+
+Every candidate returns the probability of each of the four levels at the target; the alert probability is the sum of the probabilities of the high and critical levels. Under the value formulation, the forecast $\hat{x}$ of a channel becomes level probabilities through the spread of its forecast errors: the normal distribution $\mathcal{N}(\hat{x}, \hat{\sigma}^2)$ is integrated over the intervals of the threshold table (\cref{tab:label-thresholds}),
+\begin{equation}
+  P\bigl(s_c = k\bigr) = \sum_{[a,b) \,:\, \text{level } k} \Bigl[\Phi\Bigl(\frac{b - \hat{x}}{\hat{\sigma}}\Bigr) - \Phi\Bigl(\frac{a - \hat{x}}{\hat{\sigma}}\Bigr)\Bigr],
+\end{equation}
+where $\hat{\sigma}$ is the root mean squared error of out-of-fold forecasts on the training data, so that it measures generalisation rather than fit. Within a condition the worst channel governs, so $P(y \leq k) = \prod_c P(s_c \leq k)$, under the stated assumption that the errors of the channels are independent given the inputs. \Cref{fig:value-to-levels} illustrates the computation for one channel.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.86\textwidth, height=5.0cm,
+  xmin=80, xmax=200, ymin=0, ymax=0.046,
+  xlabel={forecast systolic pressure at the target (mmHg)}, ylabel={density},
+  ytick=\empty, axis lines=left, tick label style={font=\scriptsize}, label style={font=\scriptsize},
+  xtick={90,140,160,180}, extra x tick style={grid=none}]
+  % shaded bands under the forecast density
+  \addplot[draw=none, fill=cGrey!25, domain=91:139.99, samples=60] {exp(-((x-155)^2)/(2*10^2))/(10*sqrt(2*pi))} \closedcycle;
+  \addplot[draw=none, fill=cRef!25, domain=140:159.99, samples=60] {exp(-((x-155)^2)/(2*10^2))/(10*sqrt(2*pi))} \closedcycle;
+  \addplot[draw=none, fill=cAfrica!30, domain=160:179.99, samples=60] {exp(-((x-155)^2)/(2*10^2))/(10*sqrt(2*pi))} \closedcycle;
+  \addplot[draw=none, fill=cAfrica!70, domain=180:200, samples=40] {exp(-((x-155)^2)/(2*10^2))/(10*sqrt(2*pi))} \closedcycle;
+  \addplot[thick, domain=80:200, samples=200] {exp(-((x-155)^2)/(2*10^2))/(10*sqrt(2*pi))};
+  \draw[dashed] (axis cs:155,0) -- (axis cs:155,0.0399) node[above right, font=\scriptsize]{forecast $\hat{x} = 155$, error $\hat\sigma = 10$};
+  \draw[cGrey!80!black, densely dotted] (axis cs:90,0) -- (axis cs:90,0.046);
+  \draw[cGrey!80!black, densely dotted] (axis cs:140,0) -- (axis cs:140,0.046);
+  \draw[cGrey!80!black, densely dotted] (axis cs:160,0) -- (axis cs:160,0.046);
+  \draw[cGrey!80!black, densely dotted] (axis cs:180,0) -- (axis cs:180,0.046);
+  \node[font=\tiny, align=center] at (axis cs:115,0.030) {stable\\ $P = 0.07$};
+  \node[font=\tiny, align=center] at (axis cs:147,0.012) {moderate\\ $P = 0.62$};
+  \node[font=\tiny, align=center] at (axis cs:170,0.030) {high\\ $P = 0.30$};
+  \node[font=\tiny, align=center] at (axis cs:190,0.012) {critical\\ $P = 0.01$};
+  \node[font=\tiny, align=center] at (axis cs:85,0.020) {critical\\ ($\leq 90$)};
+\end{axis}
+\end{tikzpicture}
+\caption{From a value forecast to level probabilities, for one channel. The forecast error distribution is cut by the thresholds of \cref{tab:label-thresholds}; each area is the probability of a level. Within a condition, the channels are then combined by their worst level.}\label{fig:value-to-levels}
+\end{figure}
+
+When a classifier is trained with class weights $w_k$, its outputs overstate each level in proportion to its weight. The correction is exact by Bayes' rule:
+\begin{equation}
+  p_k = \frac{p'_k / w_k}{\sum_j p'_j / w_j},
+\end{equation}
+where $p'$ is the raw output. In the two-class case with the conventional weight $w = (1-\pi)/\pi = 49$ at $\pi = 0.02$, a raw output of 0.5 corresponds to a true probability of exactly 0.02, the base rate: a clinician shown 0.5 would read a risk twenty-five times too high. The correction is applied to every weighted model, and whether weighting helps at all is a training hyperparameter of the search.
+
+All candidates are fitted with proper losses---the log-likelihood of the ordered levels, or squared error for the value forecasts---so their probabilities are not recalibrated during development; calibration is assessed instead, with the intercept and slope of \cref{tab:metrics} and a calibration curve of four or five bins with confidence intervals \parencite{vancalster2019}. The Brier score is always reported next to the score of a model predicting the base rate for everyone, $\pi(1-\pi)$. In external validation the prevalence of the alert differs between United States intensive care and Douala wards, which shifts calibration-in-the-large even for a model that transfers well; performance is therefore reported as is, and again after updating the intercept alone on the Douala data, the lightest of the updating methods \parencite{janssen2008}. Only the first is a test of transportability; the second shows what a local recalibration would recover.
+
+\subsubsection{Thresholds and the three levels}\label{sec:tiers}\label{sec:threshold-selection}\label{sec:rule-floor}
+
+The three levels need two cut-points on the calibrated score. The yellow level costs the patient a verification profile and costs the clinician nothing, so many false alarms are acceptable and its threshold is low; the red level costs clinician time, so its threshold is higher. Each cut-point is a decision threshold in the sense of \cref{sec:metrics}: it follows from the number of false alarms accepted per true alert at that level, stated by the partner physician, and the net benefit at that threshold is reported with the decision curve. Provisionally, 0.1 and 0.3 are used: they lie within the range of thresholds over which decision curves are usually read \parencite{vickers2006}, and they correspond to accepting nine and about two false alarms per true alert. A threshold applied to calibrated probabilities needs no tuning on the data, so it is applied unchanged to every test fold. The alert volume at the chosen point is reported; what it implies for a home deployment is computed in \cref{sec:alert-volume}.
+
+The model may raise a level set by the guideline rule, but never lower it:
+\begin{equation}
+  \text{level}_{\text{final}} = \max\Bigl(\text{level}_{\text{rule}}(x_{\text{last}}),\ \text{level}_{\text{model}}\bigl(s(\mathbf{v})\bigr)\Bigr),
+\end{equation}
+with green $\prec$ yellow $\prec$ red. A patient at 185/110~mmHg is red whatever the model says; the best model in the literature misses half of the positive cases; and if the model fails entirely, the system falls back to the standard of care rather than to nothing.
+
+\subsubsection{Reporting and pre-registration}\label{sec:reporting-prereg}\label{sec:prereg}\label{sec:reporting}
+
+\Cref{tab:model-reporting} lists what the experimental part reports. Five choices are also fixed now, before the test data are seen: the admissible measures of \cref{tab:metrics}, with the ranked probability score as the primary overall measure; the selection cost and its weights; the primary comparison, every candidate against the guideline rule and persistence at the same lead time, no model being favoured in advance; the threshold rule, decision thresholds from the stated costs of errors; and the eight-feature primary set. Everything else is labelled secondary. This is the simplest answer to the question of whether a result was found or constructed.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{What the experimental part reports.}\label{tab:model-reporting}\label{tab:preprocessing-report}
+\begin{tabularx}{\textwidth}{@{}X >{\raggedright\arraybackslash}p{4.4cm}@{}}
+\toprule
+\textbf{Item} & \textbf{Reason} \\
+\midrule
+Patients, stays and hospitals per dataset; eligibility & representativeness \\
+Readings per patient; intervals per channel & sample size and window length \\
+Missingness per channel; flag counts & data quality \\
+Samples, patients, effective sample size; $p$ & \cref{sec:sampling,sec:budget} \\
+Prevalence of each level before balancing & \cref{sec:label-design} \\
+The full baseline ladder, including persistence & \cref{sec:baselines} \\
+Every admissible measure, per condition and per lead time & \cref{sec:metrics} \\
+Spread over the repetitions; corrected tests between models & \cref{sec:repeats} \\
+Brier score with base rate; calibration curve with intervals & \cref{sec:brier} \\
+Selection cost, its weights and the stability of the ranking & \cref{sec:metrics} \\
+Thresholds, how they were chosen, and the alert volume & \cref{sec:tiers} \\
+Seeds, library versions, search space and number of configurations & reproducibility \\
+Douala external validation, with patient-level intervals & \cref{sec:training} \\
+Secondary endpoint against the physician's relabelling & \cref{sec:two-labels} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Software tools}\label{sec:tools}
+
+The analysis is carried out in Python: pandas and NumPy for data handling; SciPy for the proportional-odds model and the statistical tests; scikit-learn for the random forest, principal components and the folds; CatBoost for gradient boosting; PyTorch for GRU-D and the LSTM; Optuna for the hyperparameter search; and SHAP for interpretability. The labelling rule, the quality controls, the sample-size criteria and the performance measures are implemented in the same package and checked by automated tests, including parity with the reference implementations where one exists. Configurations---thresholds, selection cost, search spaces---are kept in versioned files, separate from the code. The application stack is described in \cref{ch:architecture}. Code, configurations and the labelling rule are versioned; the Douala data are not published, for reasons of confidentiality, and the eICU data are available from PhysioNet under its own licence.
+
+\section{Ethical Considerations}\label{sec:ethics-considerations}
+
+The research involves real patients and their health data. Three principles apply: informed consent, anonymity and confidentiality, and compliance with the applicable ethical and legal standards.
+
+\paragraph{The data actually used.} The two datasets of this work raise different questions. The eICU data are de-identified and distributed by PhysioNet: the demonstration subset under an open database licence, the full database to credentialed researchers who have completed training in human research protection and signed its data use agreement \parencite{pollard2018,goldberger2000}; they are used within those terms and never combined with identifiable data. The Douala charts are a secondary use of routine records, transcribed without names; secondary use does not require individual consent where an ethics committee waives it, but it does require that committee's opinion and the written authorisation of the hospital. The measures below apply to the Douala data and to any prospective collection.
+
+\subsection{Anonymity and confidentiality}\label{sec:ethics}\label{sec:reident}
+
+Three commitments apply: the data are real and anonymised, direct identifiers are removed before processing, and the data are used with the agreement of the partner physician and the institution, for research only. Before collection, the following must also be documented: the ethics committee reference, the written institutional authorisation, the Cameroonian legal instrument governing health data (\cref{sec:legal}), individual consent if collection is prospective, the retention period and destruction date, and the region where the data are stored.
+
+Removing names is not enough to anonymise a small cohort. In thirty patients from one facility, the combination of exact age, sex, consultation dates and site identifies almost everyone. Four inexpensive measures reduce this risk before any analysis file is shared: age in five-year bands; calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses; exclusion of the site identifier; and banding of rare values. Calendar events shared by all patients, such as a medicine stock-out, matter for retention (\cref{sec:ltfu}), so they are kept in a separate file containing no patient data. Figures plot elapsed time, never real dates. The mapping between pseudonyms and identities stays with the partner physician and is never transferred.
+
+\subsection{Legal framework and informed consent}\label{sec:legal}\label{sec:gdpr}\label{sec:applicable-law}\label{sec:residency}\label{sec:consent}
+
+\Textcite{mihevc2025} complied with the European General Data Protection Regulation (GDPR) because their trial took place in the European Union. A system operated in Cameroon for Cameroonian patients falls outside its scope, and claiming GDPR compliance would hide the need to identify the law that does apply. The design therefore adopts the GDPR principles---lawfulness, purpose limitation, data minimisation, storage limitation, integrity and confidentiality---as a voluntary standard, while the applicable framework is Cameroonian. Personal data are governed by Law No.~2024/017 of 23 December 2024 on the protection of personal data \parencite{cameroon2024data}, in force since June 2026, which creates an independent supervisory authority and makes any transfer of data abroad conditional on an equivalent level of protection in the destination country and on the prior authorisation of that authority; the security of electronic communications falls under Law No.~2010/012 on cybersecurity and cybercrime \parencite{cameroon2010cyber}. Before deployment, these are completed by the institutional policy of the facility and the opinion of an ethics committee, a procedure already followed by \textcite{bediang2021} in Cameroon.
+
+Where the data are stored is also a legal choice, since the storage region determines which jurisdiction governs them. The database region is fixed at creation and cannot be changed without migrating the data, so it is chosen deliberately before the first write; under Law No.~2024/017, a region outside Cameroon is a transfer abroad that requires authorisation. The reference implementation of \textcite{efendi2025} stored its data in South-East Asia without discussion.
+
+Under a prospective collection, individual consent is required. The consent document covers eight points: what is collected; who sees it; where it is stored and under which law; how long it is kept; that participation does not replace clinical care; that withdrawal is possible; what happens to collected data on withdrawal; and that the link between pseudonym and identity stays with the partner physician. The order of work follows: the legal framework determines the storage region and the consent document, which must both precede collection.
+
+\section{Limitations of the Methodology}\label{sec:meth-limits}
+
+Eight limitations are known in advance; for each, its likely effect on the results is stated.
+\begin{enumerate}[nosep]
+  \item \textbf{Small local sample, foreign development data.} The 32 Douala patients are far below the minimum for developing a model (\cref{tab:sample-size}), so the models are developed on United States intensive-care data and only validated locally. Intensive-care patients are monitored and treated differently from ward patients, so performance in Douala may be lower than in development; that gap is a result, measured with wide confidence intervals.
+  \item \textbf{Inpatients, not home users.} The charts come from hospitalised patients, sicker than the outpatients a telemonitoring system serves, so high and critical levels are more frequent than at home; the models cannot be transferred to home data without revalidation.
+  \item \textbf{Data missing not at random.} Glucose is ordered for some patients and not for others, so its absence carries information. One label per condition prevents a missing value from being read as a normal one, but the features still see the pattern of measurement.
+  \item \textbf{Labels derived from thresholds.} The primary labels come from guideline rules, so the model may partly learn the rule; the physician's relabelling, immune to this, covers only a third of the Douala readings, and no clinician verdict exists in retrospective data.
+  \item \textbf{Unknown instruments and hand transcription.} The devices are not named, pulse is read from a graphical curve, and every value was copied by hand from paper. The controls of \cref{tab:quality-controls} catch impossible values, not plausible errors, and the label of a large share of readings near a threshold is uncertain (\cref{sec:instruments-obtained}).
+  \item \textbf{Diagnoses not recorded.} The admission diagnosis is not transcribed, so eligibility cannot be checked and the cohort may include patients with neither condition.
+  \item \textbf{Slot hours assumed.} The charts record morning and evening, not the hour; the eICU slots at 08:00 and 20:00 and their tolerance are assumptions, and the number of glycaemic samples depends strongly on the tolerance (\cref{sec:sampling}).
+  \item \textbf{Short follow-up and intermediate outcomes.} A hospital stay of a few days cannot measure clinical outcomes such as cardiovascular events; the evaluation concerns prediction, not clinical effectiveness.
+\end{enumerate}
+The quantitative assumptions on which the analysis rests, and what changes if they do not hold, are stated below.
+
+\subsection{Working assumptions}\label{sec:assumptions}
+
+A training protocol must name the quantities it rests on; \cref{tab:assumptions} lists them, with what changes if an assumption does not hold. The risk labels use the thresholds of \cref{tab:label-thresholds}, each stored with its source and edition (\cref{sec:threshold-table}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Working assumptions.}\label{tab:assumptions}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{4.2cm} X@{}}
+\toprule
+\textbf{Quantity} & \textbf{Value} & \textbf{If overturned} \\
+\midrule
+Local data & scenario~D, inpatient charts, two readings a day & home data (scenario~B) would require revalidation and a longer horizon \\
+Horizon & next reading, 12~h; 24 and 48~h for H2 & a sparser home protocol moves the horizon to days (\cref{sec:horizon}) \\
+Window $L$ & 24, 48, 72 or 96~h, searched & longer windows need longer stays \\
+Slots in eICU & 08:00 and 20:00, $\pm$ 2~h & glycaemic samples vary from 645 to 1\,983 (\cref{sec:sampling}) \\
+Effective sample size & Douala 72 and 53; eICU demonstration subset about 1\,290 and 250 & the parameter budget of \cref{sec:budget} \\
+Features $p$ & 8 primary, 16 extended & \cref{tab:feature-sets} \\
+Home prevalence $\pi$ & 0.02 for critical readings, planning assumption & alert volume and precision (\cref{sec:alert-volume}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Synthesis and Transition}\label{sec:meth-synthesis}
+
+\Cref{tab:meth-summary} summarises the methodological choices. Together they are designed to answer the research questions while avoiding the weaknesses identified in the literature: instruments whose type and tolerance are assessed, a forecasting task instead of label recovery, metrics and baselines suited to rare events, and an evaluation fixed before the data are seen.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Summary of the methodology.}\label{tab:meth-summary}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} X@{}}
+\toprule
+\textbf{Element} & \textbf{Choice} \\
+\midrule
+Type and approach & applied design-science research; experimental and descriptive; quantitative with clinical input \\
+Setting & ENSPD laboratory with a partner physician in a public hospital in Douala \\
+Population & adults with hypertension and/or type~2 diabetes; inpatients in the data used \\
+Data & eICU (training and comparison only); Douala inpatient charts (external validation only); Douala consultation records (descriptive) \\
+Instruments & unnamed electronic devices in the Douala wards, inferred from terminal digits; routine monitoring in eICU \\
+Sample & 32 Douala patients, 282 haemodynamic and 190 glycaemic samples; eICU harmonised to two slots a day \\
+Analysis & two-phase preprocessing; labels per condition from sourced thresholds; eight-feature primary set; proportional-odds logistic regression, random forest, CatBoost, value forecasts, GRU-D and masked LSTM \\
+Evaluation & nested cross-validation, outer folds by hospital and inner folds by patient, repeated three times; ranked probability score, discrimination, calibration and net benefit; comparison with persistence; external validation with intercept update \\
+Ethics & secondary use of de-identified data; ethics committee opinion and hospital authorisation; Cameroonian Law No.~2024/017 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Following the design-science approach, the results are presented in two stages. \Cref{ch:architecture} presents the first result, the telemonitoring system designed from the requirements of the literature, with the home protocol it is built for. The experimental results---description of the cohorts and evaluation of the predictive models against hypotheses H1 to H4---are presented in the following chapter.

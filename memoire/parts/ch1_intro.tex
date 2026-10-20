@@ -1,0 +1,38 @@
+%==========================================================================
+% CHAPTER 1 -- GENERAL INTRODUCTION
+%==========================================================================
+\chapter{General Introduction}\label{ch:intro}
+
+\section{Background and Motivation}\label{sec:intro-background}
+
+Hypertension is the leading modifiable risk factor for premature death worldwide. The first global report of the World Health Organization (WHO) devoted to the condition establishes that the number of adults aged 30--79 years living with hypertension doubled between 1990 and 2019, reaching 1.3 billion, that about 78\% of them live in low- and middle-income countries, and that elevated systolic blood pressure is responsible for an estimated 10.8 million deaths each year \parencite{who2023hypertension}. Sub-Saharan Africa combines a high and increasing prevalence with persistently poor detection, treatment and control \parencite{gafane2024}: in the WHO African Region, only 12\% of hypertensive adults have their blood pressure controlled.
+
+Diabetes compounds this burden. In Africa, more than one person with diabetes in two is also hypertensive, and the highest sub-regional estimate concerns Central Africa, the region in which the present work is deployed \parencite{hinneh2023}. The two conditions share their risk factors, aggravate each other, and call for the same kind of care: repeated measurement and treatment adjustment sustained over decades.
+
+At the same time, the technological environment of the region is changing. Mobile telephony is now widespread and health technology is among the leading digital investment sectors in sub-Saharan Africa \parencite{segun2025}, and a controlled study in Cameroonian district hospitals has shown that remote clinician support is feasible in primary care \parencite{bediang2021}. A care model that fails at follow-up, and an environment in which remote follow-up has become conceivable: these two observations motivate the present work.
+
+\section{Problem Statement}\label{sec:intro-problem}\label{sec:scope-problem}
+
+Care for hypertension and diabetes in Cameroon is episodic. Blood pressure and blood glucose are measured at consultations that occur a few times a year, recorded on paper or in fragmented registers, and rarely assembled into a history that a clinician can read as a trend. Yet diagnosis and treatment adjustment are longitudinal acts: the WHO protocol requires measurements repeated over several visits and monthly follow-up until the blood pressure target is reached \parencite{who2021guideline,who2023hypertension}. The consequences are loss to follow-up, which often affects half of patients or more in resource-limited settings \parencite{who2023hypertension}, and therapeutic inertia, the failure to intensify treatment when blood pressure remains uncontrolled.
+
+Telemonitoring could close this gap, but three obstacles stand in the way. First, the deployment environment imposes technological, organisational, financial, individual, cultural and regulatory barriers \parencite{dodoo2022}, and the comparative evidence on telemedicine adoption in the region comes from South Africa, Kenya and Nigeria rather than from Central Africa \parencite{agbeyangi2025}. Second, the clinical evidence that telemonitoring improves blood pressure and glycaemic control comes almost entirely from high-income settings. Third, a system that processes real patient data through a mobile and cloud pipeline must earn the trust of patients in the confidentiality and security of their data \parencite{alhammad2024}.
+
+The research question addressed in this thesis is therefore the following: \emph{how can consultation data, home measurements and mobile sensor data be integrated into a telemonitoring system that detects the deterioration of patients with hypertension and diabetes early enough to support a clinical decision, under the infrastructural, organisational and regulatory constraints of the Cameroonian context?} The specific research questions and hypotheses that follow from the analysis of the literature are stated in \cref{sec:research-questions}.
+
+\section{Objectives}\label{sec:intro-objectives}
+
+The general objective is to design a telemonitoring system for patients with hypertension and type~2 diabetes that combines consultation data, home measurements and, where available, mobile sensor data, and that supports the clinician through risk assessment and alert prioritisation. The specific objectives are:
+\begin{enumerate}[nosep]
+  \item to synthesise the evidence on the burden of the two conditions, the effectiveness of telemonitoring, the enabling technologies, the predictive methods and the deployment constraints (\cref{ch:background}), and to derive from it the requirements of the system (\cref{ch:techsota});
+  \item to define a documented data schema, preprocessing pipeline and labelling rule, to develop and compare predictive risk models on public multi-centre data, and to validate them externally on Cameroonian patients (\cref{ch:data});
+  \item to design the architecture of the system: acquisition, backend, patient application and clinician dashboard (\cref{ch:architecture}).
+\end{enumerate}
+
+\section{Scope and Data Actually Used}\label{sec:intro-scope}
+
+The system is designed for home follow-up, but the data available to this work were not collected at home. Three sources are used, each for one purpose. The public eICU Collaborative Research Database, which records intensive-care stays in United States hospitals, is used only to train and compare the predictive models. The observation charts of 32 patients hospitalised in Douala, with blood pressure, pulse and capillary glucose recorded morning and evening, are used only to validate those models externally, that is, to measure whether models trained elsewhere transfer to Cameroonian patients. The consultation records of 58 outpatients, most of whom have a single reading, describe the fragmentation of follow-up but cannot support longitudinal modelling. No home self-measurements or sensor data were collected: the home protocol and the acquisition hardware are designed and specified (\cref{ch:architecture}) but not evaluated on patients. The predictive results therefore concern hospitalised patients, and their transfer to home data remains to be established.
+
+\section{Organisation of the Thesis}\label{sec:intro-organisation}
+
+\Cref{ch:background} reviews the literature: it defines the key concepts, analyses previous work in six themes, identifies the gaps and derives the research questions and hypotheses. \Cref{ch:methodology} describes the methodology: type of research, setting and population, data, sampling, analysis methods, ethics and limitations. \Cref{ch:architecture} presents the design of the telemonitoring system, the first result of the design approach, together with the home protocol it is built for. The experimental results are presented in the following chapter. The references cited throughout are listed in the bibliography at the end of the document.
+

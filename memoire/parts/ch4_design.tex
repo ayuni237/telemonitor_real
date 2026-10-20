@@ -1,0 +1,1197 @@
+%==========================================================================
+% CHAPTER 4 -- SYSTEM DESIGN
+%==========================================================================
+\chapter{Design and Architecture of the Telemonitoring System}\label{ch:architecture}\label{ch:design}
+
+This chapter presents the telemonitoring system, the first result of the design approach of \cref{sec:research-type}. \Cref{ch:techsota} derives the requirements of the system from the literature, and \cref{sec:home-protocol} the home protocol it is built for. \Cref{sec:architecture} fixes the layers, the data flow, the latency budget, the failure modes and the security measures; \cref{sec:iot} describes the hardware prototype and its transport protocol, \cref{sec:backend} the backend as built, and \cref{sec:interfaces} the patient application, the health assistant and the clinician dashboard. Throughout, what is built is distinguished from what is specified (\cref{tab:build-status}). \Cref{sec:arch-summary} summarises what is original and what remains open.
+
+\section{Requirements Derived from the Literature}\label{ch:techsota}\label{sec:design-req}
+
+The requirements on measurement, acquisition and modelling were implemented in the methodology (\cref{ch:methodology}). This section states the requirements on the architecture and on decision support, before \cref{tab:requirements} gathers all of them.
+
+\subsection{Architectural requirements}\label{sec:cloud}
+
+The architecture must turn isolated readings into series, place a first filter close to the patient, survive intermittent connectivity and keep the data under a known jurisdiction.
+
+\subsubsection{From isolated readings to a series}\label{sec:act-series}\label{sec:hearts-spec}
+
+A paper register records that a consultation took place; it does not record a series. Yet the same reading means different things in different series (\cref{fig:act-series}): 152~mmHg after a stable series around 135~mmHg calls for a check, whereas 152~mmHg at the end of a three-month drift calls for treatment intensification. The system must therefore store and display trajectories, not isolated values.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.88\textwidth,height=5.6cm,xlabel={Week},ylabel={Systolic pressure (mmHg)},
+  xmin=0,xmax=11,ymin=125,ymax=158,xtick={0,2,...,10},grid=major,grid style={gray!20},
+  legend pos=north west,legend style={font=\footnotesize}]
+\addplot[thick,cRef,mark=*] coordinates {(0,136)(1,134)(2,137)(3,135)(4,133)(5,136)(6,135)(7,134)(8,137)(9,135)(10,136)(11,152)};
+\addplot[thick,cAfrica,mark=square*] coordinates {(0,131)(1,133)(2,132)(3,136)(4,137)(5,140)(6,141)(7,144)(8,146)(9,148)(10,150)(11,152)};
+\addplot[dashed,cGrey,no markers,domain=0:11]{140};
+\legend{Stable series with isolated excursion,Progressive drift,Threshold (140~mmHg)};
+\end{axis}
+\end{tikzpicture}
+\caption{Same last value, different meaning (synthetic illustration). A single reading of 152~mmHg is a check-up case in one series and an intensification case in the other.}\label{fig:act-series}
+\end{figure}
+
+Two further requirements follow. First, information silos re-form in a digital environment as soon as each device produces its own format \parencite{liu2025review}; the system must use one documented data schema. Second, electronic records contain duplicates, unit errors and values carried over identically from one visit to the next; the last is the most dangerous for a trend model, because it simulates a stability that did not occur, and it must be detected explicitly.
+
+Finally, the WHO defines what a hypertension information system must produce: the core HEARTS indicators (\cref{tab:hearts}). Two of the four are temporal and can only be computed from a dated history; the system must compute them automatically.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Core HEARTS programme indicators \parencite{who2023hypertension}.}\label{tab:hearts}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.6cm} X c@{}}
+\toprule
+\textbf{Indicator} & \textbf{Definition} & \textbf{Temporal} \\
+\midrule
+Programme coverage & hypertensive patients registered in the catchment area & no \\
+Blood pressure control & registered patients with BP $<$ 140/90~mmHg over the last three months & yes \\
+Retention in care & registered patients with a visit in the last three months, among those registered at least twelve months ago & yes \\
+Availability & essential medicines and measurement devices available & no \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{A layered architecture with an edge tier}\label{sec:multitier}\label{sec:edge-triage}
+
+\Textcite{mucchi2021} define a reference architecture in four layers: a BODY layer of sensors worn by the patient; an ENVIRONMENT layer of ambient sensors; an EDGE layer, typically a smartphone, that performs short-term analysis, detects anomalous values and raises a first warning; and a CLOUD layer that stores the data, performs long-term analysis and manages alerts. The other architectures map onto it (\cref{tab:layer-mapping}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Mapping of the reviewed architectures onto the layers of \textcite{mucchi2021}.}\label{tab:layer-mapping}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{\textcite{mucchi2021}} & \textbf{\textcite{efendi2025}} & \textbf{\textcite{liu2025review}} & \textbf{\textcite{yazdani2018}} \\
+\midrule
+BODY & physical layer & access layer & --- \\
+ENVIRONMENT & --- & access layer & --- \\
+EDGE & \emph{absent} & data transfer only & \emph{absent} \\
+CLOUD & network layer & storage, processing, analysis & database layer \\
+Services and alerts & application layer & application service, decision support & user and function layers \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The architectures agree on sensing, transport, storage and presentation; they disagree on the edge. This disagreement matters. Without an edge, every reading travels to the cloud and every decision is taken there; with an edge, readings can be checked, aggregated and given a first warning locally, without a round trip. Where some 550 million people lack reliable electricity and internet access, the edge is a precondition rather than an optimisation.
+
+The edge--cloud split is also exactly the triage the clinical analysis requires (\cref{fig:triage-cascade}): the edge resolves the abundant routine readings, the cloud examines the series, and only a few cases reach the scarce clinician. At the clinician's end, \textcite{yazdani2018} add two useful elements: patients are listed by priority rather than chronologically, and the checkup period of each patient is a configurable parameter, which turns the WHO follow-up intervals (\cref{sec:followup-requires}) into a setting.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  st/.style={draw,rounded corners,align=center,font=\footnotesize,minimum height=1.4cm},
+  ar/.style={-{Stealth[length=3mm]},very thick}]
+  \node[st,fill=cGrey!12,minimum width=3.4cm] (e) {\textbf{Edge}\\ current reading\\ \scriptsize abundant, immediate};
+  \node[st,fill=cRef!14,minimum width=2.9cm,right=1.5cm of e] (c) {\textbf{Cloud}\\ the series\\ \scriptsize costly, considered};
+  \node[st,fill=cAfrica!16,minimum width=2.2cm,right=1.5cm of c] (d) {\textbf{Clinician}\\ \scriptsize scarce};
+  \draw[ar] (e) -- node[above,font=\scriptsize]{pre-alert} node[below,font=\scriptsize]{most stop here} (c);
+  \draw[ar] (c) -- node[above,font=\scriptsize]{alert} node[below,font=\scriptsize]{few reach here} (d);
+\end{tikzpicture}
+\caption{Triage as three filters in series, each costlier and scarcer than the previous one.}\label{fig:triage-cascade}
+\end{figure}
+
+\subsubsection{Communication protocols}\label{sec:protocols-cloud}
+
+Upstream traffic consists of small, frequent messages from constrained devices over unreliable links; downstream traffic is request-driven and must serve web clients. Each link therefore uses a different protocol (\cref{tab:protocol-selection}). MQTT is a publish--subscribe protocol with a single long-lived connection, minimal overhead and delivery guarantees, which suits the upstream profile of a constrained device; no reviewed source, however, measures its advantage over HTTP. For a smartphone, the client library of the database already provides a local queue, retries and delivery once connectivity returns over HTTPS, so MQTT is kept for the sensor prototype only. These transport and storage choices are engineering choices, made by criteria (offline operation, authentication, cost, effort) rather than by a benchmark: the benchmark of this work concerns the predictive models. JSON is preferred to the XML used by \textcite{yazdani2018}, because it is native to the storage layer and to mobile runtimes; their idea of routing messages by metadata is kept.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Protocol selected for each link.}\label{tab:protocol-selection}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}p{3.0cm} X@{}}
+\toprule
+\textbf{Link} & \textbf{Protocol} & \textbf{Reason} \\
+\midrule
+Device $\rightarrow$ phone & Bluetooth Low Energy & validated devices transmit without manual entry \\
+Sensor $\rightarrow$ cloud & MQTT over TLS & constrained device, unreliable link, small payloads \\
+Phone $\rightarrow$ cloud & database client over HTTPS & local queue and retry built in \\
+Cloud $\rightarrow$ client & HTTP/REST & interoperability, request-driven access \\
+Cloud $\rightarrow$ client, live & WebSocket & immediate delivery of alerts \\
+Payload format & JSON & native to storage and runtime \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Storage and synchronisation}\label{sec:backend-req}\label{sec:schema}\label{sec:offline}\label{sec:alerting}
+
+Four requirements follow from the storage technology and the deployment context.
+\begin{itemize}[nosep]
+  \item \textbf{Store series, not current values.} The database of \textcite{efendi2025} holds one current value per parameter; computing a seven-day mean would be impossible. Records must be keyed by measurement time so that a time window can be read with a single range query.
+  \item \textbf{Validate at write time.} The record structure is fixed, so server-side validation rules can reject unit errors and impossible values before they enter the record.
+  \item \textbf{Work offline.} Local storage with automatic merge on reconnection turns lost readings into delayed readings, which removes one cause of missing data.
+  \item \textbf{Keep two timestamps.} Deferred synchronisation separates the time of measurement from the time of arrival, sometimes by days. Every temporal feature must use the measurement time; a model trained on arrival order would learn the connectivity pattern, which follows geography and income, rather than the physiology.
+\end{itemize}
+Alerts are raised at two levels: a local pre-alert at the edge on the current reading, and a considered alert in the cloud on the series. This mirrors the two-stage clinical protocol of \cref{sec:triage}; the engineering architecture and the clinical protocol agree.
+
+\subsubsection{What the sources leave open}\label{sec:cloud-gaps}\label{sec:arch-validation}\label{sec:usability-result}
+
+None of the reviewed architectures reports its operating cost, discusses dependence on a proprietary cloud provider, or justifies where the data are stored; all three must be addressed here, given the funding failures of \cref{sec:regional-landscape}. None has been validated on real patients in routine care either (\cref{tab:arch-status}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Implementation and validation status of the reference architectures.}\label{tab:arch-status}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Source} & \textbf{Implementation} & \textbf{Validation} \\
+\midrule
+\textcite{yazdani2018} & design only (UML) & none \\
+\textcite{liu2025review} & survey diagram & none \\
+\textcite{efendi2025} & hardware and cloud & six volunteers, ten minutes, seated \\
+\textcite{mucchi2021} & mobile application and cloud repository & ten nurses, twenty days, simulated patients \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The usability test of \textcite{mucchi2021} contains a result worth keeping: usability was rated well, but half of the respondents rated the system's efficiency for managing chronic disease as sufficient or below, and two-thirds rated their own digital skills only fair. The nurses asked for faster alert notification and for immediate feedback from the doctor when an alert is raised. Digital competence of front-line staff is a binding constraint, and an alert is only useful if it reaches a decision-maker.
+
+%##########################################################################
+
+\subsection{Decision-support requirements}\label{sec:cdss}
+
+Decision support must combine guideline rules with a learned model, keep the clinician in charge of every therapeutic decision, and size the number of alerts to the clinician time available.
+
+\subsubsection{Hybrid decision support}\label{sec:dsts-def}\label{sec:rule-model}\label{sec:ts-diagnostics}
+
+\Textcite{yazdani2018} define a decision-support telemonitoring system as the combination of telemonitoring with clinical decision support, and justify it by the workload that large volumes of home data would otherwise impose on physicians. They also observe that most such systems are built for one disease and must be rebuilt for another; their answer is to separate the platform from the knowledge base, so that each disease has its own configurable rule set. For a system covering two conditions with two guideline sources, this separation is necessary.
+
+Three families of decision support exist (\cref{tab:cdss-families}). The proposed system is \emph{hybrid}: guideline rules provide a floor, and the learned model refines it. If the model is uncertain or fails, the system falls back to guideline conformity rather than to nothing.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Families of clinical decision support.}\label{tab:cdss-families}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Family} & \textbf{Basis} & \textbf{Strength} & \textbf{Weakness} \\
+\midrule
+Rule-based & guideline thresholds & transparent, needs no training data & no personalisation, no trend \\
+Model-based & learned from data & personalisation, trend detection & opaque, needs data, may not transfer \\
+Hybrid & rules as floor, model as refinement & guideline conformity plus personalisation & two components to validate \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\Textcite{liu2025review} add three techniques. Before choosing an algorithm, the series should be characterised (periodicity, drift, stationarity); because home readings are irregularly spaced, methods valid for uneven sampling must be used rather than resampling onto a grid (\cref{sec:irregular}). Anomalies can be flagged relative to each patient's own distribution, which gives the personalised threshold missing from the fixed protocol (\cref{sec:mad-shrinkage}). And model training (offline, in the cloud) is separated from detection (online, at reception).
+
+\subsubsection{The decision flow}\label{sec:decision-flow}
+
+The flow of \textcite{yazdani2018} contains three decision points. First, did the data arrive on schedule? If not, the patient receives repeated reminders. Second, is the patient normal or in alert? Third, in alert, the system proposes a prescription and the physician approves it, overrides it or requests a face-to-face consultation. The third point is the most important: the system proposes, the physician decides, and no prescription reaches the patient without a clinician. The first point is also essential: since loss to follow-up affects half of patients or more (\cref{sec:ltfu}), a system that reacts only to received data is blind to the patients most at risk. Silence must itself raise an alarm.
+
+Compared with the validated protocol of \textcite{mihevc2025}, this flow lacks the intermediate (yellow) level: every abnormal reading goes to a clinician. Combining the two, with the model placed on the verification profile, gives the flow adopted here (\cref{fig:decision-flow}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=0.45cm and 0.95cm,
+  b/.style={draw,rounded corners,align=center,font=\scriptsize,minimum height=0.8cm,minimum width=2.3cm},
+  d/.style={draw,diamond,aspect=2.2,align=center,font=\scriptsize,inner sep=0pt,fill=cGrey!12},
+  ar/.style={-{Stealth[length=2mm]},thick}]
+  \node[b,fill=cGrey!14] (r) {reading};
+  \node[d,right=of r] (rule) {rule};
+  \node[b,fill=green!14,above right=0.35cm and 0.9cm of rule] (g) {green:\\ record};
+  \node[b,fill=yellow!28,right=0.9cm of rule] (y) {yellow:\\ verification profile};
+  \node[b,fill=cAfrica!18,below right=0.35cm and 0.9cm of rule] (rd) {red:\\ escalate now};
+  \node[d,right=of y] (mod) {model\\ on series};
+  \node[b,fill=cRef!14,right=0.9cm of mod] (esc) {prioritised\\ queue};
+  \node[b,fill=cGrey!20,right=0.9cm of esc] (phy) {physician:\\ approve / override /\\ consult};
+  \draw[ar] (r) -- (rule);
+  \draw[ar] (rule) -- (g);
+  \draw[ar] (rule) -- (y);
+  \draw[ar] (rule) -- (rd);
+  \draw[ar] (y) -- (mod);
+  \draw[ar] (mod) -- node[above,font=\tiny]{persists} (esc);
+  \draw[ar] (mod.north) |- node[near end,above,font=\tiny]{resolves} (g.east);
+  \draw[ar] (rd.east) -| ([xshift=0.45cm]rd.east) |- (esc.south);
+  \draw[ar] (esc) -- (phy);
+  \draw[ar,dashed,cAfrica] (phy.north) -- ++(0,0.75) -| node[near start,above,font=\tiny,text=cAfrica]{decision stored as a label} (mod.north east);
+\end{tikzpicture}
+\caption{The decision flow adopted: rule-based triage, model-based assessment of the verification profile, prioritised escalation and clinician decision. A parallel branch raises reminders when no data arrive.}\label{fig:decision-flow}
+\end{figure}
+
+\subsubsection{The arithmetic of alert volume}\label{sec:alert-volume}\label{sec:volume-arithmetic}\label{sec:frequency-decides}\label{sec:volume-response}
+
+This subsection applies a standard result, the dependence of precision on prevalence, to the sizing of a telemonitoring service; none of the reviewed telemonitoring sources makes this calculation. Consider $N$ patients sending $m$ readings a week, a proportion $\pi$ of which genuinely need attention, and a classifier of sensitivity $\mathrm{Se}$ and specificity $\mathrm{Sp}$. The number of alerts per week and the proportion of them that are genuine (the positive predictive value) are
+\begin{equation}
+  A = N m \bigl[\pi\,\mathrm{Se} + (1-\pi)(1-\mathrm{Sp})\bigr],
+  \qquad
+  \mathrm{PPV} = \frac{\pi\,\mathrm{Se}}{\pi\,\mathrm{Se} + (1-\pi)(1-\mathrm{Sp})}.
+\end{equation}
+The false-alert term $(1-\pi)(1-\mathrm{Sp})$ does not depend on sensitivity: it is the large volume of normal readings multiplied by the false-positive rate. Applied to the values of \textcite{mendoza2025} at $\pi = 0.303$, these formulas reproduce their reported precisions (0.92 against 0.94 for random forest, 0.40 against 0.42 for XGBoost), which confirms them. In telemonitoring, however, critical readings are rare. At $\pi = 0.02$, the precision falls sharply (\cref{tab:ppv,fig:ppv-prevalence}): reaching a precision of 80\% requires a specificity above 99.5\%, whereas the best model in the reviewed literature reaches 0.98 at a prevalence fifteen times higher.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Precision and false alerts at a prevalence of 2\%.}\label{tab:ppv}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Se} & \textbf{Sp} & \textbf{PPV} & \textbf{False alerts per 1\,000 readings} \\
+\midrule
+0.51 & 0.98 & 0.34 & 19.6 \\
+0.90 & 0.98 & 0.48 & 19.6 \\
+0.90 & 0.99 & 0.65 & 9.8 \\
+0.90 & 0.995 & 0.79 & 4.9 \\
+0.90 & 0.999 & 0.95 & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.78\textwidth,height=5.4cm,
+  xlabel={Prevalence of genuinely critical readings, $\pi$},
+  ylabel={Positive predictive value},
+  xmin=0,xmax=0.35,ymin=0,ymax=1.02,
+  grid=major,grid style={gray!20},
+  legend pos=south east,legend style={font=\scriptsize}]
+\addplot[thick,cAfrica,domain=0.002:0.35,samples=200]{0.9*x/(0.9*x + (1-x)*0.02)};
+\addplot[thick,cRef,domain=0.002:0.35,samples=200]{0.9*x/(0.9*x + (1-x)*0.01)};
+\addplot[thick,cGrey,domain=0.002:0.35,samples=200]{0.9*x/(0.9*x + (1-x)*0.005)};
+\addplot[dashed,black,domain=0:0.35,samples=2]{0.8};
+\draw[dotted,thick,cGrey] (axis cs:0.02,0) -- (axis cs:0.02,1.02);
+\legend{$\mathrm{Sp}=0.98$,$\mathrm{Sp}=0.99$,$\mathrm{Sp}=0.995$}
+\end{axis}
+\end{tikzpicture}
+\caption{Positive predictive value against prevalence at a sensitivity of 0.90. The dashed line marks a precision of 80\%; at $\pi = 0.02$ it is reached only beyond a specificity of 0.995.}\label{fig:ppv-prevalence}
+\end{figure}
+
+The multiplier $Nm$ depends on the sampling frequency, which varies by several orders of magnitude between designs (\cref{tab:alert-designs}). Thirty patients on the protocol of \textcite{mihevc2025} generate about two false alerts a week, which is manageable; the same specificity applied to a 1~Hz sensor stream generates more than eleven thousand false alerts per patient per week, whatever the quality of the model. High-frequency data can be summarised into features, but they cannot be alerted on reading by reading.
+
+\begin{table}[htbp]
+\centering\small
+\caption{False alerts by acquisition design, at $\mathrm{Sp} = 0.98$ and $\pi = 0.02$.}\label{tab:alert-designs}
+\begin{tabularx}{\textwidth}{@{}X c c@{}}
+\toprule
+\textbf{Design} & \textbf{Readings per patient per week} & \textbf{False alerts per patient per week} \\
+\midrule
+Protocol of \textcite{mihevc2025}: 2 BP + 1 glucose & 3 & 0.06 \\
+Manual entry, daily & 7 & 0.14 \\
+Continuous sensor at 1~Hz \parencite{efendi2025} & 604\,800 & 11\,854 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Four design responses follow. Alerts are raised on aggregates over a window (a seven-day mean), except at the red level, where one extreme value justifies escalation. The yellow level acts as a volume regulator: averaging the fourteen readings of a seven-day profile makes the separation between normal and abnormal patients 3.7 times larger than for one reading (\cref{sec:variability}), so higher specificity becomes reachable. Every performance figure is accompanied by the alert volume it implies. And the decision threshold is a configurable clinical parameter, so that a service with one physician and a service with five can run the same system at different sensitivities.
+
+\subsubsection{Feedback loops and the limits of automation}\label{sec:feedback}\label{sec:closed-loop}\label{sec:safety}
+
+\paragraph{Towards the physician.} The system presents a proposal that the physician approves or overrides, and every event is recorded \parencite{yazdani2018}. Three findings support this pattern: it addresses therapeutic inertia by presenting the next protocol step when the data show that the target is missed (\cref{sec:inertia}); remote expertise changed the local diagnosis in 46.2\% of cases in Cameroon \parencite{bediang2021}; and the effect of the only trial in the target population came from treatment adjustment, not behaviour change \parencite{mihevc2025}.
+
+\paragraph{Towards the patient.} Behaviour change techniques are implemented because they are cheap (reminders, feedback, scheduling) and because their number correlates with the effect \parencite{zhou2024}; at least eleven are targeted (\cref{sec:bct-mapping}). They are not, however, where the clinical effect comes from.
+
+\paragraph{Closing the loop.} Every physician decision is also a label: an override of a red alert is a false positive confirmed by a clinician, an approval a true positive. Recording these decisions systematically builds, over months, a set of clinically adjudicated labels that does not depend on the thresholds the model sees---the way out of the circularity of \cref{sec:task-not-algo}, and a source of locally valid training data. It costs nothing to design in from the start and cannot be reconstructed afterwards.
+
+\paragraph{Limits of automation.} \Cref{tab:automation-boundary} fixes what the system may do alone. Two reasons justify the boundary: the best model in the literature misses half of the positive cases, and lifestyle advice, the safest thing to automate, is also the least consequential (about 1.3~mmHg of systolic reduction).
+
+\begin{table}[htbp]
+\centering\small
+\caption{The boundary of automation.}\label{tab:automation-boundary}
+\begin{tabularx}{\textwidth}{@{}X X@{}}
+\toprule
+\textbf{May be automated} & \textbf{Must pass a clinician} \\
+\midrule
+Measurement reminders & any dose or medication change \\
+Return of the reading and its level & any instruction to stop a treatment \\
+Trend display & any diagnosis \\
+Generic lifestyle guidance & any referral \\
+Scheduling and non-transmission follow-up & any urgency-graded instruction beyond ``contact your health centre'' \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Interoperability}\label{sec:interop}
+
+Diagnoses are coded in ICD and clinical findings in SNOMED CT, so that the record can later be reconciled with a hospital information system. Every clinical rule is stored with the guideline edition and date it comes from, since the guidelines will be revised and a rule base without versions cannot be audited. The United States regulations listed by \textcite{liu2025review} do not apply in Cameroon; the applicable framework is discussed in \cref{sec:legal}.
+
+%##########################################################################
+
+\subsection{Summary of Requirements}\label{sec:requirements-summary}\label{sec:spec13}\label{sec:spec21}\label{sec:spec22}\label{sec:spec23}\label{sec:spec24}
+
+\Cref{tab:requirements} gathers the requirements established in this chapter. Those on modelling are implemented in the methodology (\cref{ch:methodology}); those on measurement and acquisition in the home protocol (\cref{sec:home-protocol}); the others in the rest of this chapter.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Requirements derived from the literature.}\label{tab:requirements}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.2cm} X >{\raggedright\arraybackslash}p{3.5cm}@{}}
+\toprule
+\textbf{Area} & \textbf{Requirement} & \textbf{Basis} \\
+\midrule
+Measurement & repeated home readings; reference value is the seven-day mean of retained readings & \cref{sec:variability,sec:protocols} \\
+ & two readings per session, interval enforced by the device, second retained & \textcite{mihevc2025} \\
+ & three bidirectional levels with a verification profile on the yellow level & \cref{sec:triage} \\
+ & HEARTS indicators produced automatically & \cref{sec:hearts-spec} \\
+\addlinespace
+Acquisition & blood pressure only from a validated upper-arm cuff, glucose only from a glucometer & \cref{sec:metrology,tab:param-sources} \\
+ & Bluetooth transmission; measurement time stored apart from entry and arrival time & \cref{sec:pipelines,sec:offline} \\
+ & camera PPG for heart rate; blood pressure by camera exploratory only & \cref{sec:ppg} \\
+ & device agreement assessed by Bland--Altman against a validated reference & \cref{sec:camera-ppg} \\
+\addlinespace
+Architecture & four layers with an edge tier performing validation, rule tiering and local storage & \cref{sec:multitier} \\
+ & queued upstream transport, REST downstream, live push, JSON payloads & \cref{sec:protocols-cloud} \\
+ & series keyed by measurement time; server-side validation; offline-first & \cref{sec:schema} \\
+ & encryption, role-based access, de-identification, access log, declared residency & \cref{sec:security} \\
+ & operating cost, provider dependence and residency documented & \cref{sec:cloud-gaps} \\
+\addlinespace
+Modelling & forecast a future state; no feature computed at the label instant & \cref{sec:principle} \\
+ & horizon matched to the sampling regime & \cref{sec:horizon} \\
+ & split by hospital and by patient; learned preprocessing inside the training fold & \cref{sec:training} \\
+ & proper scoring rules, calibration and net benefit; per-level measures with intervals & \cref{sec:metrics} \\
+ & guideline rule as mandatory baseline & \cref{sec:baselines} \\
+\addlinespace
+Decision support & hybrid: final level $=$ the higher of the rule level and the model level & \cref{sec:dsts-def} \\
+ & alerts on window aggregates; alert volume reported with every result & \cref{sec:alert-volume} \\
+ & non-transmission is an alarmed event & \cref{sec:decision-flow} \\
+ & system proposes, physician decides; decisions stored as labels & \cref{sec:feedback} \\
+ & automated advice limited to \cref{tab:automation-boundary} & \cref{sec:safety} \\
+ & ICD and SNOMED CT coding; every rule versioned & \cref{sec:interop} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%##########################################################################
+\section{The Home Monitoring Protocol}\label{sec:home-protocol}
+
+The system is built for patients followed at home. This section fixes what it must collect and how: the data streams, the measurement protocol, the instruments and the record schema. None of it was carried out on patients in this work, whose data are retrospective (\cref{sec:intro-scope}); it is the protocol a prospective evaluation of the system would follow.
+
+\subsection{Data streams}\label{sec:pipelines}\label{sec:streams}
+
+The system combines three streams: the consultation records of the facility (stream~A), home self-measurements (stream~B) and, optionally, sensor data (stream~C). They differ in their statistical properties, not only in their technology (\cref{tab:pipelines}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The three acquisition pipelines.}\label{tab:pipelines}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.9cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Property} & \textbf{1. Consultation} & \textbf{2. Home self-measurement} & \textbf{3. Sensors} \\
+\midrule
+Frequency & 1--2 per year & several per week & up to 1~Hz \\
+Missingness & not at random: attendance depends on the patient's state & not at random: readings may be omitted & at random: technical failure \\
+Dominant error & measurement conditions & transcription, timestamp, selective omission & instrument accuracy, movement \\
+Blood pressure & yes, reference quality & yes, from a validated cuff & no \\
+Blood glucose & yes, laboratory & yes, from a glucometer & no \\
+Role & ground truth, clinical context & principal longitudinal series & contextual covariates \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two points deserve emphasis. Consultation data are \emph{missing not at random}: a patient who deteriorates may consult more often, or disappear; a model trained on them partly models attendance. Manual home entry suffers from three distinct problems: transcription errors (digit transposition, systolic--diastolic inversion), a timestamp that records the moment of entry rather than of measurement, and selective omission of discouraging readings. The first two are removed by Bluetooth transmission; the third is a bias, not noise, because it removes precisely the extreme values the model exists to detect, and it must be handled in the analysis (\cref{sec:missingness}). The risk labels used for modelling are derived from official thresholds for blood pressure, pulse and glucose (\cref{sec:labelling}) and checked against the judgement of the partner physician.
+
+\subsection{Measurement protocol and procedure}\label{sec:clinical-req}\label{sec:protocol-gap}
+
+The protocol follows from the clinical requirements of diagnosis and follow-up, which are recalled first.
+
+\subsubsection{Why a single measurement is not enough}\label{sec:variability}\label{sec:dx-requires}
+
+The WHO diagnostic protocol is longitudinal by construction \parencite{who2023hypertension}. Blood pressure is measured twice at the first encounter, under standard conditions (seated, back supported, appropriate cuff), and the decision depends on the level observed (\cref{tab:protocol}). Hypertension is diagnosed only if the threshold is exceeded at two visits. A care model that cannot guarantee the second visit does not produce imperfect diagnoses: it produces none.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Recommended action by confirmed pressure at the first encounter \parencite{who2023hypertension}.}\label{tab:protocol}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{6.2cm} X@{}}
+\toprule
+\textbf{Pressure on both readings of the day} & \textbf{Recommended action} \\
+\midrule
+SBP $\geq$ 160 or DBP $\geq$ 100~mmHg & start treatment the same day \\
+SBP 140--159 or DBP 90--99~mmHg & confirm at another visit, one to four weeks later \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The reason is the variability of blood pressure. For patient $i$ measured at time $t$, a reading can be written
+\begin{equation}
+  b_{i,t} = \mu_i + \varepsilon_{i,t},
+\end{equation}
+where $\mu_i$ is the patient's usual pressure, the clinically relevant quantity, and $\varepsilon_{i,t}$ gathers circadian variation, activity, stress, the measurement environment and instrument error. If $n$ readings are spaced far enough apart for their errors to be independent, the usual pressure is estimated with variance
+\begin{equation}
+  \operatorname{Var}(\hat\mu_i) = \frac{\sigma_\varepsilon^2}{n}.
+\end{equation}
+A consultation provides two to four points a year; home follow-up provides several dozen (\cref{fig:variability}). Repeated home readings therefore estimate $\mu_i$ far more precisely, and they also make it possible to estimate $\sigma_\varepsilon$ itself, the patient's own variability. This is the central argument for home measurement.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.75\textwidth,height=5.4cm,
+  xlabel={Number of independent measurements $n$},
+  ylabel={$\operatorname{Var}(\hat\mu_i)/\sigma_\varepsilon^2$},
+  xmin=0,xmax=34,ymin=0,ymax=1.08,grid=major,grid style={gray!20}]
+\addplot[thick,cRef,domain=1:34,samples=100]{1/x};
+\addplot[only marks,mark=*,mark size=2.5pt,cAfrica,nodes near coords,point meta=explicit symbolic,
+  every node near coord/.append style={font=\footnotesize,anchor=south west}]
+  coordinates {(2,0.5) [two visits] (4,0.25) [four visits] (30,0.033) [30 daily readings]};
+\end{axis}
+\end{tikzpicture}
+\caption{Relative variance of the estimate of the usual pressure as a function of the number of independent measurements.}\label{fig:variability}
+\end{figure}
+
+\subsubsection{How often patients must be followed}\label{sec:followup-requires}
+
+Recommendation~7 of the WHO guideline on the pharmacological treatment of hypertension sets monthly follow-up after any treatment change until the target is reached, then follow-up every three to six months \parencite{who2021guideline}. In the African Region, 56\% of treated patients are not controlled (\cref{sec:cascade}). For an active list with that proportion uncontrolled, the required number of contacts per patient per year is
+\begin{equation}
+  \bar n = 0.56 \times 12 + 0.44 \times n_c \approx 7.6 \text{ to } 8.5, \qquad n_c \in [2,4].
+\end{equation}
+An episodic model that delivers one or two contacts a year therefore delivers between an eighth and a quarter of what the guideline requires. This cumulative gap, more than the length of each consultation, is the structural deficit that telemonitoring must fill. It also explains therapeutic inertia: intensifying treatment requires a history showing that the target is persistently missed, and that history does not exist.
+
+\subsubsection{The self-measurement protocol and three-level triage}\label{sec:protocols}\label{sec:triage}
+
+The trial of \textcite{mihevc2025} provides the only clinically validated home protocol for patients with both conditions, and it is adopted as the reference.
+
+\paragraph{Blood pressure.} Two readings in the morning and two in the evening, after five minutes of seated rest; the device enforces a one-minute interval between the two readings and the second is retained. The reference value is the mean of the retained morning and evening readings over seven days: with fourteen readings, the standard error of the usual pressure is divided by $\sqrt{14} \approx 3.7$ compared with a single reading. The home target is 135/85~mmHg, five points below the office threshold because there is no white-coat effect at home.
+
+\paragraph{Blood glucose.} Routinely, one fasting measurement and one 90 minutes after lunch; after an abnormal value, a one-day profile of six measurements (before and 90 minutes after each meal). Targets are a fasting glucose below 7~mmol/L (about 1.26~g/L) and a post-prandial glucose below 10~mmol/L (about 1.80~g/L).
+
+\paragraph{Routine frequency.} Blood pressure twice a week and blood glucose once a week, as stated in the text of the article. A low routine frequency keeps the burden on the patient acceptable; a high frequency is triggered only when a signal justifies it.
+
+Each reading is classified into three levels (\cref{tab:thresholds}), and the protocol works in two stages (\cref{fig:triage}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The three-level protocol of \textcite{mihevc2025}. BP in mmHg, glucose in mmol/L.}\label{tab:thresholds}\label{tab:triage-levels}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.6cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{3.8cm} X@{}}
+\toprule
+\textbf{Level} & \textbf{Blood pressure} & \textbf{Blood glucose} & \textbf{Action} \\
+\midrule
+Green & 110--134 / 60--84 & 4--7 before a meal; 7--10 after & no change \\
+Yellow & 135--174 / 85--104 & 7.1--10 before a meal; 10.1--14 after & verification profile: 7-day BP profile or 6-point glucose profile \\
+Red & $\geq$ 175 / $\geq$ 105, or $<$ 110 / $<$ 60 & $<$ 4; $>$ 10 before a meal; $>$ 14 after & immediate teleconsultation with the general practitioner \\
+\midrule
+Profile mean & $\geq$ 135/85 or $<$ 110/60 & $>$ 7 before or $>$ 10 after a meal & teleconsultation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=0.55cm and 0.9cm,
+  st/.style={draw,rounded corners,align=center,font=\footnotesize,minimum height=0.85cm,minimum width=2.5cm},
+  dec/.style={draw,diamond,aspect=2,align=center,font=\footnotesize,inner sep=1pt,fill=cGrey!12},
+  ar/.style={-{Stealth[length=2.5mm]},thick}]
+  \node[st,fill=cGrey!12] (meas) {Routine reading\\ (low frequency)};
+  \node[dec,right=of meas] (cl) {Class?};
+  \node[st,fill=green!14,above right=0.5cm and 1.0cm of cl] (gr) {\textbf{Green}\\ no change};
+  \node[st,fill=yellow!28,right=1.0cm of cl] (ye) {\textbf{Yellow}\\ verification profile};
+  \node[st,fill=cAfrica!18,below right=0.5cm and 1.0cm of cl] (re) {\textbf{Red}\\ teleconsultation};
+  \node[st,fill=cRef!12,right=1.0cm of ye] (mn) {Profile mean\\ vs target};
+  \draw[ar] (meas) -- (cl);
+  \draw[ar] (cl) -- (gr);
+  \draw[ar] (cl) -- (ye);
+  \draw[ar] (cl) -- (re);
+  \draw[ar] (ye) -- (mn);
+  \draw[ar] (mn.south) |- node[below right,font=\scriptsize,pos=0.75]{off target} (re.east);
+  \draw[ar] (mn.north) |- node[above right,font=\scriptsize,pos=0.75]{on target} (gr.east);
+\end{tikzpicture}
+\caption{The two-stage triage of \textcite{mihevc2025}. An isolated abnormal value triggers more measurements, not a clinician; only the mean of the verification profile reaches a clinical decision.}\label{fig:triage}
+\end{figure}
+
+The protocol has three properties that the proposed system adopts. It is \emph{bidirectional}: low values trigger as well as high ones (hypoglycaemia, hypotension in older treated patients). It is \emph{two-stage}: an isolated abnormal value leads to more data, which separates noise from trend by increasing $n$ rather than by lowering the threshold. And it is \emph{economical in clinician time}: only the red level mobilises a physician, which matters where professionals already perceive telemedicine as extra work (\cref{sec:digital-barriers}). When systolic and diastolic pressures fall in different levels, the more severe level applies; the source is silent on this point and this is a decision of the present work.
+
+The protocol also has three limits, which define the room for a learned model: its thresholds are fixed and identical for all patients, it reacts to the level of a reading rather than to its trend, and it uses no machine learning (\cref{sec:positioning}).
+
+\subsubsection{Collection procedure}\label{sec:procedure}
+
+A prospective collection with the system, not carried out in this work, would proceed in four steps. At the \textbf{enrolment visit}, at the facility, the eligibility of the patient is checked, informed consent is obtained, the consultation history of the previous twelve months is extracted from the record and pseudonymised, and the patient receives the devices, the application and an individual training session. Since 10.9\% of patients withdrew in the trial of \textcite{mihevc2025} because they could not use the equipment, training is treated as part of the intervention: a practical session, a written leaflet and a supervised first measurement. During the \textbf{follow-up period}, of at least five weeks, the patient measures at home according to the protocol above; readings are transmitted automatically, and adherence is checked weekly from the received data. \textbf{Clinician review} takes place continuously through the dashboard, each alert receiving a verdict. At the \textbf{end-of-study visit}, the devices are collected and the patient and the clinician give feedback on the system.
+
+\subsection{Collection instruments}\label{sec:instruments}
+
+The instruments are chosen from the device constraints established in the literature review (\cref{sec:metrology}).
+
+\subsubsection{What optical sensors can and cannot measure}\label{sec:hardware}\label{sec:ppg}\label{sec:contradiction}\label{sec:device-landscape}\label{sec:lowcost}
+
+Photoplethysmography (PPG) shines light into the skin and records the reflected fraction, which varies with the arterial blood volume at each heartbeat. The signal has a large quasi-static component (tissue, venous blood) and a small pulsatile component. Three parameters can in principle be derived from it, with very different reliability:
+\begin{itemize}[nosep]
+  \item \textbf{Heart rate} comes from the periodicity of the pulsatile component and needs no absolute calibration. It is the robust case, including with a smartphone camera.
+  \item \textbf{Oxygen saturation} requires two controlled wavelengths (660 and 880~nm for the MAX30100) and an empirical calibration curve fitted on volunteers; skin pigmentation is a known source of error. A camera under white light does not provide these conditions.
+  \item \textbf{Blood pressure} is not measured but inferred from the pulse waveform through a model that needs calibration. \Textcite{liu2025ppg} report promising agreement on 127 participants, but the WHO does not yet accept cuffless measurement for clinical decisions (\cref{sec:cuffless}).
+\end{itemize}
+
+The admissible source of each parameter follows (\cref{tab:param-sources}). No device category reviewed by \textcite{liu2025review} or \textcite{alhaddad2022} supplies validated blood pressure without a cuff, or validated glucose without a finger-stick; the instrumented pipeline measures around the clinical problem rather than into it.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Admissible source for each parameter of the proposed system.}\label{tab:param-sources}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.6cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{Admissible source} & \textbf{Not admissible} \\
+\midrule
+Blood pressure & validated automated upper-arm cuff; Bluetooth or manual entry & cuffless wristband; camera PPG as a decision input (exploratory only) \\
+Blood glucose & glucometer; Bluetooth or manual entry & any optical method \\
+Heart rate & cuff pulse reading, camera PPG, or optical sensor & --- \\
+Oxygen saturation & validated pulse oximeter & camera PPG \\
+Temperature & digital thermometer or MAX30205 sensor & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Consequences of the device constraint}\label{sec:metrology-consequences}
+
+The WHO position on measuring devices (\cref{sec:metrology}) has three consequences. Blood pressure must come from a validated automated upper-arm monitor; cuffless devices may provide context variables (activity, heart rate) but not the clinical measurement. Admissible devices must be restricted to those on a recognised validation register. And the higher cost of validated devices must enter the feasibility analysis, alongside the cost of treatment, which the WHO puts at 5 to 10 US dollars per patient per year for quality-assured generic medicines.
+
+\subsubsection{The acquisition decision}\label{sec:acq-decision}
+
+Two designs were on the table: an instrumented device built around an ESP32 microcontroller with MAX30100 and MAX30205 sensors, and a deliberately spare design using validated Bluetooth devices, manual entry and camera PPG. The decision adopted is the following. Patients are to use the spare configuration: a validated Bluetooth upper-arm cuff and glucometer, with manual entry as a fallback, and camera PPG for heart rate. The instrumented device is specified as a bench prototype only, to demonstrate the hardware design and the low-power transport, and is not given to patients (\cref{sec:options}).
+
+Four reasons support this choice. The sensors of the instrumented device do not measure the two parameters on which the clinical decision rests. Their validation would require a Bland--Altman study under movement that this work cannot conduct. Maintained devices in the field are the first casualty of the funding problems documented in \cref{sec:regional-landscape}. And alerting on readings at sensor frequency is arithmetically unusable (\cref{sec:frequency-decides}). Of the design of \textcite{efendi2025}, only offline-first storage is kept, because it addresses connectivity rather than sensing.
+
+\subsection{Data structure}\label{sec:record-schema}\label{sec:adjudication}
+
+Four principles govern the schema: one row per measurement, not per visit, so that time windows can be queried; provenance (stream, device, operator) on every value, because the streams have different errors; two timestamps, measurement and record, because offline synchronisation separates them; and no derived field stored next to its inputs, so that features cannot leak the label. The data model has three tables (\cref{fig:schema-model}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=1.2cm,
+  t/.style={draw,rounded corners,align=left,font=\scriptsize,inner sep=4pt,minimum width=3.4cm},
+  ar/.style={-{Stealth[length=2mm]},thick}]
+  \node[t,fill=cRef!12] (pat) {\textbf{patient}\\ patient\_pseudonym (PK)\\ age\_band, sex, bmi\\ dx\_*\_year, diabetes\_type\\ comorbidities (ICD)\\ treatment\_regimen\\ regimen\_version\\ enrolment\_date};
+  \node[t,fill=cGrey!14,right=2.4cm of pat] (meas) {\textbf{measurement}\\ measurement\_id (PK)\\ patient\_pseudonym (FK)\\ ts\_measurement, ts\_recorded\\ stream, parameter, value, unit\\ reading\_index, is\_retained\\ context, device\_id\\ device\_validated, operator\\ entry\_mode, protocol\_profile\\ quality\_flag};
+  \node[t,fill=cAfrica!12,below=1.0cm of meas] (ev) {\textbf{event (adjudication)}\\ event\_id (PK)\\ patient\_pseudonym (FK)\\ ts\_triggered, trigger\_source\\ tier, score\\ ts\_reviewed\\ clinician\_verdict\\ action\_taken, comment};
+  \draw[ar] (pat.east) -- node[above,font=\tiny]{1:N} (meas.west);
+  \draw[ar] (pat.south) |- node[below left,font=\tiny,pos=0.75]{1:N} (ev.west);
+\end{tikzpicture}
+\caption{The three-table data model. The event table records clinician decisions, the only labels not derived from the thresholds the model sees.}\label{fig:schema-model}
+\end{figure}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Fields of the measurement record.}\label{tab:measurement-record}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}p{2.4cm} X@{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Notes} \\
+\midrule
+\texttt{measurement\_id} & UUID & primary key; used to remove duplicates \\
+\texttt{patient\_pseudonym} & string & random, not derived from identity \\
+\texttt{ts\_measurement} & ISO 8601 & when the reading was taken \\
+\texttt{ts\_recorded} & ISO 8601 & when it entered the system \\
+\texttt{stream} & enum & consultation, home, sensor \\
+\texttt{parameter}, \texttt{value}, \texttt{unit} & enum, float, enum & sbp, dbp, glucose, hr, spo2, temp \\
+\texttt{reading\_index}, \texttt{is\_retained} & int, bool & position in the reading pair; second reading retained \\
+\texttt{context} & enum & fasting, post-prandial, morning, evening \\
+\texttt{device\_id}, \texttt{device\_validated} & string, bool & validation required for sbp, dbp and glucose \\
+\texttt{operator}, \texttt{entry\_mode} & enum & patient, nurse, physician; Bluetooth, manual, transcribed \\
+\texttt{protocol\_profile} & enum & routine, 7-day BP profile, 6-point glucose profile \\
+\texttt{quality\_flag} & enum & ok, out of range, duplicate, carried forward, unit suspect \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The \textbf{patient record} holds the age in five-year bands, sex, body mass index, the year of each diagnosis, the diabetes type, ICD-coded comorbidities and the treatment regimen with a version number. Two of these fields deserve mention. The year of diagnosis gives the years since diagnosis, the strongest predictor of uncontrolled hypertension in \textcite{mendoza2025}. The regimen version, incremented at every treatment change, distinguishes a patient drifting under an unchanged treatment from one whose treatment was just intensified, which is the clinical content of therapeutic inertia (\cref{sec:inertia}).
+
+The \textbf{event record} stores each alert (trigger source, level, score) and the clinician's response: the verdict (confirmed, not clinically significant, uncertain) and the action taken (none, advice, dose or drug change, consultation, referral). The verdict is the label that escapes the circularity of \cref{sec:task-not-algo}, and the delay between triggering and review measures the bottleneck identified by \textcite{bediang2021}. This table fills only once the system is in operation, but it must exist from the first deployment, since events that occur before it exists are lost.
+
+\section{Multi-Tier System Architecture}\label{sec:architecture}
+
+This section describes the target architecture; \cref{tab:build-status} states which parts are implemented.
+
+\subsection{The four layers}\label{sec:layers}\label{sec:edge-layer}\label{sec:cloud-layer}\label{sec:application-layer}
+
+The decomposition follows \textcite{mucchi2021} with two changes: the environment layer is omitted, since the system has no environmental sensors, and the application tier becomes a layer of its own, as in \textcite{efendi2025} and \textcite{liu2025review}. The resulting four layers are shown in \cref{fig:layers} and their functions in \cref{tab:layer-functions}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  lay/.style={draw,rounded corners=2pt,minimum width=9.2cm,minimum height=1.15cm,align=center},
+  ann/.style={font=\scriptsize,text=cGrey,anchor=west,align=left}]
+  \node[lay,fill=cRef!10] (app) at (0,0)
+    {\textbf{APPLICATION}\\\scriptsize patient view \textbar{} nurse view \textbar{} physician queue};
+  \node[lay,fill=cRef!18] (cloud) at (0,-1.6)
+    {\textbf{CLOUD}\\\scriptsize repository \textbar{} control \textbar{} features \textbar{} scoring \textbar{} alerts \textbar{} registry};
+  \node[lay,fill=cAfrica!14] (edge) at (0,-3.2)
+    {\textbf{EDGE} \;\scriptsize(patient smartphone)\\\scriptsize collection \textbar{} validation \textbar{} rule levels \textbar{} local store \textbar{} transmission};
+  \node[lay,fill=cGrey!15] (phy) at (0,-4.8)
+    {\textbf{PHYSICAL}\\\scriptsize validated upper-arm cuff \textbar{} glucometer \textbar{} (optional heart-rate sensor)};
+  \draw[-{Stealth[length=2.2mm]},thick,cAfrica] (phy.east)  -- ++(0.7,0) |- (edge.east)  node[ann,pos=0.25,xshift=4mm]{BLE};
+  \draw[-{Stealth[length=2.2mm]},thick,cAfrica] (edge.east)  -- ++(1.4,0) |- (cloud.east) node[ann,pos=0.25,xshift=11mm]{MQTT / TLS};
+  \draw[-{Stealth[length=2.2mm]},thick,cAfrica] (cloud.east) -- ++(0.7,0) |- (app.east)   node[ann,pos=0.25,xshift=4mm]{REST};
+  \draw[-{Stealth[length=2.2mm]},thick,cRef] (app.west)   -- ++(-0.7,0) |- (cloud.west) node[ann,pos=0.25,xshift=-26mm]{decision};
+  \draw[-{Stealth[length=2.2mm]},thick,cRef] (cloud.west) -- ++(-1.4,0) |- (edge.west)  node[ann,pos=0.25,xshift=-30mm]{WebSocket push};
+  \draw[-{Stealth[length=2.2mm]},thick,cRef] (edge.west)  -- ++(-0.7,0) |- (phy.west)   node[ann,pos=0.25,xshift=-26mm]{prompt};
+\end{tikzpicture}
+\caption{The four layers and the data flow of the target architecture. Red: upstream measurement path; blue: downstream decision path. In the built version the phone writes directly to the database over HTTPS (\cref{tab:build-status}).}\label{fig:layers}
+\end{figure}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Functions of each layer.}\label{tab:layer-functions}\label{tab:edge-layer}\label{tab:physical-layer}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.2cm} X >{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Functions} & \textbf{Basis} \\
+\midrule
+Physical & validated Bluetooth cuff (two readings, interval enforced, second retained); Bluetooth glucometer; optional heart-rate sensor; device register with validation reference & \cref{sec:metrology,sec:protocols} \\
+Edge (smartphone) & Bluetooth reception and measurement timestamp; validation; rule-level evaluation; aggregation of any high-frequency stream; encrypted offline queue; MQTT transmission with level-dependent priority; patient interface & \cref{sec:edge-triage,sec:offline} \\
+Cloud & record keyed for window queries; identity, roles and audit log; features and normalisation; scoring, calibration and level mapping; alert queue and non-transmission detection; offline retraining; registry of model and threshold versions & \cref{sec:preprocessing,sec:risk-score} \\
+Application & patient, nurse and physician profiles (\cref{tab:profiles}) & \textcite{mucchi2021} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three functions run at the edge, where most designs would place them in the cloud. The \emph{rule-level evaluation} runs on the phone because the level decides how urgently a reading is transmitted; a phone that had to transmit in order to learn whether to transmit quickly would be caught in a circle. The \emph{aggregation of high-frequency streams} runs there because alerting on each sensor reading is arithmetically unusable (\cref{sec:frequency-decides}). And \emph{local storage} makes the system usable under intermittent connectivity, a structural feature of the deployment context. In the cloud, the \emph{registry} records which model version and which threshold version produced every score, so that results remain reproducible after either changes.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Application profiles.}\label{tab:profiles}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.1cm} X@{}}
+\toprule
+\textbf{Profile} & \textbf{Capabilities} \\
+\midrule
+Patient & enter or confirm readings; view own history and trend; receive prompts; view prescribed therapy and the outcome of clinician decisions \\
+Nurse & the same for assigned patients; perform and record measurements; view flagged readings; cannot modify therapy \\
+Physician & priority-ordered queue; patient record and trend; model score with its explanation; proposed protocol step; approve, override or request a consultation, each action written to the event record \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Data flow and transmission priority}\label{sec:dataflow}\label{sec:transmission-priority}
+
+A reading travels from the device to the phone over Bluetooth, from the phone to the cloud over MQTT, through features, scoring and level mapping, and finally to the clinician's queue. \Cref{tab:decision-placement} shows where each decision is taken and how long it takes.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Where each decision is taken.}\label{tab:decision-placement}
+\begin{tabularx}{\textwidth}{@{}X >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Decision} & \textbf{Layer} & \textbf{Time scale} \\
+\midrule
+Is the reading well formed? Which level under the rule? How urgently to send it? & edge & milliseconds \\
+Which level under the model? Final level $=\max$(rule, model)? Position in the queue? & cloud & seconds \\
+Confirm, override or escalate? & physician & hours to days \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Offline storage turns lost readings into delayed readings. For a routine reading this is a good trade; for a red reading it is not, since a crisis queued on a handset until the next connection is a failure caused by the architecture itself. Transmission priority therefore depends on the level (\cref{tab:transmission-priority}). The SMS fallback relies on the wide reach of mobile telephony in the region \parencite{dodoo2022}, although subscription counts overstate individual coverage. The local warning matters on its own: a patient with a critical reading is told so by the phone immediately, even when nothing can be sent. Advising a patient to seek care is not a therapeutic instruction, so it respects the boundary of \cref{sec:safety}.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Transmission behaviour by level, decided at the edge.}\label{tab:transmission-priority}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.0cm} X@{}}
+\toprule
+\textbf{Level} & \textbf{Behaviour} \\
+\midrule
+Green & queued locally; sent with the next synchronisation \\
+Yellow & sent immediately if possible; retried with increasing delays; synchronised within hours \\
+Red & sent immediately; aggressive retry; SMS fallback after repeated failures; local warning to the patient whatever the connectivity \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+On the return path, any therapy change passes a clinician, and every decision is written to the event record \emph{before} it is delivered, so that the label is kept even when delivery fails---which happens most often for the patients with the worst connectivity.
+
+\subsection{The latency budget}\label{sec:latency}
+
+End-to-end delay can be decomposed into segments (\cref{tab:latency}). The engineering segments take seconds; scoring a shallow tree ensemble takes less than a millisecond, and a call to the risk service less than a second.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Latency segments.}\label{tab:latency}
+\begin{tabularx}{\textwidth}{@{}X c >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+\textbf{Segment} & \textbf{Symbol} & \textbf{Expected} & \textbf{Governed by} \\
+\midrule
+Device to phone & $t_1$ & seconds & Bluetooth \\
+Phone to cloud, online / offline & $t_2$ / $t_2'$ & seconds / hours to days & connectivity \\
+Ingestion, features, scoring & $t_3$ & under a second & computation \\
+Queue to clinician view & $t_4$ & seconds & push notification \\
+Clinician review & $t_5$ & hours to days & staffing \\
+Decision to patient & $t_6$ & seconds to hours & return path \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\Textcite{bediang2021} measured both ends of this chain in Cameroonian district hospitals. Tele-expertise reduced the time to perform an electrocardiogram from 7.0 to 1.3 days, about five times faster, but the specialist's opinion still took 10.3 days on average against 11.2 days in control centres---no improvement, and far beyond the 72 hours required by the protocol. The distributions were strongly skewed, so these means are indicative, but the conclusion is robust: technology accelerated acquisition, not the clinical decision. Clinician review exceeds all engineering segments by about five orders of magnitude (\cref{fig:latency}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.9\textwidth,height=5.0cm,
+  xbar, xmode=log, xmin=0.1,xmax=5e6,
+  xlabel={Elapsed time (seconds, logarithmic)},
+  symbolic y coords={$t_3$ scoring,$t_1$ BLE,$t_2$ network,$t_4$ push,$t_6$ to patient,$t_2'$ offline,$t_5$ clinician},
+  ytick=data, y=0.5cm, enlarge y limits=0.12,
+  xmajorgrids,grid style={gray!20},
+  tick label style={font=\scriptsize},label style={font=\scriptsize}]
+\addplot[fill=cRef!40,draw=cRef] coordinates {
+  (0.5,$t_3$ scoring) (5,$t_1$ BLE) (2,$t_2$ network) (2,$t_4$ push) (3600,$t_6$ to patient)};
+\addplot[fill=cGrey!40,draw=cGrey] coordinates {(86400,$t_2'$ offline)};
+\addplot[fill=cAfrica!45,draw=cAfrica] coordinates {(889920,$t_5$ clinician)};
+\end{axis}
+\end{tikzpicture}
+\caption{Latency segments on a logarithmic scale; $t_5$ is taken at the 10.3-day mean of \textcite{bediang2021}.}\label{fig:latency}
+\end{figure}
+
+Speeding up the engineering segments therefore changes nothing clinically: saving a second of computation against a total of 10.3 days is a gain of about one part in a million. Only clinician review can be meaningfully reduced, in two ways: by shortening the queue through triage (\cref{sec:tiers}), and by shortening the time per item through what the dashboard shows (\cref{sec:dashboard}). The dashboard is therefore a latency intervention, not a presentational detail. Offline delay $t_2'$ is bounded by the level-dependent priority above, exactly where delay is harmful.
+
+\subsection{Failure modes}\label{sec:failure}
+
+No reviewed source analyses what happens when a layer fails, although sustainability is the characteristic failure of telemedicine projects in the region. \Cref{tab:failure-modes} lists the failure modes and the degraded behaviour designed for each.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Failure modes and degraded behaviour.}\label{tab:failure-modes}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{2.4cm} X >{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+\textbf{Failure} & \textbf{Detected by} & \textbf{Degraded behaviour} & \textbf{Residual risk} \\
+\midrule
+Device lost, broken or flat & absence of readings & non-transmission alarm & unmonitored until noticed \\
+Phone unavailable & absence of readings & none at the edge & no local alerting \\
+Connectivity lost & edge & local queue; red by SMS & yellow delayed \\
+Cloud unavailable & edge retries & local queue; edge rules still assign levels & no model score, no queue \\
+Model fails & cloud & final level $=$ rule level & loss of personalisation only \\
+Calibration drifts & monitoring & thresholds revert to the rule & over- or under-alerting \\
+Clinician unavailable & queue age & escalation to a named alternate & delayed review \\
+Guideline revised & manual & new threshold version installed; registry keeps provenance & old scores not comparable \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three rows carry the design. When the model fails, the system falls back to the guideline rule, so its worst case equals the current standard of care. The phone is a single point of failure: a patient without a working handset is outside the system, and the only remedy is detection of the silence by the cloud, since a failed device cannot report its own failure. And clinician unavailability requires an escalation rule; without it, the long delays of a skewed distribution become a regular occurrence for some patients.
+
+\subsection{Security}\label{sec:security-design}\label{sec:security}\label{sec:security-gap}
+
+Security is set by the weakest segment \parencite{mucchi2021}, so the design enumerates the segments and specifies each one (\cref{tab:security-segments}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Security segments and their protection.}\label{tab:security-segments}
+\begin{tabularx}{\textwidth}{@{}c >{\raggedright\arraybackslash}p{2.8cm} X@{}}
+\toprule
+\textbf{\#} & \textbf{Segment} & \textbf{Protection} \\
+\midrule
+1 & Device to phone & Bluetooth LE Secure Connections; pairing bound to the patient account \\
+2 & Phone at rest & operating-system encryption required; sandboxed store; no identifiers in logs \\
+3 & Phone to cloud & TLS 1.2 or later; certificate pinning; MQTT over TLS \\
+4 & Cloud at rest & encryption at rest; server-side rules enforcing roles \\
+5 & Cloud to clinician & TLS; authenticated session with short expiry; re-authentication before a therapy change \\
+6 & Clinician device & outside system control: short sessions, no local caching, access logged \\
+7 & Research export & the de-identified analysis file of \cref{sec:reident} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Segments 6 and 7 are the weakest and are not addressed by any reviewed source. The clinician often works on a personal phone or a shared workstation, whose encryption and locking the system cannot enforce; it can only limit sessions, avoid caching data and log access. The research export is the one copy of the data outside all other protections; the de-identification measures of \cref{sec:reident} are its security control. The many advanced techniques surveyed by \textcite{liu2025review}---differential privacy, blockchain, steganography---are not proportionate to a thirty-patient pilot. The proportionate set is encryption in transit and at rest, role-based access, an append-only access log, and de-identification. What is implemented is stated separately from what a production deployment would add (\cref{tab:build-status}).
+
+\subsection{Implementation status}\label{sec:built-specified}
+
+The reviewed architectures rarely distinguish what was built from what was only designed. \Cref{tab:build-status} makes that distinction for the present system.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Implementation status of the architecture.}\label{tab:build-status}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} X@{}}
+\toprule
+\textbf{Status} & \textbf{Components} \\
+\midrule
+Built & patient application with manual entry, history and trend chart; rule levels computed on the phone, offline; Firebase authentication with patient and clinician roles, enrolment by clinician code; Firestore record of readings and messages with offline cache and security rules; risk service (FastAPI, local) running the research pipeline, with the rule floor and a check of the threshold version; clinician view of assigned patients; patient--clinician messaging; health assistant; nearby-care search \\
+Specified, not built & Bluetooth acquisition; sensor prototype and MQTT transport; priority-ordered queue and verdict capture; event record; non-transmission alarm; SMS fallback; queue-age escalation; model registry; ICD and SNOMED CT coding; online hosting of the risk service \\
+Deferred & environment layer; nurse profile; multi-site deployment; production security beyond the proportionate set \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%##########################################################################
+
+%##########################################################################
+\section{IoT Hardware Prototype and Communication Protocol}\label{sec:iot}\label{sec:iot-scope}
+
+The instrumented subsystem measures heart rate, oxygen saturation and temperature; it does \emph{not} measure blood pressure or glucose, which come only from the validated cuff and glucometer (\cref{tab:param-sources}). It is therefore an optional covariate channel, specified as a bench prototype to demonstrate the hardware design and the low-power transport (\cref{sec:acq-decision}). If it is not built, or fails, the system loses feature columns and nothing clinically (\cref{tab:parameter-provenance}). Note also that an automated cuff already reports the pulse rate at each measurement, so the prototype and the camera add temporal density to heart rate rather than a new parameter.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Origin and clinical role of each parameter.}\label{tab:parameter-provenance}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.8cm} X >{\raggedright\arraybackslash}p{3.4cm}@{}}
+\toprule
+\textbf{Parameter} & \textbf{Acquired by} & \textbf{Clinical decision?} \\
+\midrule
+Systolic, diastolic pressure & validated Bluetooth cuff & yes \\
+Blood glucose & Bluetooth glucometer & yes \\
+Heart rate & cuff pulse, camera PPG or MAX30100 & no, covariate \\
+Oxygen saturation & MAX30100 & no, covariate \\
+Temperature & MAX30205 & no, covariate \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Components and interconnection}\label{sec:components}\label{sec:interconnect}\label{sec:pinout}
+
+The components are those of \textcite{efendi2025} (\cref{tab:components}), who give their characteristics and pin lists but no wiring, pin assignment or configuration.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Components of the prototype, after \textcite{efendi2025}.}\label{tab:components}\label{tab:esp32}\label{tab:max30100}\label{tab:max30205}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.4cm} X X X@{}}
+\toprule
+ & \textbf{ESP32} & \textbf{MAX30100} & \textbf{MAX30205} \\
+\midrule
+Function & microcontroller with Wi-Fi and Bluetooth & heart rate and SpO$_2$ (reflective PPG, 660/880~nm) & body temperature, accuracy 0.1~\textdegree C \\
+Supply & 3.3~V logic & 3.3--5~V & 2.7--3.3~V \\
+Interface & 36 pins; WPA/WPA2 & I\textsuperscript{2}C; interrupt pin INT & I\textsuperscript{2}C; alarm pin OS; address pins A0--A2 \\
+Memory & 520~kB SRAM; 8~kB retained in deep sleep & --- & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three design decisions follow from these characteristics. First, the supply ranges of the two sensors meet only at 3.3~V, so a single regulated 3.3~V rail is the only configuration satisfying both, and it matches the logic level of the microcontroller. Second, both sensors share one I\textsuperscript{2}C bus, which requires distinct addresses: the oximeter's address is fixed, the temperature sensor's is set by its A0--A2 pins, which must be wired to ground or supply and never left floating. A floating address pin causes intermittent bus failures that would appear in the data as missing readings, indistinguishable from a patient who did not measure. Third, the sensors' INT and OS outputs are wired as interrupts, so the processor can sleep until data are ready instead of polling. \Cref{tab:pinout} gives the proposed assignment, based on the default I\textsuperscript{2}C pins of the microcontroller; bus addresses, pull-up resistors and currents are taken from the manufacturers' datasheets.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Proposed pin assignment (design of this work).}\label{tab:pinout}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{2.2cm} X@{}}
+\toprule
+\textbf{ESP32} & \textbf{MAX30100} & \textbf{MAX30205} & \textbf{Function} \\
+\midrule
+3.3~V / GND & VIN / GND & VCC / GND & supply and reference \\
+GPIO21 & SDA & SDA & I\textsuperscript{2}C data \\
+GPIO22 & SCL & SCL & I\textsuperscript{2}C clock \\
+GPIO19 (input) & INT & --- & data-ready interrupt \\
+GPIO18 (input) & --- & OS & over-temperature alarm \\
+--- & --- & A0, A1, A2 & tied to GND or 3.3~V \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Power and duty cycle}\label{sec:power}\label{sec:power-arithmetic}\label{sec:power-crossover}
+
+\Textcite{efendi2025} identify battery dependence as their main limitation: their device sampled every second with the radio permanently on. With a duty cycle $d$, active current $I_{\text{act}}$, sleep current $I_{\text{slp}}$ and battery capacity $C$,
+\begin{equation}
+  d = \frac{t_{\text{act}}}{T}, \qquad
+  I_{\text{avg}} = d\,I_{\text{act}} + (1-d)\,I_{\text{slp}}, \qquad
+  \text{life} = \frac{C}{I_{\text{avg}}}.
+\end{equation}
+Under the protocol of two measurement occasions a week ($T = 3.5$ days $= 302\,400$~s) with a 60-second active window, $d = 1.98 \times 10^{-4}$. With illustrative currents of 120~mA active and 10~\textmu A in sleep, the average current falls from 120~mA to 0.034~mA, and the life of a 2\,000~mAh battery rises from 17 hours to several years (\cref{tab:power-regimes}).
+
+\begin{table}[htbp]
+\centering\small
+\caption{Power regimes (illustrative currents, to be replaced by datasheet values).}\label{tab:power-regimes}
+\begin{tabularx}{\textwidth}{@{}X c c@{}}
+\toprule
+\textbf{Regime} & \textbf{Average current} & \textbf{Life on 2\,000~mAh} \\
+\midrule
+Continuous, as \textcite{efendi2025} & 120~mA & 17~h \\
+Duty-cycled, $d = 1.98\times10^{-4}$ & 0.034~mA & $\approx 6.7$~years \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A less intuitive result follows. At this duty cycle the active term still contributes 70\% of the average current. The two terms are equal for an active window of $t^\star = I_{\text{slp}}T/I_{\text{act}} \approx 25$~s; above it, shortening the active window is the effective lever, below it, the sleep current dominates. Since 60~s is above $t^\star$, the first optimisation is a shorter acquisition (faster sensor settling, smaller payload), not a lower sleep current. The 8~kB of memory retained in deep sleep holds the state between cycles (last transmission, unacknowledged readings, last level), and the device wakes on the cuff's Bluetooth advertisement, so the covariates are sampled at the same moment as the clinical measurement.
+
+Matching sampling to the clinical protocol thus solves three problems at once: battery life here, alert volume (\cref{sec:frequency-decides}) and data cost (\cref{sec:mqtt-design}).
+
+\subsection{MQTT client design}\label{sec:mqtt-design}\label{sec:qos}\label{sec:mqtt-payload}
+
+Messages are published on the topic \texttt{telemon/v1/<site>/<pseudonym>/<channel>/<measurement\_id>}. The version prefix allows the schema to evolve; the pseudonym keeps identities out of broker logs; and the channel segment lets the scoring service subscribe to clinical channels only.
+
+MQTT offers three delivery guarantees (\cref{tab:qos}). Exactly-once delivery (QoS~2) seems natural for red readings but is the wrong choice: it needs two more round trips, precisely on the degraded links where red delays are harmful, and the duplicate suppression it provides is already ensured by the unique \texttt{measurement\_id}. Red readings therefore use at-least-once delivery, with urgency expressed through retries and the SMS fallback.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Delivery guarantee by level.}\label{tab:qos}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} c >{\raggedright\arraybackslash}p{2.6cm} X@{}}
+\toprule
+\textbf{Message} & \textbf{QoS} & \textbf{Guarantee} & \textbf{Reason} \\
+\midrule
+Green, routine covariate & 0 & at most once & one lost sample is immaterial \\
+Yellow and red readings & 1 & at least once & must arrive; duplicates removed by identifier \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+At connection, each client registers a ``Last Will'' message that the broker publishes if the connection drops without a clean disconnect. This provides, at no cost, the non-transmission signal that a failed device cannot send itself, and distinguishes a device sleeping as designed from one that has failed.
+
+Each record is about 300 bytes, and each measurement occasion sends three (blood pressure, glucose, covariates). The duty-cycled design transmits about 7.7~kB per patient per month, against 778~MB for continuous 1~Hz streaming---five orders of magnitude less (\cref{tab:data-volume}). On Cameroonian mobile tariffs this is the difference between a recurring cost for the patient and a negligible one, and it makes the system sustainable as it grows. Transport uses MQTT over TLS, a credential per device, and broker rules restricting each device to its own topics.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Transmitted volume, at 300 bytes per record.}\label{tab:data-volume}
+\begin{tabularx}{\textwidth}{@{}X c c@{}}
+\toprule
+\textbf{Regime} & \textbf{Per patient per month} & \textbf{30 patients per month} \\
+\midrule
+Continuous 1~Hz & 778~MB & 23~GB \\
+Duty-cycled, 2 occasions per week & 7.7~kB & 231~kB \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Camera photoplethysmography}\label{sec:camera-ppg}\label{sec:ppg-chain}\label{sec:ppg-validation}
+
+The smartphone camera is used for heart rate, which it measures robustly; it is not used for oxygen saturation, which requires controlled illumination at two wavelengths. Blood pressure estimated by camera \parencite{liu2025ppg} may be recorded alongside cuff readings for research, but never enters a clinical decision (\cref{sec:ppg}). The proposed signal chain is: fingertip on the rear camera with the flash on and automatic exposure disabled; mean red intensity of a central region at 30 frames per second; removal of the slow baseline; band-pass filtering between 0.7 and 3.5~Hz (42 to 210 beats per minute); rate estimation by spectral peak, cross-checked against peak-to-peak intervals; and the median over 30 seconds. Three quality gates---finger contact, motion, and periodicity---reject unusable acquisitions, which then count as missing rather than as values.
+
+This channel comes with a free validation study, to be run in a prospective collection. The cuff reports the pulse at every measurement, so pairing a camera acquisition with each cuff reading would yield about 300 paired observations from thirty patients over five weeks. Because each patient contributes about ten pairs, agreement is assessed with the repeated-measures variant of Bland--Altman analysis, which separates between-patient from within-patient differences. The study reports the bias and limits of agreement, the proportion within $\pm 5$ and $\pm 10$ beats per minute, and the rejection rate of each gate. It must be planned from the start, because the two acquisitions must be simultaneous.
+
+\subsection{The three options compared}\label{sec:options}
+
+\Cref{tab:options} compares the three acquisition options. Option~C is adopted: patients would receive exactly the spare configuration of option~A, and the instrumented device exists only as a bench prototype. This keeps the hardware design without requiring thirty devices to be built and maintained by one researcher; the low-cost acquisition itself is not evaluated in this work (\cref{sec:scenarios}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Acquisition options compared.}\label{tab:options}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+ & \textbf{A: spare} & \textbf{B: instrumented} & \textbf{C: staged (adopted)} \\
+\midrule
+BP and glucose & validated Bluetooth devices & validated Bluetooth devices & validated Bluetooth devices \\
+Heart rate & cuff pulse, camera & MAX30100 & cuff pulse, camera \\
+SpO$_2$, temperature & --- & MAX30100, MAX30205 & bench prototype only \\
+Devices to build & none & 30 units & one prototype \\
+Validation burden & camera against cuff pulse & both sensors, under movement & camera only \\
+Clinical risk if it fails & none & none & none \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%##########################################################################
+
+%##########################################################################
+\section{Backend}\label{sec:backend}\label{sec:tree-property}\label{sec:schema-counterexample}\label{sec:schema-design}\label{sec:key-design}
+
+The backend has two parts: a managed document database, Cloud Firestore, which holds the record and synchronises the applications, and a risk service that scores a patient's recent readings with the model selected by the benchmark. The database is a proprietary service and the risk service is plain Python, so the domain logic stays outside the platform.
+
+\subsection{Data model}\label{sec:firestore-model}
+
+The logical model of \cref{sec:record-schema} is implemented as collections of documents (\cref{tab:collections}). Readings and messages are subcollections of the patient, so that a security rule on the patient governs them, and each patient's readings are read in time order with a single ordered query. The published database of \textcite{efendi2025}, by contrast, holds one current value per parameter; it stores the present and discards the past, which makes a seven-day mean impossible.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Firestore collections of the built system.}\label{tab:collections}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash\ttfamily\scriptsize}p{4.2cm} X@{}}
+\toprule
+\normalfont\textbf{Path} & \textbf{Content} \\
+\midrule
+users/\{uid\} & profile: role (patient or clinician), age, sex, conditions, medications, assigned clinician, last-seen time \\
+users/\{uid\}/readings/\{id\} & one reading: time, systolic and diastolic pressure, pulse, glucose in mmol/L, measurement context \\
+users/\{uid\}/messages/\{id\} & patient--clinician thread: sender, role, text, time, read time \\
+clinician\_codes/\{code\} & enrolment code mapped to a clinician \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three parts of the logical model are not yet implemented: the event record with clinician verdicts, the device register, and the separation of measurement time from record time, since a manual entry is stamped when it is saved. The threshold table is versioned in a configuration file shared with the research code, and its version is checked at every call to the risk service (\cref{sec:risk-service}).
+
+\subsection{Offline operation}\label{sec:offline-built}
+
+The database client keeps a local cache on the phone. A reading entered without connectivity is written to the cache, shown at once in the history, and sent when the connection returns; a lost reading becomes a delayed reading. The rule level of the latest readings is computed on the phone (\cref{sec:edge-inference}), so the patient sees a level even offline; only the model score needs the network.
+
+\subsection{Authentication and authorisation}\label{sec:auth}\label{sec:roles}\label{sec:rules}\label{sec:write-validation}
+
+Identity is established by Firebase Authentication; authorisation is enforced by security rules evaluated on the server for every read and write, which are the entire access-control layer since clients address the database directly. A patient joins a clinician with an enrolment code that the clinician gives them; the code is resolved before the account is created, and the role cannot be chosen by the client. \Cref{tab:access-matrix} summarises the rules.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Access matrix of the built system.}\label{tab:access-matrix}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash\ttfamily\scriptsize}p{3.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\normalfont\textbf{Path} & \textbf{Patient} & \textbf{Assigned clinician} \\
+\midrule
+users/\{own\} & read; create; update except protected fields & read \\
+users/\{own\}/readings & read, write & read \\
+users/\{own\}/messages & read; send & read; send \\
+clinician\_codes & look up one code & list \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The specification of \cref{sec:record-schema} makes the record append-only, a correction being a new reading that supersedes the old one. The built rules still let a patient modify or delete their own readings, which keeps the record editable by the person it describes; enforcing append-only writes is the first change needed before clinical use. Server-side validation of each write (plausible range, unit, device) is likewise specified but, in the built version, applied by the application only.
+
+\subsection{The risk service}\label{sec:risk-service}\label{sec:functions}\label{sec:sweeps}
+
+The model is served by a local web service (FastAPI). The application sends the readings of the last four days, with age and sex and without any identifier; the service applies the quality controls, computes the features or sequences with the same code as the research pipeline, and returns, for each condition, the probabilities of the four levels and the alert probability. It also applies the guideline rule to the last reading of each channel and returns the final tier, the more severe of the rule tier and the model tier. Because the service and the benchmark share one implementation, the features seen in deployment cannot drift from those seen in training; and because the service refuses a model labelled with a threshold version different from its own, and the application refuses a service whose version differs from its own, a revision of the guidelines cannot silently produce inconsistent levels.
+
+The service runs on the development machine only; hosting it online is outside the scope of this thesis. The application works without it, with the rule floor alone, and says so on the risk card. The server functions of the production design---escalation of yellow and red events to a queue, notification, non-transmission sweep and queue-age sweep---are specified in \cref{tab:triggers} but not built.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Server functions specified for the production version.}\label{tab:triggers}\label{tab:modules}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}p{3.0cm} X@{}}
+\toprule
+\textbf{Function} & \textbf{Fires on} & \textbf{Action} \\
+\midrule
+Measurement check & new reading & re-validate; set the quality flag; recompute the rule level \\
+Scoring & a completed window & call the risk service; apply $\max$(rule, model) \\
+Escalation & yellow or red level & create the event; add it to the clinician's queue \\
+Red alert & red level & push notification; SMS after repeated failures \\
+Verdict & clinician verdict & close the event; store the label; inform the patient \\
+Non-transmission sweep & schedule & raise an event when a patient exceeds their checkup period \parencite{yazdani2018} \\
+Queue-age sweep & schedule & escalate an unreviewed event to a named alternate \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Cost and residency}\label{sec:sync}\label{sec:connections}\label{sec:connection-cost}\label{sec:cost}\label{sec:modules}\label{sec:residency-irreversible}
+
+Firestore is billed on stored volume and on the number of documents read and written. A reading is one document of a few hundred bytes, and the history screen reads the patient's readings once and then only the changes, so thirty patients following the protocol of \cref{sec:protocols} generate a few hundred writes a month, far below the free quota of the service. The cost per patient and month at a thousand-patient scale is to be computed from the provider's current prices, a figure that none of the reviewed sources provides.
+
+Two choices are legal as much as technical. The database region is fixed at creation and cannot be changed without migrating the data; a region outside Cameroon is a transfer abroad, which Law No.~2024/017 subjects to the authorisation of the supervisory authority (\cref{sec:legal}). And Firebase is a proprietary service whose rules do not port to other providers; the domain logic---rule engine, features, scoring---is therefore kept in plain, provider-independent code, and a scheduled export to a neutral format serves as backup and as portability insurance.
+
+%##########################################################################
+
+%##########################################################################
+\section{Application Interfaces}\label{sec:interfaces}
+
+Three interfaces are described: the patient application, the health assistant it contains, and the clinician dashboard.
+
+\subsection{Design basis}\label{sec:corpus-gap}\label{sec:app-argument}
+
+The literature offers half of what is needed. The application of \textcite{efendi2025} has a single user, the monitored person, who sees the prediction directly; there is no clinician. \Textcite{yazdani2018} design a clinician view ordered by priority but did not implement it. The priority queue specified below therefore has no implemented precedent; the built version is a simpler roster.
+
+Three findings guide the patient application. Commercial applications contain a median of nine behaviour change techniques \parencite{alessa2019}, just below the eleven associated with the larger effect in \textcite{zhou2024}. The clinical effect of \textcite{mihevc2025}, however, came from treatment adjustment by the clinician, not from behaviour change. And a tenth of their patients dropped out because they could not use the equipment (\cref{sec:procedure}). The primary function of the patient application is therefore reliable capture and prompt escalation, with as little burden as possible; behaviour change techniques are delivered by the structure of the system rather than by advice content.
+
+\subsection{Patient mobile application}\label{sec:patient-app}\label{sec:platform}\label{sec:manual-entry}\label{sec:trends}\label{sec:bct-mapping}\label{sec:app-notifications}\label{sec:device-spec}
+
+\paragraph{Platform.} The patient application is built with Flutter, a cross-platform toolkit, for one code base on Android and iOS and consistent rendering on low-end phones; the same application serves the clinician. This is an engineering choice, made for development effort rather than by benchmark.
+
+\paragraph{What is built.} The patient signs up with the code given by their clinician, enters readings, sees their history and trend, sees the risk tier of their latest readings, exchanges messages with their clinician, asks the health assistant (\cref{sec:assistant}), and can open a search for nearby pharmacies, health centres, hospitals and laboratories. The search is handed to Google Maps with a ``near me'' query, so the application never requests the phone's location and never stores it.
+
+\paragraph{Manual entry.} Manual entry is the only acquisition path of the built version, and three safety requirements apply to it. The \emph{unit} of glucose is fixed to mmol/L for the whole application and displayed beside the field: a glucose of 7 is a normal value in mmol/L and a dangerous one in mg/dL, and no range check can tell them apart; a value outside the plausible range of \cref{tab:units} is refused with a message that names the unit. The \emph{coherence} of a pressure pair is checked (systolic above diastolic by at least 10~mmHg), as in the quality controls of \cref{sec:quality}. The measurement \emph{context} (fasting, after a meal, after medication, after exercise, random) is recorded, because the applicable glucose threshold depends on it. The specification adds two points not yet built: entering the two readings of the protocol, of which the second is retained, and dating a reading taken earlier.
+
+\paragraph{Trends and what the patient sees.} The chart shows the fourteen-day window with the target band drawn behind the series, so that the patient sees their position relative to the target; it is rendered from local storage, so it does not go blank when the connection drops. The patient sees their values, their position relative to the band, the tier and, at yellow or red, the permitted instruction. The specification adds that the patient never sees a model score or a probability; the built risk card still displays the alert probability of each condition, which is to be removed from the patient view and kept for the clinician.
+
+\paragraph{Behaviour change techniques.} Most of the useful techniques are properties of a telemonitoring system rather than advice content (\cref{tab:bct-mapping}). This mapping is a design intention of this work; it is to be confirmed by formal coding against the taxonomy of behaviour change techniques before any count is reported as a result.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Behaviour change techniques delivered by the structure of the system.}\label{tab:bct-mapping}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{6.0cm} X@{}}
+\toprule
+\textbf{Technique} & \textbf{Delivered by} \\
+\midrule
+Self-monitoring of outcome & the measurement protocol \\
+Feedback on outcome & the trend chart with target band \\
+Prompts and cues & reminders based on the checkup period \\
+Goal setting; discrepancy between state and goal & the target band and the reading plotted against it \\
+Review of outcome goals & the clinician's decision relayed to the patient \\
+Action planning; habit formation & a fixed measurement schedule \\
+Practical social support & nurse-assisted measurement \\
+Credible source & advice attributed to the clinician and the guideline \\
+Information about health consequences & explanation of the target band \\
+Behavioural contract & the enrolment agreement \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Notifications.} Notifications are to follow the level (\cref{tab:notification}), and their content respects the boundary of \cref{sec:safety}: a patient may be told that a reading is high and that they should contact their health centre, never to change a dose.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Notification by level and recipient (specified).}\label{tab:notification}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.6cm} X >{\raggedright\arraybackslash}p{4.2cm}@{}}
+\toprule
+\textbf{Level} & \textbf{Patient} & \textbf{Clinician} \\
+\midrule
+Green & silent; visible in the application & appears in the queue \\
+Yellow & prompt for the verification profile & queued at normal priority \\
+Red & immediate notification and local warning, whatever the connectivity & immediate notification; SMS fallback \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+When a patient stops sending data, the reminder is to be sent by SMS rather than by push notification, since the push channel is precisely the one that has gone silent \parencite{yazdani2018}; neither is built yet.
+
+\paragraph{Minimum device.} The device requirements of \textcite{efendi2025} are adopted (\cref{tab:device-spec}), with one exception: connectivity. A patient sends about 7.7~kB a month, which a second-generation mobile connection transfers in seconds, so requiring a 4G connection would exclude the settings the system targets for no reason.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Minimum device specification.}\label{tab:device-spec}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.0cm} X@{}}
+\toprule
+\textbf{Requirement} & \textbf{Value} \\
+\midrule
+Free storage & 1~GB \\
+RAM & 2~GB \\
+Processor & 1.2~GHz quad-core \\
+Connectivity & intermittent, any generation (not 4G) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The health assistant}\label{sec:assistant}
+
+The patient application contains a conversational assistant that answers questions in the patient's language, French or English. It relies on a general-purpose language model (Gemini, in its fast variant, chosen for answers in a few seconds on a slow connection) reached through Firebase AI Logic. At the start of each conversation it receives an instruction that describes its role and the patient's context: age, sex, recorded conditions, prescribed medications, and the seven most recent readings.
+
+\paragraph{Role.} The assistant explains what a reading means, what hypertension and diabetes are and why follow-up matters; it gives general information on diet, salt, physical activity and adherence to the treatment already prescribed; it helps the patient judge whether a situation can wait for the next appointment, needs a visit soon or needs care today; and it encourages regular measurement. These functions belong to the automated side of the boundary of \cref{tab:automation-boundary}: return of a reading and its meaning, generic lifestyle guidance, and no instruction beyond ``contact your health centre''.
+
+\paragraph{Guardrails.} Four rules, stated as overriding every other instruction and every request of the user, and restated at the end of the instruction, keep the assistant within that boundary (\cref{tab:assistant-guardrails}). The provider's safety filters add a second layer: a blocked answer is replaced by a message directing the patient to their clinician. And the assistant has no access to the record beyond what it is told: it cannot write a reading, change a profile, message the clinician or alter a risk level.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Guardrails of the health assistant and the risk each one addresses.}\label{tab:assistant-guardrails}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{5.2cm} X@{}}
+\toprule
+\textbf{Rule given to the model} & \textbf{Risk addressed} \\
+\midrule
+Never recommend, name, adjust, increase, reduce or stop a medication or dose; refer the question to the doctor & antihypertensive and antidiabetic drugs have narrow margins: a wrong dose causes hypotension or hypoglycaemia (\cref{sec:safety}) \\
+Never give a diagnosis & a diagnosis requires repeated measurement and a clinician (\cref{sec:variability}) \\
+Never reassure in a way that could discourage seeking care & false reassurance delays care, the costliest error of triage \\
+Emergency symptoms (chest pain, breathlessness, one-sided weakness, speech difficulty, fainting, confusion): tell the patient first and plainly to go to hospital or call emergency services & stroke and myocardial infarction, the complications the follow-up aims to prevent \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Limits.} These guardrails are instructions, not guarantees: a language model can be led outside its instructions by an unusual question, and the provider's filters are not designed for clinical safety. Their effect has not been measured; before use with patients, the assistant must be tested on a fixed set of adversarial questions (requests for a dose change, symptoms of an emergency, readings in each level, questions in French and in English), with the proportion of answers that breach a rule reported. The assistant also sends personal data to a provider outside Cameroon: the patient's name, conditions, medications and readings leave the country at every conversation. This conflicts with the pseudonymisation applied elsewhere (\cref{sec:reident}) and is a transfer abroad under Law No.~2024/017 (\cref{sec:legal}); it requires the patient's informed consent and the authorisation of the supervisory authority, and the name, which the assistant does not need, is to be removed from its context. Finally, the instruction tells the model that the risk level is computed from the last seven readings, whereas the built risk card uses the readings of the last four days; the two must be aligned.
+
+\subsection{Clinician dashboard}\label{sec:dashboard}\label{sec:queue-view}\label{sec:three-tiers}\label{sec:queue-row}\label{sec:never-display}\label{sec:verdict-capture}\label{sec:dash-roles}\label{sec:replace-task}
+
+\paragraph{What is built.} The built clinician view lists the patients assigned to the clinician, each with their latest reading, updated live, and gives access to each patient's history, risk card and message thread; it also displays the clinician's enrolment code. The rest of this subsection specifies the dashboard the system needs, which this roster prefigures.
+
+\paragraph{A queue, not a patient list.} The unit of clinical work is an unreviewed event, not a patient. The dashboard is to read the queue ordered by priority and then by age. Since clinician review dominates the end-to-end delay (\cref{sec:latency}), the dashboard is the system's main lever on that delay, and the queue-age sweep prevents long waits from becoming routine.
+
+\paragraph{Three levels, not two.} The initial specification of the subject proposed two levels, normal and alert. With two levels, the intermediate readings must go somewhere: folded into normal, borderline patients are never re-examined; folded into alert, the queue fills with false alerts (\cref{sec:alert-volume}). The three levels of the only validated protocol solve this.
+
+\paragraph{What a queue row shows.} Each row must allow a triage decision without opening the patient record (\cref{tab:queue-row}).
+
+\begin{table}[htbp]
+\centering\small
+\caption{Content of a queue row.}\label{tab:queue-row}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{6.0cm} X@{}}
+\toprule
+\textbf{Field} & \textbf{Purpose} \\
+\midrule
+Level & the triage decision \\
+Trigger source: rule, model or non-transmission & the strength of the evidence \\
+Triggering value, with unit and context & the clinical fact \\
+Direction of the fourteen-day trend & isolated excursion or deterioration \\
+Days since last review & escalation \\
+Pseudonym and age band & identification without identity \\
+Model and threshold versions & traceability \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Two display rules.} First, a raw score from a weighted model is never displayed: an output of 0.5 may correspond to a true probability of 0.02 (\cref{sec:prior-correction}); only the corrected, calibrated value is shown, and the level with its reason often communicates more honestly than any decimal. Second, the trigger source is always shown. A rule trigger is a guideline threshold crossing; a model trigger, on this sample size, is weaker evidence. Showing both the same way would make the system distrusted after its first false alarm.
+
+\paragraph{The verdict is the label pipeline.} The physician's verdict on each event is the source of the clinically adjudicated labels of \cref{sec:two-labels}. If recording it is tedious, the label store stays empty. The verdict must therefore take two or three interactions---true alert, false alert or indeterminate, plus the action taken---with an optional comment.
+
+\paragraph{Roles and adoption.} The nurse sees a separate worklist of measurements and assistance, not a greyed-out physician screen. And the dashboard must \emph{replace} a task rather than add one, since health professionals in the region see telemedicine as additional work \parencite{dodoo2022}: it must become the place where home readings are reviewed instead of the paper register, show the same window as the patient's application, and let the verdict both close the alert and serve as the clinical note.
+
+\subsection{Edge inference}\label{sec:edge-inference}\label{sec:export-what}\label{sec:rule-export}\label{sec:version-stamp}\label{sec:local-alert}\label{sec:model-size}
+
+Running the trained model on the phone is a natural extension. The model itself is small: a shallow tree ensemble takes tens of kilobytes, and even the LSTM of \cref{sec:lstm-config}, with $4[16(10+16)+16] = 1\,728$ parameters, takes under 7~kB. The difficulty is fidelity: a local score is only valid if the window, the features, the normalisation constants, the masking, the calibration and the thresholds are reproduced exactly as in the cloud. A feature pipeline rewritten for the phone will diverge in small ways, and a phone that silently produces different scores from the cloud is worse than one that produces none. Local scoring therefore requires one shared implementation, or one exported pipeline, with agreement tests on a fixed dataset before each release.
+
+The rule engine, by contrast, is a short list of threshold comparisons with no numerical drift. It delivers most of the offline value at a fraction of the risk, and degrades exactly to guideline conformity. The built version therefore ships the rule engine only, as a mirror of the threshold table of the research code whose levels are checked against those of the Python reference by an automated test; local model scoring follows once the agreement tests pass. Every locally computed level carries its threshold and model versions, and the cloud re-scores the window on reconnection and records any discrepancy.
+
+A local red level may do exactly two things: warn the patient to seek care, and queue the event for transmission. It may not advise a dose or replace review. If connectivity is lost, the event is to reach the clinician by two independent routes: the queued reading when the connection returns, and the non-transmission alarm in the meantime.
+
+%##########################################################################
+
+%##########################################################################
+\section{Summary and Limitations}\label{sec:arch-summary}\label{sec:interface-limits}\label{sec:backend-limits}\label{sec:iot-limits}\label{sec:traceability}
+
+\Cref{tab:traceability} shows where each element of the design comes from. The elements marked ``this work'' are original contributions of the design.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Origin of the main design elements.}\label{tab:traceability}
+\begin{tabularx}{\textwidth}{@{}X >{\raggedright\arraybackslash}p{5.2cm}@{}}
+\toprule
+\textbf{Design element} & \textbf{Origin} \\
+\midrule
+Four-layer decomposition with an edge tier & \textcite{mucchi2021} \\
+Offline-first storage & \textcite{efendi2025} \\
+Three-level alerting with a verification profile & \textcite{mihevc2025} \\
+Priority-ordered queue; configurable checkup period & \textcite{yazdani2018} \\
+Offline training separated from online scoring & \textcite{liu2025review} \\
+Validated-device restriction & \textcite{who2023hypertension} \\
+Level-dependent transmission priority & this work (\cref{sec:transmission-priority}) \\
+Alert-volume arithmetic and aggregation at the edge & this work (\cref{sec:alert-volume}) \\
+Rule floor, final level $=\max$(rule, model) & this work (\cref{sec:rule-floor}) \\
+Latency decomposition and the dominance of clinician review & this work (\cref{sec:latency}) \\
+Failure-mode table and model/threshold version registry & this work (\cref{sec:failure,sec:layers}) \\
+Duty cycling matched to the protocol (battery, data, alerts) & this work (\cref{sec:power}) \\
+Shared implementation of research and risk service, with threshold version check & this work (\cref{sec:risk-service}) \\
+Guardrails of the health assistant & this work (\cref{sec:assistant}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Six limits remain. No architecture of this kind has yet been validated in routine care, in the literature or here. Part of the design is specified but not built (\cref{tab:build-status}), in particular the priority queue, the event record and append-only writes. The guardrails of the health assistant are untested, and its use transfers personal data abroad. Camera heart rate is unvalidated until the sub-study of \cref{sec:camera-ppg} is run. The efficiency of MQTT over HTTP is assumed rather than measured; a bench comparison of bytes, round trips and energy per record on the prototype would turn it into a result. And the usability of the interfaces, in particular the two-to-three-interaction verdict, has not been measured; it requires a prospective study with patients and clinicians.

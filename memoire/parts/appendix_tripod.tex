@@ -1,0 +1,53 @@
+%==========================================================================
+% APPENDIX -- TRIPOD+AI CHECKLIST
+%==========================================================================
+\appendix
+\chapter{TRIPOD+AI Checklist}\label{app:tripod}
+
+The modelling study is reported according to the TRIPOD+AI statement \parencite{collins2024}, and its risk of bias can be assessed with PROBAST+AI \parencite{moons2025}. \Cref{tab:tripod} gives, for each item of the checklist, where it is addressed. Items 20 to 27 concern results and their discussion, which are reported in the experimental part.
+
+{\footnotesize
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{1.0cm} >{\raggedright\arraybackslash}p{4.4cm} >{\raggedright\arraybackslash}p{8.6cm}@{}}
+\caption{TRIPOD+AI items and where they are addressed.}\label{tab:tripod}\\
+\toprule
+\textbf{Item} & \textbf{Topic} & \textbf{Where} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Item} & \textbf{Topic} & \textbf{Where} \\
+\midrule
+\endhead
+1 & Title & title page \\
+3a--b & Background, intended use & \cref{ch:intro}; \cref{sec:research-questions} \\
+3c & Health inequalities & \cref{sec:lit-gaps} (Central Africa absent from the evidence) \\
+4 & Objectives & \cref{sec:intro-objectives,sec:research-questions} \\
+5a & Data sources & \cref{sec:scenarios,sec:sampling} \\
+5b & Dates & \cref{sec:scenarios} (Douala, 2026); eICU admissions 2014--2015 \parencite{pollard2018} \\
+6a--b & Setting, eligibility & \cref{sec:setting,sec:eligibility,sec:sampling} \\
+6c & Treatments & not recorded in either dataset; \cref{sec:meth-limits} \\
+7 & Data preparation & \cref{sec:quality,sec:outliers,sec:pipeline} \\
+8a & Outcome & \cref{sec:labelling,sec:horizon} \\
+8b--c & Outcome assessment, blinding & rule-based label; blinded relabelling by the partner physician (\cref{sec:labelling}) \\
+9a--b & Predictors & \cref{sec:feature-eng,tab:feature-set,tab:feature-sets}; instruments in \cref{sec:instruments-obtained} \\
+9c & Subjective predictors & none; pulse read from the chart curve (\cref{sec:instruments-obtained}) \\
+10 & Sample size & \cref{sec:sampling,tab:sample-size} \\
+11 & Missing data & \cref{sec:missingness} \\
+12a & Data partitioning & \cref{sec:training} \\
+12b & Predictor handling & \cref{tab:model-prep} \\
+12c & Model type, tuning & \cref{sec:families}; hyperparameter search \\
+12d & Heterogeneity across clusters & outer folds grouped by hospital (\cref{sec:training,sec:metrics}) \\
+12e & Performance measures & \cref{sec:metrics,tab:metrics} \\
+12f & Model updating & intercept update in external validation (\cref{sec:risk-score}) \\
+12g & How predictions are computed & published code (\cref{sec:tools}) \\
+13 & Class imbalance & \cref{sec:imbalance-training,sec:risk-score} \\
+14 & Fairness & performance by sex and age band (\cref{sec:metrics}) \\
+15 & Model output, thresholds & \cref{sec:risk-score,sec:tiers} \\
+16 & Development versus evaluation data & \cref{sec:sampling} (intensive care in the United States against Douala wards) \\
+17 & Ethical approval & \cref{sec:ethics-considerations} \\
+18c--d & Protocol, registration & this chapter fixes the protocol before the results (\cref{sec:prereg}); not registered \\
+18e--f & Data and code sharing & \cref{sec:tools} \\
+19 & Patient and public involvement & none \\
+20--27 & Results, discussion, usability & experimental part \\
+\bottomrule
+\end{longtable}
+}
