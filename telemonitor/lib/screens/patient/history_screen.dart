@@ -4,6 +4,7 @@ import '../../models/reading.dart';
 import '../../services/clinical_levels.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/level_style.dart';
 import 'log_reading_screen.dart';
 
 /// The patient's full reading history, with a filterable list and a
@@ -21,15 +22,13 @@ class HistoryScreen extends StatefulWidget {
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-/// The three buckets a reading can fall into for display and filtering.
-enum _Band { high, elevated, normal }
-
 class _HistoryScreenState extends State<HistoryScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   String _filter = 'All';
 
-  static const _filters = ['All', 'High', 'Elevated', 'Normal'];
+  /// 'All', then the levels of the thesis label, most severe first.
+  static final _filters = ['All', for (final l in [3, 2, 1, 0]) ClinicalLevels.name(l)];
 
   @override
   void initState() {
@@ -51,28 +50,13 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   List<Reading> get _all => ReadingsRepository.instance.readings;
 
-  /// Collapses the detailed BP and glucose statuses into three display
-  /// bands, taking whichever of the two present values is more severe.
-  _Band _bandOf(Reading r) {
-    // Thesis label: high or critical -> high band; moderate -> elevated.
-    final level = r.level;
-    if (level == null) return _Band.normal;
-    if (level >= ClinicalLevels.alertLevel) return _Band.high;
-    if (level == 1) return _Band.elevated;
-    return _Band.normal;
-  }
+  /// Overall level of a reading; a reading without values counts as stable.
+  int _levelOf(Reading r) => r.level ?? 0;
 
   List<Reading> get _filtered {
-    switch (_filter) {
-      case 'High':
-        return _all.where((r) => _bandOf(r) == _Band.high).toList();
-      case 'Elevated':
-        return _all.where((r) => _bandOf(r) == _Band.elevated).toList();
-      case 'Normal':
-        return _all.where((r) => _bandOf(r) == _Band.normal).toList();
-      default:
-        return _all;
-    }
+    if (_filter == 'All') return _all;
+    final level = ClinicalLevels.names.indexOf(_filter);
+    return _all.where((r) => _levelOf(r) == level).toList();
   }
 
   @override
@@ -203,24 +187,8 @@ class _HistoryScreenState extends State<HistoryScreen>
   String _time(DateTime ts) =>
       '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
 
-  (String, Color, Color) _bandStyle(_Band b) {
-    switch (b) {
-      case _Band.high:
-        return ('High', AppColors.dangerText(context),
-            AppColors.dangerBg(context));
-      case _Band.elevated:
-        return ('Elevated', AppColors.warningText(context),
-            AppColors.warningBg(context));
-      case _Band.normal:
-        return ('Normal', AppColors.successText(context),
-            AppColors.successBg(context));
-    }
-  }
-
   Widget _readingCard(Reading r) {
-    final band = _bandOf(r);
-    final (label, fg, bg) = _bandStyle(band);
-    final bpAlert = r.isHaemodynamicAlert;
+    final style = LevelStyle.of(context, _levelOf(r));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -246,7 +214,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                 ),
               ],
               const Spacer(),
-              _chip(label, fg, bg, bold: true),
+              style.badge(fontSize: 12),
             ],
           ),
           const SizedBox(height: 12),
@@ -257,7 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   Icons.favorite_outline,
                   r.hasBP ? '${r.sbp}/${r.dbp}' : '—',
                   'mmHg',
-                  alert: bpAlert,
+                  color: LevelStyle.valueColor(context, r.hasBP ? ClinicalLevels.haemodynamic(sbp: r.sbp, dbp: r.dbp) : null),
                 ),
               ),
               const SizedBox(width: 8),
@@ -266,6 +234,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   Icons.water_drop_outlined,
                   r.hasGlucose ? '${r.glucose}' : '—',
                   'mmol/L',
+                  color: LevelStyle.valueColor(context, r.glycaemicLevel),
                 ),
               ),
               const SizedBox(width: 8),
@@ -274,6 +243,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   Icons.monitor_heart_outlined,
                   r.hr != null ? '${r.hr}' : '—',
                   'bpm',
+                  color: LevelStyle.valueColor(context, ClinicalLevels.pulse(r.hr)),
                 ),
               ),
             ],
@@ -297,7 +267,7 @@ class _HistoryScreenState extends State<HistoryScreen>
               ],
             ),
           ],
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Row(
             children: [
               Expanded(
@@ -316,6 +286,10 @@ class _HistoryScreenState extends State<HistoryScreen>
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => LogReadingScreen(correcting: r)),
+                ),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 icon: const Icon(Icons.edit_outlined, size: 14),
                 label: const Text('Correct', style: TextStyle(fontSize: 12)),
@@ -346,10 +320,8 @@ class _HistoryScreenState extends State<HistoryScreen>
     );
   }
 
-  Widget _valueBox(IconData icon, String value, String unit,
-      {bool alert = false}) {
-    final fg =
-        alert ? AppColors.dangerText(context) : AppColors.primaryText(context);
+  Widget _valueBox(IconData icon, String value, String unit, {required Color color}) {
+    final fg = color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
@@ -416,11 +388,7 @@ class _HistoryScreenState extends State<HistoryScreen>
         : glucoseReadings.map((r) => r.glucose!).reduce((a, b) => a + b) /
             glucoseReadings.length;
 
-    final counts = {
-      _Band.high: _all.where((r) => _bandOf(r) == _Band.high).length,
-      _Band.elevated: _all.where((r) => _bandOf(r) == _Band.elevated).length,
-      _Band.normal: _all.where((r) => _bandOf(r) == _Band.normal).length,
-    };
+    final counts = {for (final l in [3, 2, 1, 0]) l: _all.where((r) => _levelOf(r) == l).length};
     final total = _all.length;
 
     return ListView(
@@ -458,14 +426,10 @@ class _HistoryScreenState extends State<HistoryScreen>
           'Reading distribution',
           Column(
             children: [
-              _distributionBar('High', counts[_Band.high]!, total,
-                  AppColors.dangerText(context)),
-              const SizedBox(height: 12),
-              _distributionBar('Elevated', counts[_Band.elevated]!, total,
-                  AppColors.warningText(context)),
-              const SizedBox(height: 12),
-              _distributionBar('Normal', counts[_Band.normal]!, total,
-                  AppColors.successText(context)),
+              for (final l in [3, 2, 1, 0]) ...[
+                _distributionBar(ClinicalLevels.name(l), counts[l]!, total, LevelStyle.of(context, l).fg),
+                if (l > 0) const SizedBox(height: 12),
+              ],
             ],
           ),
         ),
@@ -479,21 +443,22 @@ class _HistoryScreenState extends State<HistoryScreen>
   /// Plain-language observations drawn only from the patient's own data.
   /// Each one is conditional, so a patient with no high readings is not
   /// shown an alarming sentence with a zero in it.
-  List<Widget> _insights(Map<_Band, int> counts, int total) {
+  List<Widget> _insights(Map<int, int> counts, int total) {
     final out = <Widget>[];
-    final highShare = counts[_Band.high]! / total;
+    final alerts = counts[3]! + counts[2]!;
+    final highShare = alerts / total;
 
-    if (counts[_Band.high]! > 0) {
+    if (alerts > 0) {
       out.add(_insightRow(
         Icons.warning_amber_rounded,
-        '${(highShare * 100).round()}% of your readings were in the high '
-        'range.',
+        '${(highShare * 100).round()}% of your readings were high or '
+        'critical.',
         AppColors.dangerText(context),
       ));
     } else {
       out.add(_insightRow(
         Icons.check_circle_outline,
-        'None of your readings so far have been in the high range.',
+        'None of your readings so far have been high or critical.',
         AppColors.successText(context),
       ));
     }

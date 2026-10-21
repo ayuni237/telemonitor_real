@@ -52,3 +52,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# design captures (regenerated: flutter test test_screens --update-goldens)
+test_screens/goldens/

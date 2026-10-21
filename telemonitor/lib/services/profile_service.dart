@@ -14,7 +14,8 @@ class ProfileService {
   ProfileService._internal();
   static final ProfileService instance = ProfileService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   /// Live view of the signed-in user's own profile document.
   Stream<AppUser?> watchOwnProfile() {

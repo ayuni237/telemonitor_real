@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import '../services/push_service.dart';
+import '../theme/app_theme.dart';
 import '../services/readings_repository.dart';
 import 'login_screen.dart';
 import 'patient/patient_dashboard.dart';
@@ -38,6 +40,8 @@ class AuthGate extends StatelessWidget {
             if (profile == null) {
               return _NoProfileScreen(uid: firebaseUser.uid);
             }
+            // idempotent: registers this device for the worker's notifications
+            PushService.instance.start(profile.uid);
 
             if (profile.role == UserRole.clinician) {
               return const ClinicianHomeScreen();
@@ -79,7 +83,7 @@ class _SplashLoader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFF1A3C6E),
+      backgroundColor: AppColors.primary,
       body: Center(child: CircularProgressIndicator(color: Colors.white)),
     );
   }
@@ -93,27 +97,28 @@ class _NoProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background(context),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.person_off_outlined,
-                  size: 48, color: Colors.grey),
+              Icon(Icons.person_off_outlined,
+                  size: 48, color: AppColors.textMuted(context)),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'No profile found for this account.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    fontWeight: FontWeight.w600, color: AppColors.textPrimary(context)),
               ),
               const SizedBox(height: 8),
               Text(
                 'Add a Firestore document at users/$uid with an email, '
                 'name, and role field to finish setting up this account.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
               ),
               const SizedBox(height: 20),
               TextButton(

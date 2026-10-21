@@ -58,10 +58,13 @@ class RiskApiClient {
     }
     final conds = (j['conditions'] as Map<String, dynamic>? ?? {})
         .map((k, v) => MapEntry(k, ConditionRisk.fromJson(v as Map<String, dynamic>)));
+    final evo = j['evolution'] as Map<String, dynamic>?;
     return OnlineRisk(
       tier: (j['tier'] as String).toRiskTier(),
       conditions: conds,
       provisionalThresholds: j['thresholds_status'] == 'provisional',
+      stateChange: (evo?['distance'] as num?)?.toDouble(),
+      stateChangeMeasure: evo?['measure'] as String?,
     );
   }
 }
@@ -77,8 +80,16 @@ class OnlineRisk {
   final RiskTier tier;
   final Map<String, ConditionRisk> conditions;
   final bool provisionalThresholds;
+  final double? stateChange;
+  final String? stateChangeMeasure;
 
-  const OnlineRisk({required this.tier, required this.conditions, required this.provisionalThresholds});
+  const OnlineRisk({
+    required this.tier,
+    required this.conditions,
+    required this.provisionalThresholds,
+    this.stateChange,
+    this.stateChangeMeasure,
+  });
 }
 
 class RiskApiException implements Exception {

@@ -937,6 +937,33 @@ The model may raise a level set by the guideline rule, but never lower it:
 \end{equation}
 with green $\prec$ yellow $\prec$ red. A patient at 185/110~mmHg is red whatever the model says; the best model in the literature misses half of the positive cases; and if the model fails entirely, the system falls back to the standard of care rather than to nothing.
 
+\subsubsection{Tracking the evolution of the patient's state}\label{sec:state-evolution}
+
+The level answers whether a reading calls for attention; the clinician also needs to know whether the patient has changed, which is the direction of the trend shown on each queue row (\cref{sec:dashboard}). The state of a patient is the vector $\mathbf{s} = (\bar{x}_{\text{SBP}}, \bar{x}_{\text{DBP}}, \bar{x}_{\text{HR}}, \bar{x}_{\text{glucose}})$ of the mean of each channel over a window. The current state $\mathbf{c}$ covers $(t - 24\,\text{h}, t]$ and the baseline $\mathbf{b}$ the three days before, $(t - 96\,\text{h}, t - 24\,\text{h}]$, the same four days as the rule floor; evolution is a distance $d(\mathbf{c}, \mathbf{b})$ computed on the channels present in both.
+
+Cosine similarity is the first measure that comes to mind, but it compares directions, not sizes: if every channel rises by half, $\mathbf{c} = 1.5\,\mathbf{b}$ and the cosine distance is zero, so a patient whose pressures and pulse rise together appears unchanged. On raw values it is moreover dominated by the channels with the largest units (systolic pressure near 130~mmHg against glucose near 6~mmol/L), and its behaviour depends on how the vectors are scaled \parencite{steck2024}. Patient-similarity research uses many measures without a common benchmark \parencite{parimbelli2018,sharafoddini2017}, so no measure is assumed. The candidates come from the largest independent comparison of similarity measures, nine measures on 38 data sets \parencite{wang2013timeseries}, which separates lock-step measures, comparing aligned elements, from elastic ones such as dynamic time warping. Elastic measures align sequences of points; a state is a vector of four means, so only lock-step measures apply. Two families are added for monitoring an individual: scaling each change by the patient's own variability, the idea of the reference change value of laboratory medicine \parencite{fraser1989}, and the Mahalanobis distance \parencite{mahalanobis1936}, which is the statistic of multivariate control charts for individual observations \parencite{tracy1992}. Control charts for individual patients, used in hypertension and diabetes, are promising but little evaluated \parencite{tennant2007}. \Cref{tab:state-measures} lists the eight candidates.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Candidate measures of the change between the current state and the baseline, from the simplest to the most elaborate. $\sigma_j$: between-patient SD of channel $j$; $\sigma_{ij}$: SD of patient $i$, shrunk towards the pooled within-patient SD; $\Sigma$: pooled within-patient covariance of changes. Scales are estimated on the development data only.}\label{tab:state-measures}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{4.4cm} X@{}}
+\toprule
+\textbf{Measure} & \textbf{Definition} & \textbf{Property} \\
+\midrule
+Cosine & $1 - \mathbf{c}\cdot\mathbf{b}/(\lVert\mathbf{c}\rVert\lVert\mathbf{b}\rVert)$ & blind to a common change of size \\
+Euclidean, raw & $\lVert\mathbf{c} - \mathbf{b}\rVert$ & dominated by the largest unit \\
+Euclidean, cohort scale & $\lVert(\mathbf{c} - \mathbf{b})/\boldsymbol{\sigma}\rVert$ & units removed; one scale for all patients \\
+Cosine, centred & cosine of the deviations from the cohort mean, in $\sigma$ units & direction of the deviation, not its size \\
+Euclidean, patient scale & $\lVert(\mathbf{c} - \mathbf{b})/\boldsymbol{\sigma}_i\rVert$ & change relative to the patient's own variability \\
+Manhattan, patient scale & $\sum_j \lvert c_j - b_j\rvert/\sigma_{ij}$ & less weight to one large change \\
+Chebyshev, patient scale & $\max_j \lvert c_j - b_j\rvert/\sigma_{ij}$ & the largest single change \\
+Mahalanobis & $\sqrt{(\mathbf{c} - \mathbf{b})^{\top}\Sigma^{-1}(\mathbf{c} - \mathbf{b})}$ & correlated channels (systolic, diastolic) not counted twice \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The measures are compared on the forecast samples of \cref{sec:windows}, with every candidate scored on the same samples (at least two channels in both states, since a cosine on one channel is always 0 or 2). A measure is useful if its distance ranks higher the samples in which the patient's level changes: the primary outcome is a level at the next reading that differs by at least one from the level of the baseline state, and the secondary outcome is a new alert, a baseline below high followed by a high or critical reading. Each measure is evaluated by the area under the ROC curve, with an interval from the patient-level bootstrap of \cref{sec:cv-structure}. Scales and covariance are estimated on the eICU development data, and the Douala charts serve as an external check, never to choose. The measure retained is the one with the highest development AUROC on the primary outcome, or, when a simpler candidate of \cref{tab:state-measures} has an interval containing that value, the simplest such candidate. Protocol and candidates are declared before the run (\texttt{configs/state\_compare.yaml}, \texttt{scripts/12\_state\_comparison.py}). The selected distance is shown to the clinician next to the change of each channel; the patient sees the change of each channel only. No alert is raised on the distance: a threshold would need control limits validated on home data, which this work does not have.
+
 \subsubsection{Reporting and pre-registration}\label{sec:reporting-prereg}\label{sec:prereg}\label{sec:reporting}
 
 \Cref{tab:model-reporting} lists what the experimental part reports. Five choices are also fixed now, before the test data are seen: the admissible measures of \cref{tab:metrics}, with the ranked probability score as the primary overall measure; the selection cost and its weights; the primary comparison, every candidate against the guideline rule and persistence at the same lead time, no model being favoured in advance; the threshold rule, decision thresholds from the stated costs of errors; and the eight-feature primary set. Everything else is labelled secondary. This is the simplest answer to the question of whether a result was found or constructed.

@@ -134,6 +134,7 @@ class _RiskCardState extends State<RiskCard> {
     final muted = TextStyle(fontSize: 11, color: AppColors.textSecondary(context));
     return _shell(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
@@ -164,6 +165,13 @@ class _RiskCardState extends State<RiskCard> {
                   'critical reading at the next measurement (${e.value.tier.name}; ${e.value.model})',
                   style: muted),
             ],
+          if (widget.forClinician && a.stateChange != null) ...[
+            const SizedBox(height: 4),
+            Text(
+                'State change, last 24 h against the three days before: '
+                '${a.stateChange!.toStringAsFixed(1)} (${a.stateChangeMeasure})',
+                style: muted),
+          ],
           if (!widget.forClinician && patientInstruction(a.tier) != null) ...[
             const SizedBox(height: 10),
             Text(patientInstruction(a.tier)!,

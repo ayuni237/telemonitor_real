@@ -5,6 +5,7 @@ import '../../services/clinical_levels.dart';
 import '../../models/reading.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/level_style.dart';
 
 /// Manual entry of a reading (thesis ch.4 §Manual entry): fixed glucose
 /// unit, plausible ranges, coherent pressure pair, measurement context, the
@@ -189,18 +190,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   // Live interpretation
   // ---------------------------------------------------------------
 
-  /// Label, foreground and background for a level of the thesis label
-  /// (ClinicalLevels): high and critical use the danger palette, moderate
-  /// the warning palette, stable the success palette.
   (String, Color, Color) _levelStyle(int? level) {
-    final label = ClinicalLevels.name(level);
-    if (level != null && level >= ClinicalLevels.alertLevel) {
-      return (label, AppColors.dangerText(context), AppColors.dangerBg(context));
-    }
-    if (level == 1) {
-      return (label, AppColors.warningText(context), AppColors.warningBg(context));
-    }
-    return (label, AppColors.successText(context), AppColors.successBg(context));
+    final st = LevelStyle.of(context, level);
+    return (st.label, st.fg, st.bg);
   }
 
   Widget _buildLivePreview() {
@@ -408,7 +400,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                   _sbpController, _dbpController, _heartRateController),
               const SizedBox(height: 6),
               Text(
-                'Pulse (HR, bpm) is optional.',
+                'Pressures in mmHg; pulse in beats per minute, optional.',
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
               ),
               const SizedBox(height: 20),
@@ -420,7 +412,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               _inputField(
                 controller: _glucoseController,
                 hint: 'e.g. 6.1',
-                label: 'BG',
+                label: 'Glucose',
                 isDecimal: true,
                 maxLength: 5,
               ),
@@ -633,7 +625,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           children: [
             Expanded(
               child: _inputField(
-                  controller: sbpC, hint: 'Systolic', label: 'SBP', maxLength: 3),
+                  controller: sbpC, hint: 'e.g. 128', label: 'Systolic', maxLength: 3),
             ),
             const SizedBox(width: 8),
             Text(
@@ -647,13 +639,13 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: _inputField(
-                  controller: dbpC, hint: 'Diastolic', label: 'DBP', maxLength: 3),
+                  controller: dbpC, hint: 'e.g. 82', label: 'Diastolic', maxLength: 3),
             ),
             const SizedBox(width: 12),
             SizedBox(
               width: 76,
               child: _inputField(
-                  controller: hrC, hint: 'Pulse', label: 'HR', maxLength: 3),
+                  controller: hrC, hint: 'e.g. 72', label: 'Pulse', maxLength: 3),
             ),
           ],
         ),
@@ -781,7 +773,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           value: _selectedContext,
           isExpanded: true,
           dropdownColor: AppColors.card(context),
-          style: TextStyle(
+          // from the theme's text style, so the font matches the other fields
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(
               color: AppColors.textPrimary(context), fontSize: 14),
           iconEnabledColor: AppColors.textSecondary(context),
           items: _contextOptions

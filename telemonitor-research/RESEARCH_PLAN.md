@@ -17,6 +17,7 @@ is wrong, the thesis is corrected first, then the code.
 | D8 | Bibliography style: IEEE (school plan) | Done: `build.py` uses style=ieee, sorting=none |
 | D9 | Exploratory study; development and benchmark on eICU (demo now, full database under DUA), Douala charts for external validation only | Decided 2026-10-19 after the Riley analysis (step 4) |
 | D10 | Selection-cost weights: equal (neutral) for now, replaced by the costs of errors stated by the partner physician | Decided 2026-10-19; configs/cost.yaml status: provisional |
+| D11 | Patient-state evolution: no comparison measure assumed (cosine included as a candidate); 8 lock-step candidates from Wang et al. 2013 + patient-scaled and Mahalanobis (control charts), selected by own benchmark (script 12) | Decided 2026-10-21; ch3 §Tracking the evolution; app shows per-channel change, clinician also the selected distance; no alert on the distance |
 
 ## 2. Steps (theory first, then code)
 
@@ -30,7 +31,8 @@ is wrong, the thesis is corrected first, then the code.
 8. **Candidates and search** — done: ch3 §Baselines, §Candidate families, §Hyperparameter search; `models/` (tabular, sequence GRU-D/LSTM, levels), `search.py`, configs/benchmark.yaml. **Run pending the eICU demo download**
 9. **Calibration and thresholds** — done: ch3 §Risk score (band integration, exact weight correction, no recalibration in development, intercept update in external validation), §Thresholds; `metrics.update_intercept`, `calibration_curve`
 10. **Interpretability** — done: ch3 §Interpretability (grouped permutation importance, CatBoost SHAP); `explain.py`
-11. Deployment — ONNX export, parity tests, offline and online engines (FastAPI). **Waits for the benchmark run** (the deployed model is the selected one)
+10b. **State evolution** — theory done (ch3 §Tracking the evolution, tab:state-measures, 8 verified references); code `state.py`, `scripts/12_state_comparison.py`, `configs/state_compare.yaml`, service `evolution` block, app EvolutionCard; **benchmark to run by the user**, then set `selected`
+11. Deployment — offline engine (rule floor, parity fixture) and online engine (FastAPI) built; model export `scripts/11_export_model.py` built; local worker for the server functions built (§6c). **The deployed model waits for a complete benchmark run**
 12. **Reporting** — done for the methods: Appendix A (TRIPOD+AI checklist mapped to sections); items 20–27 with the results; fairness by sex/age and heterogeneity across hospitals added to §Metrics; ethics paragraph on the datasets actually used
 
 ## 3. Guardrail on the cost function (D3)
@@ -164,11 +166,23 @@ the user); rules not tested in the emulator (no Java on this machine).
 | P4 | No adversarial test of the guardrails | **Built**: fixed set of 24 questions FR/EN (`integration_test/adversarial_set.dart`), automatic flags (`guardrail_check.dart`), device runner with JSON report (`integration_test/README.md`). **To run by the user** on a device; breaches confirmed by reading |
 | P5 | Protocol pair, back-dating, priority queue, verdicts and event log, non-transmission alarm | **Built**: two BP readings (second retained, first kept for audit); measurement time up to 7 days back; event record `users/{id}/events` (rule and model escalation from the phone, non-transmission sweep from the clinician app, verdict closes once); queue tab ordered red > yellow then oldest, rows with source, triggering value, 14-day trend, days since review, pseudonym and age band, versions; checkup period per patient (default 3 days, provisional) |
 
-Still not built (ch4 production design): server-side functions (escalation, sweeps and
-notifications run in the apps, not on a server), push/SMS notification, queue-age
-escalation, nurse worklist, interval enforced by a Bluetooth device.
+Update 2026-10-21 (user decision: local Python worker, no Cloud Functions):
+
+| # | Item | Status |
+|---|---|---|
+| P6 | Server functions of tab:triggers | **Built**: `serve/worker.py` + `configs/worker.yaml` (measurement check with quality flags, rule and model escalation with the apps' event ids, notification by level and recipient, non-transmission sweep, queue-age escalation to a named alternate, verdict notice to the patient); 11 tests with an in-memory store. Needs a Firebase service-account key (user) |
+| P7 | Push notifications | **Built**: `firebase_messaging`, device tokens on the profile, removed at sign-out; sent by the worker |
+| P8 | Alternate clinician | **Built**: set from a colleague's enrolment code; escalated events readable and closable by the alternate only (rules + collection-group index) |
+| P9 | Deployed model | **Built**: `scripts/11_export_model.py` (lowest selection cost in the final search on all eICU; refuses another threshold version); **waits for a complete benchmark run** |
+| P10 | Design review | **Done**: one colour per level everywhere (critical red, high amber), level vocabulary of the thesis in the history, no empty SpO2 card, no duplicate add button, neutral trend series, target band in green, axis labels, plain field labels, muted text at AA contrast, dark-mode fixes; captures in `telemonitor/test_screens` |
+| — | Read receipts of messages | **Fixed**: the rules refused them silently |
+
+Still not built: SMS fallback, nurse worklist, interval enforced by a Bluetooth device, online
+hosting (out of scope). Android build not verified here (artifact download failed on this
+network); Firestore rules and index not deployed (user).
 
 Thesis to align once the user agrees (ch4 still describes these as not built):
 tab:build-status, §What is built (patient and clinician), §Manual entry ("two points not yet
 built"), §Trends ("the built risk card still displays"), §The health assistant (context,
-Limits), §Backend as built (append-only paragraph, event record), limits of §arch-summary.
+Limits), §Backend as built (append-only paragraph, event record, server functions),
+tab:notification, limits of §arch-summary.

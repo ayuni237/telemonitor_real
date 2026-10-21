@@ -141,10 +141,28 @@ service cloud.firestore {
         && request.resource.data.clinicianId == request.auth.uid;
     }
 
+    // The clinician named as alternate by the queue-age sweep (worker) may
+    // read and close an escalated event, not the rest of the record.
+    function isEscalatedToMe() {
+      return isClinician() && resource.data.get('escalatedTo', null) == request.auth.uid;
+    }
+
+    // A clinician names an alternate colleague (another clinician) for the
+    // queue-age escalation, or removes them.
+    function isValidAlternate() {
+      let d = request.resource.data;
+      return !d.diff(resource.data).affectedKeys().hasAny(['alternateClinicianId'])
+        || d.get('alternateClinicianId', null) == null
+        || (resource.data.role == 'clinician'
+            && d.alternateClinicianId is string
+            && d.alternateClinicianId != request.auth.uid
+            && targetIsClinician(d.alternateClinicianId));
+    }
+
     // The verdict closes an open event, once, and touches nothing else.
     function isVerdict(userId) {
       let d = request.resource.data;
-      return isAssignedClinicianOf(userId)
+      return (isAssignedClinicianOf(userId) || isEscalatedToMe())
         && resource.data.status == 'open'
         && d.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'tsReviewed', 'reviewedBy', 'verdict', 'action', 'comment'])
@@ -209,7 +227,8 @@ service cloud.firestore {
       // Either an ordinary profile edit that leaves the protected fields
       // untouched, or the one-time clinician link.
       allow update: if (isSelf(userId)
-                        && ( !touchesProtected() || isFirstClinicianLink() ))
+                        && ( !touchesProtected() || isFirstClinicianLink() )
+                        && isValidAlternate())
                     || isCheckupPeriodUpdate();
 
       allow delete: if false;
@@ -221,7 +240,7 @@ service cloud.firestore {
       }
 
       match /events/{eventId} {
-        allow read: if isSelf(userId) || isAssignedClinicianOf(userId);
+        allow read: if isSelf(userId) || isAssignedClinicianOf(userId) || isEscalatedToMe();
         allow create: if isPatientEvent(userId) || isNonTransmissionEvent(userId);
         allow update: if isVerdict(userId);
         allow delete: if false;
@@ -231,8 +250,19 @@ service cloud.firestore {
         allow read: if isSelf(userId) || isAssignedClinicianOf(userId);
         allow create: if (isSelf(userId) || isAssignedClinicianOf(userId))
                       && request.resource.data.senderId == request.auth.uid;
-        allow update, delete: if false;
+        // read receipt: the recipient sets readAt, nothing else
+        allow update: if (isSelf(userId) || isAssignedClinicianOf(userId))
+                      && resource.data.senderId != request.auth.uid
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+                      && request.resource.data.readAt == request.time;
+        allow delete: if false;
       }
+    }
+
+    // Escalated events across patients, for the alternate's queue
+    // (collection-group query on escalatedTo; index in firestore.indexes.json).
+    match /{path=**}/events/{eventId} {
+      allow read: if isEscalatedToMe();
     }
   }
 }

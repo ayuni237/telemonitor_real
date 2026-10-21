@@ -57,6 +57,16 @@ services:
       - "8000:8000"
     restart: unless-stopped
 
+  # Server functions (ch.4): needs the Firebase service-account key in
+  # telemonitor-research/secrets/service-account.json (never committed).
+  worker:
+    <<: *research
+    profiles: ["worker"]
+    environment:
+      TELEMONITOR_ARTIFACTS: /work/artifacts
+    command: ["python", "-m", "telemonitor.serve.worker", "--credentials", "/work/secrets/service-account.json"]
+    restart: unless-stopped
+
   thesis:
     build: ./memoire
     image: telemonitor/thesis:0.1

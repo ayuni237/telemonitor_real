@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 
@@ -41,6 +42,7 @@ class TeleMonitorApp extends StatelessWidget {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: ThemeController.instance.mode,
+          scaffoldMessengerKey: PushService.instance.messengerKey,
           home: const AuthGate(),
         );
       },

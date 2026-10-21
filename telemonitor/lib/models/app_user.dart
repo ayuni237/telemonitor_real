@@ -44,6 +44,11 @@ class AppUser {
   /// set by the clinician, null for the default (queue_logic.dart).
   final int? checkupPeriodDays;
 
+  /// For a clinician: the colleague who receives their unreviewed alerts
+  /// after the queue-age delay (worker), and that colleague's name.
+  final String? alternateClinicianId;
+  final String? alternateClinicianName;
+
   const AppUser({
     required this.uid,
     required this.email,
@@ -60,6 +65,8 @@ class AppUser {
     this.medications = const [],
     this.emergencyContact,
     this.checkupPeriodDays,
+    this.alternateClinicianId,
+    this.alternateClinicianName,
   });
 
   /// A patient with no assigned clinician appears on nobody's roster
@@ -128,6 +135,8 @@ class AppUser {
       medications: _list(data['medications']),
       emergencyContact: _str(data['emergencyContact']),
       checkupPeriodDays: (data['checkupPeriodDays'] as num?)?.toInt(),
+      alternateClinicianId: _str(data['alternateClinicianId']),
+      alternateClinicianName: _str(data['alternateClinicianName']),
     );
   }
 

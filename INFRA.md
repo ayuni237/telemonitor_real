@@ -105,6 +105,8 @@ docker compose build app         # Flutter 3.44.2 + SDK Android
 | H2 : horizons 24 h et 48 h | `docker compose run --rm research python scripts/06_benchmark.py --tasks haemodynamic --leads 12 36` |
 | Retracer les figures de tous les runs | `docker compose run --rm research python scripts/08_figures.py --all` |
 | Service de risque (FastAPI) | `docker compose up -d api` → http://localhost:8000/docs |
+| Exporter le modèle retenu (après un benchmark complet) | `docker compose run --rm research python scripts/11_export_model.py` puis `docker compose restart api` |
+| Worker (fonctions serveur, notifications) | clé dans `telemonitor-research/secrets/service-account.json`, puis `docker compose --profile worker up -d worker` |
 | Compiler le mémoire (PDF) | `docker compose run --rm thesis` |
 | Tests et analyse de l'app Flutter | `docker compose run --rm app` |
 | APK Android branchée sur le service | `docker compose run --rm app flutter build apk --dart-define=RISK_API_URL=http://10.0.2.2:8000` |

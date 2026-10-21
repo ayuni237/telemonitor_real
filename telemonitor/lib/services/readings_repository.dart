@@ -18,7 +18,8 @@ class ReadingsRepository extends ChangeNotifier {
   ReadingsRepository._internal();
   static final ReadingsRepository instance = ReadingsRepository._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   List<Reading> _cache = [];
   StreamSubscription<QuerySnapshot>? _sub;
@@ -45,6 +46,14 @@ class ReadingsRepository extends ChangeNotifier {
   List<Reading> get allReadings => List.unmodifiable(_cache);
 
   bool get isEmpty => _cache.isEmpty;
+
+  /// Screen tests: show these readings without Firestore.
+  @visibleForTesting
+  void debugSetReadings(List<Reading> readings) {
+    _cache = [...readings]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    _isLoading = false;
+    notifyListeners();
+  }
 
   /// Point this repository at a patient and start following their
   /// readings live. Safe to call repeatedly with the same id — it only

@@ -21,12 +21,17 @@ class QueueItem {
   /// Last verdict on this patient; null when never reviewed.
   final DateTime? lastReviewedAt;
 
+  /// Escalated to me as alternate: another clinician's patient, whose record
+  /// I cannot open (only the event and its verdict).
+  final bool isForeign;
+
   const QueueItem({
     required this.event,
     required this.patient,
     required this.sbpTrend,
     required this.glucoseTrend,
     this.lastReviewedAt,
+    this.isForeign = false,
   });
 }
 
@@ -41,6 +46,8 @@ class ClinicianQueue extends ChangeNotifier {
   final Map<String, List<ClinicalEvent>> _events = {};
   final Map<String, List<Reading>> _readings = {};
   final List<StreamSubscription<dynamic>> _subs = [];
+  List<ClinicalEvent> _escalated = const [];
+  StreamSubscription<List<ClinicalEvent>>? _escalatedSub;
   String? _error;
 
   String? get error => _error;
@@ -63,12 +70,25 @@ class ClinicianQueue extends ChangeNotifier {
         ));
       }
     }
+    for (final e in _escalated.where((e) => e.isOpen && !_patients.containsKey(e.patientId))) {
+      out.add(QueueItem(
+        event: e,
+        patient: AppUser(uid: e.patientId, email: '', name: '', role: UserRole.patient),
+        sbpTrend: TrendDirection.unknown,
+        glucoseTrend: TrendDirection.unknown,
+        isForeign: true,
+      ));
+    }
     out.sort((a, b) => compareQueue(a.event, b.event));
     return out;
   }
 
   /// Follow these patients (the roster); call again when it changes.
   void follow(List<AppUser> patients) {
+    _escalatedSub ??= EventsService.instance.watchEscalatedToMe().listen((evs) {
+      _escalated = evs;
+      notifyListeners();
+    }, onError: _onError);
     final ids = {for (final p in patients) p.uid};
     final same = ids.length == _patients.length && ids.every(_patients.containsKey);
     for (final p in patients) {
@@ -139,6 +159,7 @@ class ClinicianQueue extends ChangeNotifier {
 
   @override
   void dispose() {
+    _escalatedSub?.cancel();
     _cancel();
     super.dispose();
   }

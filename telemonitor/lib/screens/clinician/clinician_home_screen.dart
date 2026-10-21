@@ -7,9 +7,11 @@ import '../../models/app_user.dart';
 import '../../models/reading.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinician_queue.dart';
+import '../../services/events_service.dart';
 import '../../services/patients_service.dart';
 import '../../widgets/enrolment_code_card.dart';
 import '../../widgets/event_widgets.dart';
+import '../../widgets/verdict_sheet.dart';
 import '../../theme/app_theme.dart';
 import 'patient_detail_screen.dart';
 
@@ -48,6 +50,55 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
     super.dispose();
   }
 
+  /// Names the colleague who receives this clinician's alerts left
+  /// unreviewed too long (queue-age sweep of the worker).
+  Future<void> _editAlternate() async {
+    final me = AuthService.instance.currentProfile;
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Alternate clinician'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              me?.alternateClinicianName == null
+                  ? 'No alternate named. Alerts you leave unreviewed are escalated to nobody.'
+                  : 'Current alternate: ${me!.alternateClinicianName}.',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: "Colleague's enrolment code"),
+            ),
+          ],
+        ),
+        actions: [
+          if (me?.alternateClinicianId != null)
+            TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Remove')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final name = await EventsService.instance.setAlternate(result.trim().isEmpty ? null : result);
+      messenger.showSnackBar(SnackBar(
+          content: Text(name == null ? 'Alternate removed.' : '$name is now your alternate.')));
+    } on FormatException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not save: $e')));
+    }
+  }
+
   void _open(AppUser p) => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: p)),
@@ -68,6 +119,11 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
           ),
           elevation: 0,
           actions: [
+            IconButton(
+              tooltip: 'Alternate clinician',
+              icon: const Icon(Icons.swap_horiz, size: 22),
+              onPressed: _editAlternate,
+            ),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout, size: 20),
@@ -110,7 +166,11 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            for (final it in items) QueueRow(item: it, onOpen: () => _open(it.patient)),
+            for (final it in items)
+              QueueRow(
+                item: it,
+                onOpen: () => it.isForeign ? showVerdictSheet(context, it.event) : _open(it.patient),
+              ),
           ],
         );
       },

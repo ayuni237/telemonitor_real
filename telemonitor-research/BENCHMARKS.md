@@ -49,6 +49,8 @@ téléchargée, placez-la dans un dossier de même structure et pointez `DEMO` d
 | `08_figures.py` | — | retrace toutes les figures d'un run à partir de ses sauvegardes, sans recalcul → `<run>/figures/` (PDF, PNG et CSV des valeurs tracées) | secondes |
 | `09_kappa_sample_size.py` | 2 | taille de l'échantillon à réétiqueter par le médecin : demi-largeur de l'IC du kappa pondéré ≤ 0,10 → ≈ 100 lectures (κ ≈ 0,75) à 150 (κ ≈ 0,6) | ≈ 1 min |
 | `10_sensitivity_flags_slots.py` | 3–4 | sensibilité de n₀ du MAD (5 / 7 / 9 lectures signalées pour n₀ = 10 / 20 / 40) et de la tolérance des créneaux eICU (± 1 / 2 / 3 h → 645 / 1 356 / 1 983 échantillons glycémiques) ; option `--no-eicu` | ≈ 1 min |
+| `12_state_comparison.py` | 10b | benchmark des 8 mesures de comparaison d'état (cosinus, euclidiennes, Manhattan, Chebyshev, Mahalanobis ; `configs/state_compare.yaml`) : AUROC pour le changement de niveau et la nouvelle alerte, développement eICU, contrôle externe Douala → `out/state_comparison.csv/.json`, échelles → `artifacts/state_scales.json`. Reporter ensuite la mesure retenue dans `configs/state_compare.yaml` (`status: selected`, `selected: <mesure>`) | ≈ 1 min |
+| `11_export_model.py` | 11 | exporte le modèle retenu (famille de plus faible coût de sélection dans la recherche finale sur tout eICU) d'un run **complet** vers `artifacts\<tâche>\`, lu par le service et le worker ; refuse un run étiqueté avec d'autres seuils | secondes |
 
 Exemples (depuis `C:\Projects\telemonitor-research`) :
 
@@ -86,15 +88,15 @@ Les fichiers sont écrits de façon atomique, et un pli n'est enregistré que lo
 dossier, et les plis déjà enregistrés sont conservés. Changer une configuration ou les données
 crée un nouveau dossier, sans écraser l'ancien.
 
-**Run long sous Windows**, détaché de la fenêtre (chemin absolu, depuis n'importe quel dossier) :
+**Run long sous Windows**, une fenêtre par tâche avec les barres de progression (chemin absolu,
+depuis n'importe quel dossier) :
 
 ```
 powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\relancer_benchmarks.ps1
-Get-Content C:\Projects\telemonitor-research\out\run_haemodynamic_0.log -Wait
 ```
 
-Le journal `out\run_<tâche>_0.log` indique, pour chaque pli et chaque candidat, la durée et le
-RPS externe ; `out\run_<tâche>_0.err` contient les barres de progression.
+Le journal `out\runs\<run>\run.log` indique, pour chaque pli et chaque candidat, la durée et le
+RPS externe. Fermer une fenêtre arrête le run ; la même commande le reprend.
 
 ## 4. Où modifier un choix
 
@@ -132,4 +134,42 @@ flutter run --dart-define=RISK_API_URL=http://10.0.2.2:8000
 Sans `RISK_API_URL`, l'application applique seulement la règle clinique (plancher), hors ligne.
 
 `GET /health` et `POST /v1/risk` ; la documentation interactive est disponible sur
-`http://127.0.0.1:8000/docs`.
+`http://127.0.0.1:8000/docs`. Pour la version web de l'application, autoriser son origine :
+`set TELEMONITOR_CORS=http://localhost:5000`.
+
+Après un benchmark complet : `python scripts\11_export_model.py`, puis redémarrer le service.
+Sans artefact, le service applique seulement la règle (plancher).
+
+## 7. Worker local : les fonctions serveur du chapitre 4
+
+`src/telemonitor/serve/worker.py`, réglages dans `configs/worker.yaml` (délais provisoires). À
+chaque cycle (60 s), pour chaque patient :
+
+| Fonction | Ce qu'elle fait |
+|---|---|
+| Contrôle de la mesure | drapeau qualité (`quality.py`) écrit sur chaque nouvelle lecture |
+| Escalade | lecture jaune ou rouge → événement « règle » (même identifiant que celui écrit par le téléphone : jamais de doublon) |
+| Score | dernière lecture → règle + modèle (même code que l'API) ; un modèle qui relève le niveau → événement « modèle » |
+| Notification | chaque nouvel événement, une fois : rouge → patient et clinicien ; jaune → patient ; jamais de consigne de dose |
+| Non-transmission | pas de lecture depuis la période de contrôle → événement et rappel au patient |
+| Âge de la file | événement ouvert trop longtemps (rouge 4 h, jaune 72 h) → transmis au remplaçant nommé par le clinicien, tous deux notifiés |
+| Verdict | événement fermé → le patient est informé de la revue |
+
+Les lectures et événements de plus de 24 h trouvés au premier lancement sont marqués sans être
+notifiés (pas d'avalanche). Le SMS de secours n'est pas construit.
+
+Il faut une clé de compte de service Firebase (console Firebase → Paramètres du projet →
+Comptes de service → Générer une nouvelle clé privée), enregistrée dans
+`secrets\service-account.json` (dossier exclu de git ; ne jamais la partager). Dans un
+environnement virtuel (firebase-admin exige une autre version de httpx que d'autres outils
+installés sur cette machine) :
+
+```
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .[serve,worker]
+python -m telemonitor.serve.worker --credentials secrets\service-account.json --once    (un cycle, pour tester)
+python -m telemonitor.serve.worker --credentials secrets\service-account.json           (en continu)
+```
+
+Avec Docker : `docker compose --profile worker up -d worker`.

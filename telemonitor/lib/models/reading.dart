@@ -43,6 +43,11 @@ class Reading {
   /// Id of the reading this one corrects, if any.
   final String? supersedes;
 
+  /// Measurement check of the worker (quality controls of the research
+  /// pipeline): ok, out_of_range, unit_suspect, duplicate, carried_forward,
+  /// extreme; null until checked.
+  final String? qualityFlag;
+
   const Reading({
     this.id,
     required this.timestamp,
@@ -58,6 +63,7 @@ class Reading {
     this.firstDbp,
     this.firstHr,
     this.supersedes,
+    this.qualityFlag,
   });
 
   bool get hasBP => sbp != null && dbp != null;
@@ -120,6 +126,7 @@ class Reading {
       firstDbp: (data['firstDbp'] as num?)?.toInt(),
       firstHr: (data['firstHr'] as num?)?.toInt(),
       supersedes: data['supersedes'] as String?,
+      qualityFlag: data['qualityFlag'] as String?,
     );
   }
 

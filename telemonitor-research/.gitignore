@@ -6,3 +6,6 @@ artifacts/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+# Firebase service-account keys for the worker: never commit
+secrets/
+*service-account*.json

@@ -11,6 +11,7 @@ the service and the benchmark cannot drift apart.
 """
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -20,10 +21,12 @@ import numpy as np
 import pandas as pd
 import yaml
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .. import features as F
 from .. import quality as Q
+from .. import state as ST
 from ..labels import load_thresholds
 from ..metrics import alert_probability
 from ..models.sequence import build_sequences
@@ -86,7 +89,60 @@ def anchor_sample(df: pd.DataFrame) -> SampleSet:
     return SampleSet(df.reset_index(drop=True), meta, 0.0)
 
 
-def create_app(artifacts_dir: Path | None = None) -> FastAPI:
+class NoPlausibleReading(ValueError):
+    pass
+
+
+def assess(req: RiskRequest, table, arts: dict, evo: tuple | None = None) -> dict:
+    """Rule floor and model tiers for one patient's recent readings; shared by
+    the endpoint and the worker (worker.py), so both score identically.
+
+    With `evo` = (scales, measure), also the evolution of the patient's state
+    (state.evolution): current 24 h against the previous three days."""
+    df = readings_frame(req)
+    if df[["sbp", "dbp", "hr", "glucose"]].isna().all().all():
+        raise NoPlausibleReading("no plausible reading")
+    s = anchor_sample(df)
+    # guideline floor: the rule applied to the last value of each channel within four days
+    recent = df[df.t > df.t.iloc[-1] - PERSISTENCE_WINDOW]
+    last = recent[["sbp", "dbp", "hr", "glucose"]].ffill().iloc[[-1]]
+    rule_level = table.label(last)["y"].iloc[0]
+    rule_tier = SERVE_CFG["rule_floor"][int(rule_level)] if np.isfinite(rule_level) else "green"
+    out = {"threshold_version": table.version, "thresholds_status": SERVE_CFG["status"],
+           "rule": {"level": None if not np.isfinite(rule_level) else int(rule_level), "tier": rule_tier},
+           "conditions": {}}
+    tiers = [rule_tier]
+    for task, a in arts.items():
+        m = a.manifest
+        X = build_sequences(s, m["window_hours"]) if m["input"] == "sequence" else \
+            F.compute(s, m["window_hours"], m["feature_set"])
+        proba = a.model.predict_proba(X)[0]
+        p_alert = float(alert_probability(proba[None, :])[0])
+        tier = _tier_of_probability(p_alert)
+        tiers.append(tier)
+        out["conditions"][task] = {"model": a.version, "probabilities": [round(float(x), 4) for x in proba],
+                                   "alert_probability": round(p_alert, 4), "tier": tier}
+    out["tier"] = _worst(*tiers)
+    if evo is not None:
+        scales, measure = evo
+        out["evolution"] = ST.evolution(df.t.to_numpy(), {c: df[c].to_numpy() for c in ST.CHANNELS}, scales, measure)
+    return out
+
+
+def load_evolution(folder: Path) -> tuple | None:
+    """Development scales (scripts/12_state_comparison.py) and the measure
+    selected by that benchmark (configs/state_compare.yaml); None before the
+    benchmark has been run."""
+    path = folder / "state_scales.json"
+    if not path.exists():
+        return None
+    cfg = yaml.safe_load((ROOT / "configs" / "state_compare.yaml").read_text(encoding="utf8"))
+    measure = cfg.get("selected") if cfg.get("status") == "selected" else None
+    return ST.Scales.from_json(json.loads(path.read_text(encoding="utf8"))), measure
+
+
+def load_checked(artifacts_dir: Path | None = None):
+    """Threshold table and artifacts; refuses an artifact labelled with another threshold version."""
     folder = Path(artifacts_dir or os.environ.get("TELEMONITOR_ARTIFACTS", ROOT / "artifacts"))
     table = load_thresholds()
     arts = load_artifacts(folder)
@@ -94,7 +150,18 @@ def create_app(artifacts_dir: Path | None = None) -> FastAPI:
         if a.manifest["threshold_version"] != table.version:
             raise RuntimeError(f"{task}: artifact labelled with thresholds {a.manifest['threshold_version']}, "
                                f"service uses {table.version}")
-    app = FastAPI(title="TeleMonitor risk service", version="0.1.0")
+    return table, arts
+
+
+def create_app(artifacts_dir: Path | None = None) -> FastAPI:
+    table, arts = load_checked(artifacts_dir)
+    evo = load_evolution(Path(artifacts_dir or os.environ.get("TELEMONITOR_ARTIFACTS", ROOT / "artifacts")))
+    app = FastAPI(title="TeleMonitor risk service", version="0.2.0")
+    # the Flutter web build calls the service from another origin
+    origins = [o for o in os.environ.get("TELEMONITOR_CORS", "").split(",") if o]
+    if origins:
+        app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"],
+                           allow_headers=["Content-Type"])
 
     @app.get("/health")
     def health():
@@ -103,31 +170,10 @@ def create_app(artifacts_dir: Path | None = None) -> FastAPI:
 
     @app.post("/v1/risk")
     def risk(req: RiskRequest):
-        df = readings_frame(req)
-        if df[["sbp", "dbp", "hr", "glucose"]].isna().all().all():
-            raise HTTPException(422, "no plausible reading")
-        s = anchor_sample(df)
-        # guideline floor: the rule applied to the last value of each channel within four days
-        recent = df[df.t > df.t.iloc[-1] - PERSISTENCE_WINDOW]
-        last = recent[["sbp", "dbp", "hr", "glucose"]].ffill().iloc[[-1]]
-        rule_level = table.label(last)["y"].iloc[0]
-        rule_tier = SERVE_CFG["rule_floor"][int(rule_level)] if np.isfinite(rule_level) else "green"
-        out = {"threshold_version": table.version, "thresholds_status": SERVE_CFG["status"],
-               "rule": {"level": None if not np.isfinite(rule_level) else int(rule_level), "tier": rule_tier},
-               "conditions": {}}
-        tiers = [rule_tier]
-        for task, a in arts.items():
-            m = a.manifest
-            X = build_sequences(s, m["window_hours"]) if m["input"] == "sequence" else \
-                F.compute(s, m["window_hours"], m["feature_set"])
-            proba = a.model.predict_proba(X)[0]
-            p_alert = float(alert_probability(proba[None, :])[0])
-            tier = _tier_of_probability(p_alert)
-            tiers.append(tier)
-            out["conditions"][task] = {"model": a.version, "probabilities": [round(float(x), 4) for x in proba],
-                                       "alert_probability": round(p_alert, 4), "tier": tier}
-        out["tier"] = _worst(*tiers)
-        return out
+        try:
+            return assess(req, table, arts, evo)
+        except NoPlausibleReading as e:
+            raise HTTPException(422, str(e))
 
     return app
 

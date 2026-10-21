@@ -23,7 +23,8 @@ class EventsService {
   EventsService._internal();
   static final EventsService instance = EventsService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> events(String patientId) =>
       _db.collection('users').doc(patientId).collection('events');
@@ -101,6 +102,40 @@ class EventsService {
     } on FirebaseException {
       // raised meanwhile, or offline: the next sweep retries
     }
+  }
+
+  /// Events of other clinicians' patients escalated to me by the queue-age
+  /// sweep (I am their named alternate).
+  Stream<List<ClinicalEvent>> watchEscalatedToMe() {
+    final me = AuthService.instance.currentProfile;
+    if (me == null) return Stream.value(const []);
+    return _db
+        .collectionGroup('events')
+        .where('escalatedTo', isEqualTo: me.uid)
+        .snapshots()
+        .map((s) => s.docs.map(ClinicalEvent.fromFirestore).toList());
+  }
+
+  /// Names a colleague as alternate for the queue-age escalation, from the
+  /// enrolment code they give; null removes the alternate. Returns the
+  /// colleague's display name.
+  Future<String?> setAlternate(String? code) async {
+    final me = AuthService.instance.currentProfile;
+    if (me == null) throw StateError('No signed-in clinician.');
+    final users = _db.collection('users');
+    if (code == null) {
+      await users.doc(me.uid).update(
+          {'alternateClinicianId': FieldValue.delete(), 'alternateClinicianName': FieldValue.delete()});
+      await AuthService.instance.fetchCurrentUserProfile();
+      return null;
+    }
+    final found = await AuthService.instance.lookupClinicianCode(code);
+    if (found == null) throw const FormatException('No clinician has this code.');
+    if (found.clinicianId == me.uid) throw const FormatException('This is your own code.');
+    await users.doc(me.uid).update(
+        {'alternateClinicianId': found.clinicianId, 'alternateClinicianName': found.clinicianName});
+    await AuthService.instance.fetchCurrentUserProfile();
+    return found.clinicianName;
   }
 
   /// Every event of a patient, newest first.

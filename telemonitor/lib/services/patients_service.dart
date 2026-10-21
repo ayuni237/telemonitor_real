@@ -9,7 +9,8 @@ class PatientsService {
   PatientsService._internal();
   static final PatientsService instance = PatientsService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   /// Patients assigned to the currently signed-in clinician.
   ///

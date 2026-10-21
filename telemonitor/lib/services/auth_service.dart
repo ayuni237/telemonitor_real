@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_user.dart';
+import 'push_service.dart';
 import 'readings_repository.dart';
 
 /// Result of looking up a clinician enrolment code.
@@ -31,12 +33,17 @@ class AuthService {
   AuthService._internal();
   static final AuthService instance = AuthService._internal();
 
-  final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  fb_auth.FirebaseAuth get _auth => fb_auth.FirebaseAuth.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   AppUser? _currentProfile;
 
   AppUser? get currentProfile => _currentProfile;
+
+  /// Screen tests: a signed-in profile without Firebase.
+  @visibleForTesting
+  set debugProfile(AppUser? p) => _currentProfile = p;
 
   Stream<fb_auth.User?> get authStateChanges => _auth.authStateChanges();
 
@@ -54,6 +61,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    await PushService.instance.stop();
     _currentProfile = null;
     await ReadingsRepository.instance.unbind();
     await _auth.signOut();
@@ -80,13 +88,6 @@ class AuthService {
     try {
       final doc = await _db.collection('clinician_codes').doc(code).get();
 
-      // Temporary while diagnosing the sign-up lookup. Remove once the
-      // cause is confirmed.
-      // ignore: avoid_print
-      print(
-        'CODE LOOKUP >>> "$code"  exists=${doc.exists}  data=${doc.data()}',
-      );
-
       if (!doc.exists) return null;
 
       final data = doc.data()!;
@@ -102,8 +103,7 @@ class AuthService {
       // The previous version let this fail silently, which is why the
       // screen could only ever say "code not recognised" regardless of
       // the real cause.
-      // ignore: avoid_print
-      print('CODE LOOKUP ERROR >>> $e');
+      debugPrint('Clinician code lookup failed: $e');
       return null;
     }
   }

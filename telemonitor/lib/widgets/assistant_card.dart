@@ -11,7 +11,7 @@ import '../theme/app_theme.dart';
 class AssistantCard extends StatelessWidget {
   const AssistantCard({super.key});
 
-  static const Color _accent = Color(0xFF6B4FBB);
+  static const Color _accent = AppColors.assistant;
 
   @override
   Widget build(BuildContext context) {

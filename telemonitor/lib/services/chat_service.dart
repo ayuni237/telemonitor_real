@@ -9,7 +9,8 @@ class ChatService {
   ChatService._internal();
   static final ChatService instance = ChatService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   /// Message ids a read-receipt write has already been issued for.
   /// Prevents the thread view — which rebuilds on every snapshot —

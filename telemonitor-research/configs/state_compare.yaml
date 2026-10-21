@@ -1,0 +1,30 @@
+# Tracking the evolution of the patient's state — thesis ch.3 §Tracking the evolution.
+# Declared before running scripts/12_state_comparison.py; reported with the results.
+
+current_hours: 24                 # current state: mean of each channel over (t - 24 h, t]
+baseline_hours: [24, 96]          # baseline: (t - 96 h, t - 24 h], the risk card's four days
+min_channels: 2                   # every candidate scored on the same samples; cosine needs two channels
+
+# Candidates, from the simplest to the most elaborate (src/telemonitor/state.py).
+candidates:
+  - cosine                        # raw values; blind to a common change of magnitude
+  - euclidean_raw                 # raw units (mmHg and mmol/L mixed)
+  - euclidean_cohort_z            # each channel / between-patient SD
+  - cosine_centred                # direction of the deviation from the cohort mean
+  - euclidean_patient_z           # each change / patient's own SD (reference change value)
+  - manhattan_patient_z
+  - chebyshev_patient_z
+  - mahalanobis                   # pooled within-patient covariance of changes
+
+# Outcomes at the target reading (the first reading after t), as in the forecast samples.
+primary_outcome: level_change     # |target level - level of the baseline state| >= 1
+secondary_outcome: new_alert      # baseline state below high, target high or critical
+
+# Selection on the development data (eICU) only: highest AUROC on the primary outcome;
+# a simpler candidate (earlier in the list) whose 95% interval contains the best value is
+# preferred. The Douala charts are an external check, never used to choose.
+bootstrap: 1000
+seed: 20261021
+
+status: pending                   # set to "selected" once the script has been run
+selected: null                    # measure used by the risk service (evolution block)

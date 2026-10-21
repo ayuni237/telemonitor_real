@@ -7,6 +7,7 @@ import '../../models/reading.dart';
 import '../../services/events_service.dart';
 import '../../services/queue_logic.dart';
 import '../../widgets/event_widgets.dart';
+import '../../widgets/evolution_card.dart';
 import '../../widgets/risk_card.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
@@ -135,7 +136,11 @@ class _RiskSection extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final readings = Reading.effective(snapshot.data!.docs.map(Reading.fromFirestore));
-        return RiskCard(readings: readings, age: age, sex: sex, forClinician: true);
+        return Column(children: [
+          RiskCard(readings: readings, age: age, sex: sex, forClinician: true),
+          const SizedBox(height: 12),
+          EvolutionCard(readings: readings),
+        ]);
       },
     );
   }
@@ -520,6 +525,8 @@ class _ReadingTile extends StatelessWidget {
           'second of two readings (first ${reading.firstSbp}/${reading.firstDbp})',
         if (reading.isBackdated && reading.recordedAt != null)
           'entered ${_formatted(reading.recordedAt!)}',
+        if (reading.qualityFlag != null && reading.qualityFlag != 'ok')
+          'quality check: ${reading.qualityFlag!.replaceAll('_', ' ')}',
       ].join(' · ');
 
   @override
@@ -536,7 +543,7 @@ class _ReadingTile extends StatelessWidget {
         border: Border.all(
           color: isHigh
               ? AppColors.dangerBorder(context)
-              : Colors.grey.withValues(alpha: 0.15),
+              : AppColors.border(context),
           width: 0.5,
         ),
       ),

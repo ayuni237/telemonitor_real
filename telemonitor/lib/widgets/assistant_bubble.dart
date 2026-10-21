@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/patient/assistant_screen.dart';
+import '../theme/app_theme.dart';
 
 /// A small floating robot that opens the health assistant.
 ///
@@ -16,7 +17,7 @@ import '../screens/patient/assistant_screen.dart';
 class AssistantBubble extends StatefulWidget {
   const AssistantBubble({super.key});
 
-  static const Color accent = Color(0xFF6B4FBB);
+  static const Color accent = AppColors.assistant;
 
   @override
   State<AssistantBubble> createState() => _AssistantBubbleState();
@@ -35,11 +36,11 @@ class _AssistantBubbleState extends State<AssistantBubble>
     final screen = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
 
-    // Default: right-hand side, above the log-reading button so the two
-    // controls never overlap.
+    // Default: bottom right, just above the navigation bar; the dashboard
+    // leaves an empty band there so the bubble covers no content.
     _position ??= Offset(
       screen.width - _size - _margin,
-      screen.height - _size - padding.bottom - 170,
+      screen.height - _size - padding.bottom - kBottomNavigationBarHeight - _margin * 2,
     );
 
     return Positioned(

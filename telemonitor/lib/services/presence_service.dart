@@ -23,7 +23,8 @@ class PresenceService {
   static const Duration _interval = Duration(seconds: 60);
   static const Duration _onlineWindow = Duration(seconds: 90);
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   Timer? _timer;
 

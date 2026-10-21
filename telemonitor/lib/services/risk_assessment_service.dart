@@ -77,6 +77,8 @@ class RiskAssessmentService {
         ruleTier: ruleTier,
         conditions: online.conditions,
         provisionalThresholds: online.provisionalThresholds,
+        stateChange: online.stateChange,
+        stateChangeMeasure: online.stateChangeMeasure,
       );
     } catch (e) {
       return RiskAssessment(

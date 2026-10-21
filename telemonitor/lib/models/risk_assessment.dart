@@ -65,6 +65,11 @@ class RiskAssessment {
   /// Why the online model was not used, when it was not.
   final String? offlineReason;
 
+  /// Distance between the current state and the patient's baseline, with the
+  /// measure selected by the comparison benchmark (risk service, online only).
+  final double? stateChange;
+  final String? stateChangeMeasure;
+
   const RiskAssessment({
     required this.tier,
     required this.source,
@@ -73,6 +78,8 @@ class RiskAssessment {
     this.conditions = const {},
     this.provisionalThresholds = true,
     this.offlineReason,
+    this.stateChange,
+    this.stateChangeMeasure,
   });
 
   bool get hasData => ruleLevel != null || conditions.isNotEmpty;

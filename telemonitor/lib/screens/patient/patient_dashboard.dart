@@ -10,6 +10,8 @@ import '../../services/auth_service.dart';
 import '../../services/queue_logic.dart' show trendWindow;
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/evolution_card.dart';
+import '../../widgets/level_style.dart';
 import '../../widgets/clinician_link_card.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/find_care_card.dart';
@@ -47,6 +49,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
   // ---------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------
+
+  String get _greeting {
+    final h = DateTime.now().hour;
+    return h < 12 ? 'Good morning,' : (h < 18 ? 'Good afternoon,' : 'Good evening,');
+  }
 
   String get _patientName =>
       AuthService.instance.currentProfile?.displayName ?? '';
@@ -150,7 +157,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         children: [
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -167,6 +174,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     sex: AuthService.instance.currentProfile?.sex,
                     raiseEvents: true,
                   ),
+                  const SizedBox(height: 20),
+                  EvolutionCard(readings: _readings),
                   const SizedBox(height: 20),
 
                   _buildMetricCards(),
@@ -185,16 +194,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ],
       ),
       bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const LogReadingScreen()),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
     );
   }
 
@@ -207,7 +206,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Good morning,',
+                _greeting,
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary(context),
@@ -247,19 +246,23 @@ class _PatientDashboardState extends State<PatientDashboard> {
     );
   }
 
+  /// Banner colour follows the level: critical in red, high in amber, the
+  /// same colours as the risk tier the level maps to.
   Widget _buildAlertBanner() {
+    final level = _latest?.level;
+    final style = LevelStyle.of(context, level);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.dangerBg(context),
+        color: style.bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.dangerBorder(context), width: 0.5),
+        border: Border.all(color: style.fg.withValues(alpha: 0.35), width: 0.5),
       ),
       child: Row(
         children: [
           Icon(
-            Icons.warning_amber_rounded,
-            color: AppColors.dangerText(context),
+            level == 3 ? Icons.error_outline : Icons.warning_amber_rounded,
+            color: style.fg,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -267,9 +270,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
             child: Text(
               _alertMessage,
               style: TextStyle(
-                fontSize: 12,
-                color: AppColors.dangerText(context),
-                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                color: style.fg,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -278,10 +281,27 @@ class _PatientDashboardState extends State<PatientDashboard> {
     );
   }
 
+  /// Latest reading carrying a value of the channel, so a glucose-only entry
+  /// does not blank the blood pressure card.
+  Reading? _latestWith(bool Function(Reading) has) {
+    for (final r in _readings) {
+      if (has(r)) return r;
+    }
+    return null;
+  }
+
+  String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 60) return '${d.inMinutes.clamp(0, 59)} min ago';
+    if (d.inHours < 24) return '${d.inHours} h ago';
+    return '${d.inDays} d ago';
+  }
+
   Widget _buildMetricCards() {
-    final r = _latest;
-    final bpAlert = r?.isHaemodynamicAlert ?? false;
-    final glucoseAlert = r?.isGlycaemicAlert ?? false;
+    final bp = _latestWith((r) => r.hasBP);
+    final glu = _latestWith((r) => r.hasGlucose);
+    final hr = _latestWith((r) => r.hr != null);
+    final last = _latest;
 
     return GridView.count(
       crossAxisCount: 2,
@@ -292,34 +312,34 @@ class _PatientDashboardState extends State<PatientDashboard> {
       childAspectRatio: 1.4,
       children: [
         _metricCard(
-          label: 'Blood Pressure',
-          value: (r?.hasBP ?? false) ? '${r!.sbp}/${r.dbp}' : '—',
-          unit: 'mmHg',
+          label: 'Blood pressure',
+          value: bp == null ? '—' : '${bp.sbp}/${bp.dbp}',
+          unit: bp == null ? 'mmHg' : 'mmHg · ${_ago(bp.timestamp)}',
           icon: Icons.favorite_outline,
-          isAlert: bpAlert,
+          level: bp?.haemodynamicLevel,
         ),
         _metricCard(
-          label: 'Blood Glucose',
-          value: (r?.hasGlucose ?? false) ? '${r!.glucose}' : '—',
-          unit: 'mmol/L',
+          label: 'Blood glucose',
+          value: glu == null ? '—' : '${glu.glucose}',
+          unit: glu == null ? 'mmol/L' : 'mmol/L · ${_ago(glu.timestamp)}',
           icon: Icons.water_drop_outlined,
-          isAlert: glucoseAlert,
+          level: glu?.glycaemicLevel,
         ),
         _metricCard(
-          label: 'Heart Rate',
-          value: r?.hr != null ? '${r!.hr}' : '—',
-          unit: 'bpm',
+          label: 'Pulse',
+          value: hr == null ? '—' : '${hr.hr}',
+          unit: hr == null ? 'bpm' : 'bpm · ${_ago(hr.timestamp)}',
           icon: Icons.monitor_heart_outlined,
-          isAlert: false,
+          level: hr == null ? null : ClinicalLevels.pulse(hr.hr),
         ),
         _metricCard(
-          // Nothing in the app collects SpO2, so it is shown as
-          // unavailable rather than as a fabricated value.
-          label: 'SpO2',
-          value: '—',
-          unit: '%',
-          icon: Icons.air_outlined,
-          isAlert: false,
+          label: 'Last reading',
+          value: last == null
+              ? '—'
+              : '${last.timestamp.hour.toString().padLeft(2, '0')}:${last.timestamp.minute.toString().padLeft(2, '0')}',
+          unit: last == null ? 'none yet' : _ago(last.timestamp),
+          icon: Icons.schedule,
+          level: null,
         ),
       ],
     );
@@ -330,21 +350,19 @@ class _PatientDashboardState extends State<PatientDashboard> {
     required String value,
     required String unit,
     required IconData icon,
-    required bool isAlert,
+    required int? level,
   }) {
-    final fg = isAlert
-        ? AppColors.dangerText(context)
-        : AppColors.primaryText(context);
+    final alert = (level ?? 0) >= ClinicalLevels.alertLevel;
+    final style = LevelStyle.of(context, level);
+    final fg = alert ? style.fg : AppColors.primaryText(context);
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isAlert ? AppColors.dangerBg(context) : AppColors.card(context),
+        color: alert ? style.bg : AppColors.card(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isAlert
-              ? AppColors.dangerBorder(context)
-              : AppColors.border(context),
+          color: alert ? style.fg.withValues(alpha: 0.35) : AppColors.border(context),
           width: 0.5,
         ),
       ),
@@ -355,14 +373,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isAlert
-                      ? AppColors.dangerText(context)
-                      : AppColors.textSecondary(context),
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: alert ? style.fg : AppColors.textSecondary(context),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               Icon(icon, size: 16, color: fg),
@@ -381,11 +400,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
               ),
               Text(
                 unit,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
-                  color: isAlert
-                      ? AppColors.dangerText(context)
-                      : AppColors.textMuted(context),
+                  color: alert ? style.fg : AppColors.textMuted(context),
                 ),
               ),
             ],
@@ -409,26 +427,30 @@ class _PatientDashboardState extends State<PatientDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Systolic trend — last 14 days',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryText(context),
+              Flexible(
+                child: Text(
+                  'Systolic trend — last 14 days',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryText(context),
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              // the green band of the chart: an objective, not an alarm
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.dangerBg(context),
+                  color: AppColors.successBg(context),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'Home target < 135/85',
                   style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.dangerText(context),
-                    fontWeight: FontWeight.w500,
+                    color: AppColors.successText(context),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -464,8 +486,19 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     ),
                   ),
                   titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 32,
+                        interval: 20,
+                        // round values only, not the chart's own bounds
+                        getTitlesWidget: (value, meta) => value % 20 != 0
+                            ? const SizedBox.shrink()
+                            : Text(
+                                value.toInt().toString(),
+                                style: TextStyle(fontSize: 9, color: AppColors.textMuted(context)),
+                              ),
+                      ),
                     ),
                     rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
@@ -509,7 +542,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     LineChartBarData(
                       spots: bpTrendData,
                       isCurved: false,
-                      color: const Color(0xFFE24B4A),
+                      color: AppColors.primaryText(context),
                       barWidth: 2.5,
                       dotData: FlDotData(
                         show: true,
@@ -518,13 +551,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
                               radius: 3,
                               color: AppColors.card(context),
                               strokeWidth: 2,
-                              strokeColor: const Color(0xFFE24B4A),
+                              strokeColor: AppColors.primaryText(context),
                             ),
                       ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: const Color(0xFFE24B4A).withValues(alpha: 0.08),
-                      ),
+                      belowBarData: BarAreaData(show: false),
                     ),
                   ],
                   minX: 0,
@@ -603,23 +633,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
   }
 
   Widget _readingRow(Reading reading) {
-    Color badgeBg;
-    Color badgeFg;
-    String badgeLabel;
-
     // Badge from the thesis label: worst condition level of the reading.
-    final level = reading.level;
-    badgeLabel = ClinicalLevels.name(level);
-    if (level != null && level >= ClinicalLevels.alertLevel) {
-      badgeBg = AppColors.dangerBg(context);
-      badgeFg = AppColors.dangerText(context);
-    } else if (level == 1) {
-      badgeBg = AppColors.warningBg(context);
-      badgeFg = AppColors.warningText(context);
-    } else {
-      badgeBg = AppColors.successBg(context);
-      badgeFg = AppColors.successText(context);
-    }
+    final style = LevelStyle.of(context, reading.level);
 
     final valueText = reading.hasBP && reading.hasGlucose
         ? '${reading.sbp}/${reading.dbp} · ${reading.glucose} mmol/L'
@@ -658,21 +673,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              badgeLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: badgeFg,
-              ),
-            ),
-          ),
+          style.badge(),
         ],
       ),
     );

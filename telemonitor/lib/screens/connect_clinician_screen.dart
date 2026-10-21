@@ -157,12 +157,9 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.15),
-                  width: 0.5,
-                ),
+                border: Border.all(color: AppColors.border(context), width: 0.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,17 +306,17 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
 
   Widget _feedback() {
     if (_checking) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 10, left: 4),
+      return Padding(
+        padding: const EdgeInsets.only(top: 10, left: 4),
         child: Row(
           children: [
-            SizedBox(
+            const SizedBox(
                 width: 12,
                 height: 12,
                 child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text('Checking code…',
-                style: TextStyle(fontSize: 11, color: Colors.grey)),
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context))),
           ],
         ),
       );

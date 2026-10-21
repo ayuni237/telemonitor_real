@@ -1,4 +1,5 @@
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
 import '../models/reading.dart';
@@ -268,9 +269,7 @@ class HealthAssistantService {
   }
 
   String _friendlyError(Object e) {
-    // Temporary while diagnosing: surface the real error in the console.
-    // ignore: avoid_print
-    print('ASSISTANT ERROR >>> $e');
+    debugPrint('Health assistant error: $e');
 
     final s = e.toString().toLowerCase();
     if (s.contains('network') ||

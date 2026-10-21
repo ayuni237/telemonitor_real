@@ -1,0 +1,32 @@
+# Server functions — thesis ch.4, Table "Server functions specified" (tab:triggers).
+# Run locally: python -m telemonitor.serve.worker --credentials <service-account.json>
+
+status: provisional            # delays set with the partner physician, like the tier cut-points
+interval_seconds: 60           # one cycle of every function
+quality_window_days: 30        # series used to flag a new reading (robust z needs the patient's history)
+default_checkup_period_days: 3 # app default (queue_logic.dart); a clinician may set 1-30 per patient
+# Older readings and events are flagged or marked, never escalated or notified:
+# the first cycle must not flood the queue with the backlog.
+max_age_hours: 24
+
+# Queue-age sweep: an open event older than this is escalated to the clinician's
+# named alternate (alternateClinicianId on the clinician's profile) and re-notified.
+queue_age_hours:
+  red: 4
+  yellow: 72
+
+# Notification by level and recipient (ch.4, Table "Notification by level").
+# The patient is never told to change a dose (ch.4 §Safety boundary).
+notify:
+  red:
+    patient: "Your last reading is in the red zone. Seek care today at your health centre or hospital."
+    clinician: "Red alert: {pseudonym}, {trigger}"
+  yellow:
+    patient: "Your last reading is high. Please measure again as your clinician advised."
+    clinician: null              # queued at normal priority, no notification
+  non_transmission:
+    patient: "We have not received a reading from you for {days} days. Please measure and log a reading."
+  escalation:
+    clinician: "Unreviewed alert for {pseudonym} since {age} h ({tier})"
+  verdict:
+    patient: "Your clinician has reviewed your alert of {date}."

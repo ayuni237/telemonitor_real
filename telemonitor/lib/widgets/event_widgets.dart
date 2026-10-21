@@ -18,8 +18,13 @@ String describeTrigger(ClinicalEvent e) {
   final t = e.trigger;
   if (e.source == TriggerSource.nonTransmission) {
     final last = t['lastReadingAt'];
-    final when = last is Timestamp ? _date(last.toDate()) : 'unknown';
-    return 'No reading since $when (checkup period ${t['checkupPeriodDays'] ?? '?'} days)';
+    final days = t['checkupPeriodDays'];
+    final period = days == null ? '' : ' (checkup period $days days)';
+    return last is Timestamp
+        ? 'No reading since ${_date(last.toDate())}$period'
+        : days == null
+            ? 'No reading within the checkup period'
+            : 'No reading for more than $days days';
   }
   final parts = <String>[
     if (t['sbp'] != null) '${t['sbp']}/${t['dbp']} mmHg',
@@ -62,6 +67,30 @@ Widget _sourceChip(BuildContext context, TriggerSource s) => Container(
       child: Text(s.label, style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context))),
     );
 
+Widget _escalatedChip(BuildContext context) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: AppColors.dangerBg(context), borderRadius: BorderRadius.circular(20)),
+      child: Text('Escalated',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.dangerText(context))),
+    );
+
+/// Level, source and escalation chips (wrapping on narrow screens), and the
+/// time the event was raised.
+Widget _header(BuildContext context, ClinicalEvent e, TextStyle muted) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Wrap(spacing: 6, runSpacing: 6, children: [
+            tierChip(context, e.tier.name.toUpperCase(), e.tier),
+            _sourceChip(context, e.source),
+            if (e.isEscalated) _escalatedChip(context),
+          ]),
+        ),
+        const SizedBox(width: 8),
+        Padding(padding: const EdgeInsets.only(top: 3), child: Text(_date(e.triggeredAt), style: muted)),
+      ],
+    );
+
 /// A queue row: everything needed for a triage decision without opening
 /// the record (thesis ch.4, Table "Content of a queue row").
 class QueueRow extends StatelessWidget {
@@ -91,24 +120,22 @@ class QueueRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                tierChip(context, e.tier.name.toUpperCase(), e.tier),
-                const SizedBox(width: 6),
-                _sourceChip(context, e.source),
-                const Spacer(),
-                Text(_date(e.triggeredAt), style: muted),
-              ]),
+              _header(context, e, muted),
               const SizedBox(height: 8),
               Text(describeTrigger(e),
                   style: TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
               const SizedBox(height: 4),
-              Text(
-                  '14-day trend: systolic ${trendLabel(item.sbpTrend)}, glucose ${trendLabel(item.glucoseTrend)}',
-                  style: muted),
-              Text(
-                  '${pseudonymOf(item.patient.uid)} · ${ageBand(item.patient.age)} · $sinceReview',
-                  style: muted),
+              if (item.isForeign)
+                Text("Escalated to you as alternate: another clinician's patient", style: muted)
+              else ...[
+                Text(
+                    '14-day trend: systolic ${trendLabel(item.sbpTrend)}, glucose ${trendLabel(item.glucoseTrend)}',
+                    style: muted),
+                Text(
+                    '${pseudonymOf(item.patient.uid)} · ${ageBand(item.patient.age)} · $sinceReview',
+                    style: muted),
+              ],
               Text(
                   'Thresholds ${e.thresholdVersion}${e.modelVersion == null ? '' : ' · model ${e.modelVersion}'}'
                   '${e.score == null ? '' : ' · calibrated P(alert) ${(e.score! * 100).toStringAsFixed(0)}%'}',
@@ -116,6 +143,7 @@ class QueueRow extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   onPressed: () => showVerdictSheet(context, e),
                   child: const Text('Verdict'),
                 ),
@@ -149,13 +177,7 @@ class EventLogTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            tierChip(context, e.tier.name.toUpperCase(), e.tier),
-            const SizedBox(width: 6),
-            _sourceChip(context, e.source),
-            const Spacer(),
-            Text(_date(e.triggeredAt), style: muted),
-          ]),
+          _header(context, e, muted),
           const SizedBox(height: 6),
           Text(describeTrigger(e), style: TextStyle(fontSize: 13, color: AppColors.primaryText(context))),
           const SizedBox(height: 4),

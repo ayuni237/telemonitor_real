@@ -15,7 +15,8 @@ class ClinicianCodeService {
   static final ClinicianCodeService instance =
       ClinicianCodeService._internal();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // resolved on use, so the service can be built where Firebase is not initialised (screen tests)
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   /// Live view of the signed-in clinician's code.
   ///

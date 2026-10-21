@@ -99,6 +99,13 @@ class ClinicalEvent {
   final ClinicalAction? action;
   final String comment;
 
+  /// Set by the queue-age sweep (worker): the event stayed open too long and
+  /// was passed to the clinician's named alternate (null when none is named).
+  final DateTime? escalatedAt;
+  final String? escalatedTo;
+
+  bool get isEscalated => escalatedAt != null;
+
   const ClinicalEvent({
     required this.id,
     required this.patientId,
@@ -117,6 +124,8 @@ class ClinicalEvent {
     this.verdict,
     this.action,
     this.comment = '',
+    this.escalatedAt,
+    this.escalatedTo,
   });
 
   factory ClinicalEvent.fromFirestore(DocumentSnapshot doc) {
@@ -142,6 +151,8 @@ class ClinicalEvent {
       verdict: _decode(_verdictCodes, d['verdict']),
       action: _decode(_actionCodes, d['action']),
       comment: d['comment'] as String? ?? '',
+      escalatedAt: d['escalatedAt'] is Timestamp ? (d['escalatedAt'] as Timestamp).toDate() : null,
+      escalatedTo: d['escalatedTo'] as String?,
     );
   }
 

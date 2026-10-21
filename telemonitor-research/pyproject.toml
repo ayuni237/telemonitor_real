@@ -19,6 +19,7 @@ dependencies = [
 test = ["pytest>=7"]
 bench = ["catboost>=1.2", "optuna>=4", "torch>=2.1", "xgboost>=2"]   # xgboost: earlier pipeline only
 serve = ["fastapi>=0.110", "uvicorn>=0.29", "joblib>=1.3", "httpx>=0.25"]
+worker = ["firebase-admin>=6.5"]   # server functions (serve/worker.py); install in a virtual environment
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -13,4 +13,5 @@ pytest==9.1.1
 fastapi==0.149.0
 uvicorn==0.54.0
 joblib==1.5.3
-httpx==0.25.2
+httpx==0.28.1          # the version firebase-admin 7.7 requires
+firebase-admin==7.7.0  # worker (server functions)

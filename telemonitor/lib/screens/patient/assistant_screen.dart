@@ -31,7 +31,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
   /// The assistant's accent — distinct from the clinical navy so the two
   /// conversations never look alike.
-  static const Color _accent = Color(0xFF6B4FBB);
+  static const Color _accent = AppColors.assistant;
 
   @override
   void initState() {

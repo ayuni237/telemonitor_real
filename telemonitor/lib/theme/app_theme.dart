@@ -22,6 +22,10 @@ class AppColors {
   /// white text on app bars remains correct without per-screen logic.
   static const Color primary = Color(0xFF1A3C6E);
 
+  /// Accent of the health assistant, so it is never mistaken for a clinical
+  /// status or for a message from the clinician.
+  static const Color assistant = Color(0xFF6B4FBB);
+
   /// Primary as it should appear for TEXT on a page background. Navy on
   /// near-black is unreadable, so dark mode lightens it.
   static Color primaryText(BuildContext c) =>
@@ -64,9 +68,10 @@ class AppColors {
   static Color textSecondary(BuildContext c) =>
       _dark(c) ? const Color(0xFF9AA3B2) : Colors.grey[600]!;
 
-  /// Hints and the least prominent text.
+  /// Hints and the least prominent text. Still 4.5:1 on a card in light
+  /// mode (WCAG AA): captions here carry information (units, provenance).
   static Color textMuted(BuildContext c) =>
-      _dark(c) ? const Color(0xFF6B7484) : Colors.grey[400]!;
+      _dark(c) ? const Color(0xFF8590A0) : const Color(0xFF767C86);
 
   // ---------------------------------------------------------------
   // Clinical status
@@ -144,6 +149,19 @@ class AppTheme {
       ),
 
       cardColor: surface,
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: isDark ? const Color(0xFF7FA8DC) : AppColors.primary,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+      ),
+      chipTheme: ChipThemeData(
+        selectedColor: isDark ? const Color(0xFF223049) : const Color(0xFFDCE6F5),
+        side: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.3)),
+      ),
       dialogTheme: DialogThemeData(backgroundColor: surface),
 
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
