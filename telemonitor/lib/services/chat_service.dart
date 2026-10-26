@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_user.dart';
 import '../models/message.dart';
+import 'app_messenger.dart';
 import 'auth_service.dart';
 
 /// Reads, writes and marks-as-read the message thread for a patient.
@@ -44,16 +47,20 @@ class ChatService {
       throw StateError('No signed-in profile — cannot send a message.');
     }
 
-    await _thread(patientId).add(
-      Message(
-        senderId: profile.uid,
-        senderRole:
-            profile.role == UserRole.clinician ? 'clinician' : 'patient',
-        senderName: profile.displayName,
-        text: trimmed,
-        timestamp: DateTime.now(),
-      ).toFirestore(),
-    );
+    // Not awaited: offline, the message waits in the local cache and the
+    // server acknowledges it only when the phone reconnects (offline-first);
+    // a refusal by the security rules is reported when it comes.
+    unawaited(_thread(patientId)
+        .doc()
+        .set(Message(
+          senderId: profile.uid,
+          senderRole:
+              profile.role == UserRole.clinician ? 'clinician' : 'patient',
+          senderName: profile.displayName,
+          text: trimmed,
+          timestamp: DateTime.now(),
+        ).toFirestore())
+        .catchError((Object e) => AppMessenger.show('A message was not sent: $e', error: true)));
   }
 
   /// Marks every message in [messages] that was sent by the OTHER party

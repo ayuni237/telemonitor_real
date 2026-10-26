@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+
+import 'app_messenger.dart';
 
 /// Push notifications sent by the worker (thesis ch.4, Table "Notification
 /// by level"): the device token is stored on the user's profile
@@ -14,10 +15,6 @@ import 'package:flutter/material.dart';
 class PushService {
   PushService._internal();
   static final PushService instance = PushService._internal();
-
-  /// Shows a notification that arrives while the app is open (the system
-  /// shows it only when the app is in the background).
-  final GlobalKey<ScaffoldMessengerState> messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   String? _uid;
   String? _token;
@@ -42,10 +39,8 @@ class PushService {
       _foreground = FirebaseMessaging.onMessage.listen((msg) {
         final n = msg.notification;
         if (n == null) return;
-        messengerKey.currentState?.showSnackBar(SnackBar(
-          content: Text([n.title, n.body].whereType<String>().join(' — ')),
-          duration: const Duration(seconds: 6),
-        ));
+        // the system shows a notification only when the app is in the background
+        AppMessenger.show([n.title, n.body].whereType<String>().join(' — '));
       });
     } catch (e) {
       // no Google Play services, or offline: the app works without push

@@ -181,8 +181,50 @@ Still not built: SMS fallback, nurse worklist, interval enforced by a Bluetooth 
 hosting (out of scope). Android build not verified here (artifact download failed on this
 network); Firestore rules and index not deployed (user).
 
-Thesis to align once the user agrees (ch4 still describes these as not built):
-tab:build-status, §What is built (patient and clinician), §Manual entry ("two points not yet
-built"), §Trends ("the built risk card still displays"), §The health assistant (context,
-Limits), §Backend as built (append-only paragraph, event record, server functions),
-tab:notification, limits of §arch-summary.
+Thesis aligned on 2026-10-22 (conformity check, below).
+
+### 6d. Conformity check thesis / implementation (2026-10-22)
+
+User request: check the solution against the thesis, remove Docker, review the UI and UX.
+
+**Docker removed** (user decision): compose file, Dockerfiles, `.dockerignore`, WSL/Docker
+installers, `INFRA.md`; pinned versions kept as `requirements-lock.txt` (no Docker).
+
+**Code brought to the thesis**
+
+| # | Thesis requirement | Gap found | Fix |
+|---|---|---|---|
+| C1 | ch3 §Labelling: "a home deployment would substitute the out-of-office thresholds of tab:thresholds"; ch4 §triage | The app triaged home readings with the in-hospital label thresholds | Home triage of Mihevc et al. versioned in `configs/home_protocol.yaml`, `home_protocol.py` (35 tests), Dart mirror `home_protocol.dart` with parity fixture (script 07); per-reading levels, risk card, events and worker now green / yellow / red under the home protocol; glucose target by measurement context |
+| C2 | tab:requirements "verification profile on the yellow level"; fig:decision-flow, fig:triage | Not built | Seven-day BP profile and one-day six-point glucose profile: progress card for patient and clinician, mean against the target, off target -> red event (`profile_*`), incomplete reported as such (completeness from stergiou2021) |
+| C3 | Decision flow: "the patient receives repeated reminders" | One reminder per silence | Worker reminds daily while the non-transmission event is open (`reminder_interval_hours`) |
+| C4 | tab:profiles: patient views the outcome of clinician decisions | Only an optional chat message | "From your clinician" card: action and comment of reviewed events |
+| C5 | ch4 §Dashboard: "show the same window as the patient's application" | No chart for the clinician | Shared 14-day `TrendChart` in the patient record |
+| C6 | ch4 §Offline operation, §Data flow (local warning at red whatever the connectivity) | Saving waited for the server (spinner forever offline); no local warning | Saves never wait for the server (readings, messages, verdicts); unsent readings shown; red reading -> immediate warning dialog |
+| C7 | tab:bct-mapping: explanation of the target band, fixed schedule | Absent | Text under the chart; band corrected to 110-134 mmHg (below 110 is red at home) |
+| C8 | tab:notification yellow: prompt for the verification profile | Generic text | Worker yellow text points to the check |
+
+**Thesis brought to the code** (status only, no design change): tab:build-status,
+tab:collections, tab:access-matrix, §Data model, §Offline operation, §Authentication, §Risk
+service + worker paragraph, tab:triggers, §Patient app (what is built, manual entry, trends),
+tab:notification, §Health assistant (context, limits), §Dashboard (what is built), §Edge
+inference, §Summary limits; five open points of the home protocol stated in §triage;
+stergiou2021 added; software tools: lock file.
+
+**Incoherences of the thesis fixed**
+
+| # | Where | Incoherence | Resolution |
+|---|---|---|---|
+| I44 | tab:notification | Green readings said to "appear in the queue", whereas the queue holds events and green raises none | Green: visible in the record, not queued |
+| I45 | tab:automation-boundary vs §Data flow, §Edge inference | Boundary forbids urgency beyond "contact your health centre" while the red local warning tells to seek care | Exception stated: red warning = contact the health centre the same day, hospital at once with emergency symptoms |
+| I46 | §Data model | "One row per measurement" vs one document per session in Firestore | Stated: a session document, reshaped without loss to the measurement layout |
+| I47 | §Patient app, trend band | Band drawn from the bottom of the chart to 135, though below 110 is red | Band 110-134 |
+
+**UI/UX review**: patient shell with four tabs and a "Log a reading" button (only the visible
+tab is built, so the chat does not stay "online" or mark messages read behind another tab);
+plain wording for the patient (no "risk service not configured"); context required for
+glucose; pulse field readable at 130 % text; values scaled down instead of cut in the
+history; context moved out of the truncated header; profile card wording; smallest captions
+raised to 11; captures at 130 % text without overflow (`test_screens`, 28 captures).
+
+**Tests**: Python 171, Flutter 48 (+ 28 captures). Not run on a device; rules and index not
+deployed (user).

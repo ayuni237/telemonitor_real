@@ -184,3 +184,39 @@ def test_event_fields_match_the_app():
     app_keys = {"patientId", "clinicianId", "tsTriggered", "triggerSource", "tier", "score", "readingId",
                 "trigger", "thresholdVersion", "modelVersion", "status"}       # ClinicalEvent.newData
     assert set(data) == app_keys
+
+
+def test_silence_brings_a_reminder_every_day_while_it_lasts():
+    s = FakeStore()
+    s.evs["pat1"]["nontx_r1"] = {"status": "open", "tier": "yellow", "triggerSource": "non_transmission",
+                                "tsTriggered": NOW - timedelta(hours=30), "notifiedAt": NOW - timedelta(hours=25),
+                                "trigger": {"checkupPeriodDays": 3}}
+    w = worker(s)
+    assert w.cycle(NOW)["reminders"] == 1
+    assert [u for u, _ in s.pushed if u == "pat1"] == ["pat1"]
+    s.pushed.clear()
+    assert w.cycle(NOW).get("reminders", 0) == 0                     # reminded less than a day ago
+    assert w.cycle(NOW + timedelta(hours=25))["reminders"] == 1
+
+
+def test_rule_events_follow_the_home_triage():
+    s = FakeStore()
+    s.add_reading("r1", 1, sbp=138, dbp=80)                            # below the hospital grade 1, above the home target
+    s.add_reading("r2", 1, glucose=8.0, context="Fasting")             # above the fasting home target
+    s.add_reading("r3", 1, glucose=8.0, context="After meal")          # within the after-meal target
+    worker(s).cycle(NOW)
+    assert s.evs["pat1"]["rule_r1"]["tier"] == "yellow"
+    assert s.evs["pat1"]["rule_r1"]["thresholdVersion"] == "home-2026-10-22"
+    assert s.evs["pat1"]["rule_r2"]["tier"] == "yellow"
+    assert "rule_r3" not in s.evs["pat1"]
+
+
+def test_a_duplicate_has_the_same_time_and_the_same_values():
+    s = FakeStore()
+    s.add_reading("a", 1, sbp=180, dbp=110)
+    s.add_reading("b", 1, sbp=180, dbp=110)                           # same minute, same values: duplicate
+    s.add_reading("c", 1, glucose=12.0, context="Fasting")            # same minute, another channel: not a duplicate
+    worker(s).cycle(NOW)
+    flags = {rid: s.reads["pat1"][rid]["qualityFlag"] for rid in "abc"}
+    assert flags == {"a": "ok", "b": "duplicate", "c": "ok"}
+    assert "rule_b" not in s.evs["pat1"] and s.evs["pat1"]["rule_c"]["tier"] == "red"

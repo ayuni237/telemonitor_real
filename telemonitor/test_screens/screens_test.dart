@@ -20,7 +20,7 @@ import 'package:telemonitor/screens/patient/edit_profile_screen.dart';
 import 'package:telemonitor/screens/patient/care_finder_screen.dart';
 import 'package:telemonitor/screens/patient/history_screen.dart';
 import 'package:telemonitor/screens/patient/log_reading_screen.dart';
-import 'package:telemonitor/screens/patient/patient_dashboard.dart';
+import 'package:telemonitor/screens/patient/patient_home.dart';
 import 'package:telemonitor/screens/signup_screen.dart';
 import 'package:telemonitor/services/auth_service.dart';
 import 'package:telemonitor/services/clinician_queue.dart';
@@ -148,7 +148,7 @@ Widget riskScreen(bool clinician) => Scaffold(
 final screens = <String, Widget Function()>{
   'login': () => const LoginScreen(),
   'signup': () => const SignUpScreen(),
-  'dashboard': () => const PatientDashboard(),
+  'home': () => const PatientHome(),
   'log_reading': () => const LogReadingScreen(),
   'correct_reading': () => LogReadingScreen(correcting: readings.first),
   'history': () => const HistoryScreen(),
@@ -160,6 +160,10 @@ final screens = <String, Widget Function()>{
   'connect_clinician': () => const ConnectClinicianScreen(),
 };
 
+/// Screens checked again with the text enlarged by 30 %, as many older
+/// patients set their phone: nothing may overflow.
+const largeText = ['home', 'log_reading', 'history', 'queue'];
+
 void main() {
   setUpAll(() async {
     await _loadFonts();
@@ -167,9 +171,10 @@ void main() {
     ReadingsRepository.instance.debugSetReadings(readings);
   });
 
-  for (final dark in [false, true]) {
+  for (final (dark, scale) in [(false, 1.0), (true, 1.0), (false, 1.3)]) {
     for (final e in screens.entries) {
-      final name = '${e.key}_${dark ? 'dark' : 'light'}';
+      if (scale != 1.0 && !largeText.contains(e.key)) continue;
+      final name = '${e.key}_${dark ? 'dark' : 'light'}${scale != 1.0 ? '_large' : ''}';
       testWidgets(name, (tester) async {
         tester.view.physicalSize = const Size(1080, 2340);
         tester.view.devicePixelRatio = 2.75;
@@ -179,6 +184,10 @@ void main() {
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: e.value(),
         ));
         for (var i = 0; i < 5; i++) {

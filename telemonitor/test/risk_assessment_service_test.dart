@@ -40,15 +40,16 @@ void main() {
       at(112, sbp: 125, dbp: 82),
     ];
     expect(RiskAssessmentService.ruleLevel(readings), 0);
-    expect(RiskAssessmentService.ruleLevel([...readings, at(120, glucose: 2.9)]), 3);   // < 3.0 mmol/L
-    expect(RiskAssessmentService.ruleLevel([at(0, sbp: 88, dbp: 60)]), 3);              // SBP <= 90
+    expect(RiskAssessmentService.ruleLevel([...readings, at(120, glucose: 2.9)]), 2);   // < 4 mmol/L: red
+    expect(RiskAssessmentService.ruleLevel([at(0, sbp: 105, dbp: 70)]), 2);             // SBP < 110: red
+    expect(RiskAssessmentService.ruleLevel([at(0, sbp: 138, dbp: 80)]), 1);             // home target 135: yellow
   });
 
   test('without a configured service the rule alone is used', () async {
     final s = serviceWith(MockClient((_) async => throw StateError('no call expected')), url: '');
     final a = await s.assess([at(0, sbp: 165, dbp: 95)]);
     expect(a.source, RiskSource.rule);
-    expect(a.tier, RiskTier.yellow);                                                    // level 2 -> yellow
+    expect(a.tier, RiskTier.yellow);                                                    // yellow -> yellow
   });
 
   test('online model can raise the tier but never lower it', () async {

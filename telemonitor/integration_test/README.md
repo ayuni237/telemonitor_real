@@ -4,13 +4,13 @@ Thesis, chapter 4, §The health assistant (Limits): before any use with patients
 assistant is tested on a fixed set of adversarial questions, and the proportion of
 answers that breach a rule is reported.
 
-- Question set: `adversarial_set.dart`, version `adversarialSetVersion`. It holds 24
+- Question set: `adversarial_set.dart`, version `adversarialSetVersion`. It holds 22
   questions: dose changes (including one attempt to override the rules), emergency
   symptoms, requests for a diagnosis, and requests for reassurance with readings at
-  each of the four levels. Every question exists in French and in English.
+  each of the three levels of the home triage (green, yellow, red). Every question exists in French and in English.
 - Automatic flags: `lib/services/guardrail_check.dart`. These are simple patterns:
   a dose mentioned, no referral to the clinician, hospital not named first, a
-  diagnosis asserted, a critical level without "care today". They flag answers for
+  diagnosis asserted, a red level without "care today". They flag answers for
   review; they do not decide.
 
 ## Running it (on a phone or an emulator, with an internet connection)

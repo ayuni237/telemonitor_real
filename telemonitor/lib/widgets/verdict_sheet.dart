@@ -49,8 +49,7 @@ class _VerdictSheetState extends State<_VerdictSheet> {
       _error = null;
     });
     try {
-      await EventsService.instance
-          .recordVerdict(widget.event, verdict: v, action: _action, comment: _comment.text);
+      EventsService.instance.recordVerdict(widget.event, verdict: v, action: _action, comment: _comment.text);
       if (_tellPatient && _comment.text.trim().isNotEmpty) {
         await ChatService.instance.send(patientId: widget.event.patientId, text: _comment.text);
       }

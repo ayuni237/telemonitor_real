@@ -1,0 +1,72 @@
+# Home triage — thesis ch.4 §The self-measurement protocol and three-level triage,
+# Table "tab:thresholds" (mihevc2025), with the verification profile of the yellow level.
+#
+# The research labels (thresholds.yaml) are those of in-hospital monitoring, the setting of
+# the data; the application is a home deployment, which substitutes these out-of-office
+# thresholds (thesis ch.3 §Labelling). Used by the application (mirror:
+# telemonitor/lib/services/home_protocol.dart, parity test) and by the worker.
+#
+# A channel's level is the highest level among its rules that hold, green when none does.
+# Within a reading the worst channel governs: when systolic and diastolic pressures fall in
+# different levels the more severe applies (thesis: a decision of the present work).
+# `source` is a key of memoire/references.bib (checked by the tests).
+
+version: "home-2026-10-22"
+setting: home self-measurement (protocol of mihevc2025)
+
+levels: [green, yellow, red]
+
+channels:
+  sbp:                                   # mmHg
+    - {id: sbp_red_high,    level: 2, op: ge, value: 175, source: mihevc2025}
+    - {id: sbp_red_low,     level: 2, op: lt, value: 110, source: mihevc2025}
+    - {id: sbp_yellow,      level: 1, op: ge, value: 135, source: mihevc2025}
+  dbp:                                   # mmHg
+    - {id: dbp_red_high,    level: 2, op: ge, value: 105, source: mihevc2025}
+    - {id: dbp_red_low,     level: 2, op: lt, value: 60,  source: mihevc2025}
+    - {id: dbp_yellow,      level: 1, op: ge, value: 85,  source: mihevc2025}
+  pulse:                                 # bpm; the protocol has no pulse rule: the NEWS2 red
+    - {id: pulse_red_low,   level: 2, op: le, value: 40,  source: rcp2017news2}   # score of the label
+    - {id: pulse_red_high,  level: 2, op: ge, value: 131, source: rcp2017news2}   # table is kept
+  glucose_before_meal:                   # mmol/L
+    - {id: glu_pre_red_low,  level: 2, op: lt, value: 4.0,  source: mihevc2025}
+    - {id: glu_pre_red_high, level: 2, op: gt, value: 10.0, source: mihevc2025}
+    - {id: glu_pre_yellow,   level: 1, op: gt, value: 7.0,  source: mihevc2025}
+  glucose_after_meal:                    # mmol/L, 90 minutes after a meal
+    - {id: glu_post_red_low,  level: 2, op: lt, value: 4.0,  source: mihevc2025}
+    - {id: glu_post_red_high, level: 2, op: gt, value: 14.0, source: mihevc2025}
+    - {id: glu_post_yellow,   level: 1, op: gt, value: 10.0, source: mihevc2025}
+
+# Measurement context of a glucose reading -> threshold set. The protocol defines targets
+# before and after a meal only; when the meal status is not known (after medication, after
+# exercise, random) the after-meal set applies, the hypoglycaemia threshold being the same in
+# both (a decision of the present work, stated in the thesis).
+context:
+  before_meal: [Fasting, Before meal]
+  after_meal: [After meal, After medication, After exercise, Random]
+
+# Verification profile of the yellow level: more readings, then the profile mean against the
+# target (Table "tab:thresholds", last row). Off target -> teleconsultation (red).
+profiles:
+  bp_7d:                                 # started by a yellow blood-pressure or pulse reading
+    window_hours: 192                    # seven days of readings, started the same day or the next
+    expected_readings: 14                # two sessions a day, morning and evening, second reading retained
+    # Completeness: at least 3 days and 12 readings (stergiou2021), i.e. 6 sessions of two
+    # readings, here 6 retained readings on at least 3 different days. Fewer: the profile is
+    # reported as incomplete, never as on target.
+    min_retained: 6
+    min_days: 3
+    source: stergiou2021
+    off_target:                          # mean of the retained readings of the window
+      - {channel: sbp, op: ge, value: 135}
+      - {channel: dbp, op: ge, value: 85}
+      - {channel: sbp, op: lt, value: 110}
+      - {channel: dbp, op: lt, value: 60}
+  glucose_6pt:                           # started by a yellow glucose reading
+    window_hours: 48                     # a one-day profile, done the same day or the next
+    expected_readings: 6                 # before and 90 minutes after each of three meals
+    min_before_meal: 3
+    min_after_meal: 3
+    off_target:                          # means of the before-meal and after-meal readings
+      - {channel: glucose_before_meal, op: gt, value: 7.0}
+      - {channel: glucose_after_meal, op: gt, value: 10.0}

@@ -5,8 +5,9 @@ is outside the thesis). Each cycle, for every patient:
 
   measurement check   new reading -> quality flag (quality.py, the controls of
                       the research pipeline) written on the reading;
-  escalation          a new reading at yellow or red -> rule event, unless the
-                      value is impossible or suspect;
+  escalation          a new reading at yellow or red under the home triage
+                      (home_protocol.py, the rule of the application) -> rule
+                      event, unless the value is impossible or suspect;
   scoring             the latest reading -> rule floor and model (app.assess,
                       the code of the endpoint); a model that raises the tier
                       -> model event;
@@ -14,7 +15,8 @@ is outside the thesis). Each cycle, for every patient:
                       "Notification by level"); the patient is never told to
                       change a dose;
   non-transmission    no reading for longer than the checkup period -> event,
-                      and a reminder to the patient;
+                      and a reminder to the patient, repeated while the
+                      silence lasts;
   queue-age sweep     an event left open too long -> escalated to the
                       clinician's named alternate, both notified;
   verdict             a closed event -> the patient is told it was reviewed.
@@ -32,22 +34,23 @@ import logging
 import os
 import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
-import numpy as np
 import pandas as pd
 import yaml
 
 from .. import quality as Q
+from ..home_protocol import HomeProtocol, HomeReading, load_home_protocol
 
 os.environ.setdefault("TELEMONITOR_SERVE", "0")   # the worker builds no web app
-from .app import ROOT, SERVE_CFG, TIERS, NoPlausibleReading, Reading, RiskRequest, assess, load_checked
+from .app import ROOT, TIERS, NoPlausibleReading, Reading, RiskRequest, assess, load_checked
 
 CFG_PATH = ROOT / "configs" / "worker.yaml"
 SCORING_WINDOW = timedelta(hours=96)     # the risk card's window (RiskAssessmentService.window)
+HOME_TIERS = ("green", "yellow", "red")  # home levels 0, 1, 2 map one to one to tiers
 CHANNELS = ("sbp", "dbp", "hr", "glucose")
 log = logging.getLogger("telemonitor.worker")
 
@@ -110,6 +113,9 @@ def quality_flags(uid: str, docs: list[Doc]) -> dict[str, str]:
     df = pd.DataFrame([{"patient": uid, "date": d["timestamp"], **{c: d.get(c) for c in CHANNELS}}
                        for _, d in docs], index=[i for i, _ in docs]).astype({c: float for c in CHANNELS})
     f = Q.check(df).flags
+    # Q.check treats one row per chart slot; here a blood-pressure reading and a glucose
+    # reading may share a minute, so a duplicate needs the same time and the same values
+    f["duplicate"] = df.duplicated(["patient", "date", *CHANNELS], keep="first").reindex(f.index, fill_value=False)
     order = [("out_of_range", [c for c in f if c.startswith("out_of_range") or c == "incoherent_bp"]),
              ("unit_suspect", ["unit_suspect_glucose"]),
              ("duplicate", ["duplicate"]),
@@ -141,9 +147,10 @@ def _sex_code(sex) -> str | None:
 @dataclass
 class Worker:
     store: Store
-    table: object
+    table: object                    # research labels (model and its version check)
     arts: dict
     cfg: dict
+    home: HomeProtocol = field(default_factory=load_home_protocol)   # home triage of the rule events
 
     # ------------------------------------------------------------- one cycle
     def cycle(self, now: datetime | None = None) -> dict[str, int]:
@@ -163,13 +170,15 @@ class Worker:
         """Within max_age_hours: old enough items are backlog, not alerts."""
         return t is not None and now - t <= timedelta(hours=self.cfg["max_age_hours"])
 
-    def level(self, d: dict) -> float:
-        row = pd.DataFrame([{c: d.get(c) for c in CHANNELS}], dtype=float)
-        return float(self.table.label(row)["y"].iloc[0])
+    @staticmethod
+    def home_reading(d: dict) -> HomeReading:
+        return HomeReading(d["timestamp"], d.get("sbp"), d.get("dbp"), d.get("hr"), d.get("glucose"),
+                           d.get("context", ""))
 
     def rule_tier(self, d: dict) -> str:
-        lv = self.level(d)
-        return SERVE_CFG["rule_floor"][int(lv)] if np.isfinite(lv) else "green"
+        """Tier of a reading under the home triage (the application's rule; thesis ch.4 §triage)."""
+        lv = self.home.level(self.home_reading(d))
+        return HOME_TIERS[lv] if lv is not None else "green"
 
     # ------------------------------------------------------------- measurement check, escalation, scoring
     def _new_readings(self, uid: str, profile: dict, now: datetime, stats: Counter) -> None:
@@ -192,7 +201,7 @@ class Worker:
                     tier = self.rule_tier(d)
                     if tier != "green" and self.store.create_event(
                             uid, f"rule_{rid}", event_data(uid, clinician, "rule", tier, trigger_of(d),
-                                                           self.table.version, reading_id=rid)):
+                                                           self.home.version, reading_id=rid)):
                         stats["rule_events"] += 1
                     if rid == latest:
                         self._score(uid, profile, rid, d, keep, stats)
@@ -207,7 +216,10 @@ class Worker:
         except NoPlausibleReading:
             return
         stats["scored"] += 1
-        tier, rule = out["tier"], out["rule"]["tier"]
+        # the rule the model may raise is the home triage of the same window, as in the app
+        home_level = self.home.latest_level([self.home_reading(x) for x in window])
+        rule = TIERS[max(TIERS.index(out["rule"]["tier"]), home_level or 0)]
+        tier = TIERS[max(TIERS.index(out["tier"]), TIERS.index(rule))]
         if tier == "green" or TIERS.index(tier) <= TIERS.index(rule):
             return
         raising = [c for c in out["conditions"].values() if c["tier"] == tier]
@@ -227,7 +239,7 @@ class Worker:
         if now - d["timestamp"] <= timedelta(days=days):
             return
         data = event_data(uid, profile.get("assignedClinicianId"), "non_transmission", "yellow",
-                          {"lastReadingAt": d["timestamp"], "checkupPeriodDays": days}, self.table.version,
+                          {"lastReadingAt": d["timestamp"], "checkupPeriodDays": days}, self.home.version,
                           reading_id=rid)
         if self.store.create_event(uid, f"nontx_{rid}", data):
             stats["non_transmission_events"] += 1
@@ -256,6 +268,15 @@ class Worker:
                                                                msgs["clinician"].format(**fields))
                     self.store.update_event(uid, eid, {"notifiedAt": SERVER_TIME})
                     stats["events_notified"] += 1
+                elif e.get("triggerSource") == "non_transmission":
+                    # repeated reminders while the silence lasts (thesis ch.4 §The decision flow)
+                    last = e.get("lastReminderAt") or e.get("notifiedAt")
+                    if last is not None and now - last >= timedelta(hours=self.cfg["reminder_interval_hours"]):
+                        days = trig.get("checkupPeriodDays", self.cfg["default_checkup_period_days"])
+                        stats["pushes"] += self.store.push(uid, "TeleMonitor",
+                                                           n["non_transmission"]["patient"].format(days=days))
+                        self.store.update_event(uid, eid, {"lastReminderAt": SERVER_TIME})
+                        stats["reminders"] += 1
                 limit = self.cfg["queue_age_hours"].get(e.get("tier"))
                 age_h = (now - e["tsTriggered"]).total_seconds() / 3600
                 if limit is not None and "escalatedAt" not in e and age_h >= limit:

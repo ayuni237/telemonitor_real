@@ -1,5 +1,8 @@
-# Pinned to the versions used to produce the thesis numbers (Python 3.10.11).
-# torch is installed separately from the CPU wheel index (see Dockerfile).
+# Exact versions used to produce the thesis numbers (Python 3.10.11), for a strict
+# reproduction in a virtual environment (BENCHMARKS.md, section 1):
+#   pip install torch==2.12.0 --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements-lock.txt
+#   pip install --no-deps -e .
 numpy==2.2.6
 pandas==2.3.3
 scipy==1.15.3

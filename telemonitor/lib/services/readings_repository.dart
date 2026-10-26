@@ -22,6 +22,7 @@ class ReadingsRepository extends ChangeNotifier {
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   List<Reading> _cache = [];
+  Set<String> _pending = {};
   StreamSubscription<QuerySnapshot>? _sub;
   String? _patientId;
   bool _isLoading = false;
@@ -46,6 +47,11 @@ class ReadingsRepository extends ChangeNotifier {
   List<Reading> get allReadings => List.unmodifiable(_cache);
 
   bool get isEmpty => _cache.isEmpty;
+
+  /// Readings saved on the phone but not yet received by the server (offline
+  /// queue, thesis ch.4 §Offline operation).
+  int get pendingCount => _pending.length;
+  bool isPending(Reading r) => r.id != null && _pending.contains(r.id);
 
   /// Screen tests: show these readings without Firestore.
   @visibleForTesting
@@ -73,13 +79,15 @@ class ReadingsRepository extends ChangeNotifier {
         .doc(patientId)
         .collection('readings')
         .orderBy('timestamp', descending: true)
-        .snapshots()
+        .snapshots(includeMetadataChanges: true)
         .listen(
       (snapshot) {
         _cache = snapshot.docs.map(Reading.fromFirestore).toList();
+        _pending = {for (final d in snapshot.docs) if (d.metadata.hasPendingWrites) d.id};
         _isLoading = false;
         _error = null;
         notifyListeners();
+        EventsService.instance.raiseProfileEvents(Reading.effective(_cache));
       },
       onError: (Object e) {
         // Most commonly a permission-denied from security rules, or no
@@ -98,6 +106,7 @@ class ReadingsRepository extends ChangeNotifier {
     _sub = null;
     _patientId = null;
     _cache = [];
+    _pending = {};
     _isLoading = false;
     _error = null;
     notifyListeners();
@@ -113,7 +122,12 @@ class ReadingsRepository extends ChangeNotifier {
   /// notifyListeners(): the snapshot listener above echoes the write
   /// back, including immediately from Firestore's local cache while
   /// offline. Adding it manually as well would double-insert.
-  Future<void> addReading(Reading reading) async {
+  ///
+  /// Returns at once: the write is in the local cache, and the server
+  /// acknowledges it only when the phone is online, possibly days later
+  /// (offline-first). A write the server refuses (security rules) is
+  /// reported through [onRejected]. Returns the new reading's id.
+  String addReading(Reading reading, {void Function(Object error)? onRejected}) {
     final id = _patientId;
     if (id == null) {
       throw StateError(
@@ -130,6 +144,7 @@ class ReadingsRepository extends ChangeNotifier {
       r: reading,
     );
     if (event != null) batch.set(EventsService.instance.events(id).doc(event.id), event.data);
-    await batch.commit();
+    unawaited(batch.commit().catchError((Object e) => onRejected?.call(e)));
+    return ref.id;
   }
 }

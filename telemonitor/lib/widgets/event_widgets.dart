@@ -26,6 +26,14 @@ String describeTrigger(ClinicalEvent e) {
             ? 'No reading within the checkup period'
             : 'No reading for more than $days days';
   }
+  if (t['profile'] == 'bp_7d') {
+    return '7-day profile off target: mean ${(t['meanSbp'] as num?)?.round()}/${(t['meanDbp'] as num?)?.round()} '
+        'mmHg over ${t['readings']} readings, ${t['days']} days';
+  }
+  if (t['profile'] == 'glucose_6pt') {
+    return 'Glucose profile off target: mean ${t['meanBeforeMeal'] ?? '—'} before and '
+        '${t['meanAfterMeal'] ?? '—'} mmol/L after meals';
+  }
   final parts = <String>[
     if (t['sbp'] != null) '${t['sbp']}/${t['dbp']} mmHg',
     if (t['hr'] != null) 'pulse ${t['hr']} bpm',
@@ -139,7 +147,7 @@ class QueueRow extends StatelessWidget {
               Text(
                   'Thresholds ${e.thresholdVersion}${e.modelVersion == null ? '' : ' · model ${e.modelVersion}'}'
                   '${e.score == null ? '' : ' · calibrated P(alert) ${(e.score! * 100).toStringAsFixed(0)}%'}',
-                  style: TextStyle(fontSize: 10, color: AppColors.textMuted(context))),
+                  style: TextStyle(fontSize: 11, color: AppColors.textMuted(context))),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(

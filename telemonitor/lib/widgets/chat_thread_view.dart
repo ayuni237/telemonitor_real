@@ -240,7 +240,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
                 Text(
                   _time(msg.timestamp),
                   style: TextStyle(
-                      fontSize: 10, color: AppColors.textMuted(context)),
+                      fontSize: 11, color: AppColors.textMuted(context)),
                 ),
                 if (isMine) ...[
                   const SizedBox(width: 4),

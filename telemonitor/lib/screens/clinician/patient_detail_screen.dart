@@ -8,6 +8,8 @@ import '../../services/events_service.dart';
 import '../../services/queue_logic.dart';
 import '../../widgets/event_widgets.dart';
 import '../../widgets/evolution_card.dart';
+import '../../widgets/profile_card.dart';
+import '../../widgets/trend_chart.dart';
 import '../../widgets/risk_card.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
@@ -120,8 +122,9 @@ class _RiskSection extends StatelessWidget {
   final String? sex;
   const _RiskSection({required this.patientId, this.age, this.sex});
 
-  /// Enough readings to cover four days at several readings a day.
-  static const int _fetch = 50;
+  /// Enough readings to cover the fourteen-day chart and a verification
+  /// profile at two sessions a day.
+  static const int _fetch = 120;
 
   @override
   Widget build(BuildContext context) {
@@ -136,8 +139,13 @@ class _RiskSection extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final readings = Reading.effective(snapshot.data!.docs.map(Reading.fromFirestore));
+        // the same window as the patient's application (thesis ch.4
+        // §Clinician dashboard): tier, verification profile, trend, evolution
         return Column(children: [
           RiskCard(readings: readings, age: age, sex: sex, forClinician: true),
+          const SizedBox(height: 12),
+          ProfileCard(readings: readings, forClinician: true),
+          TrendChart(readings: readings, explain: false),
           const SizedBox(height: 12),
           EvolutionCard(readings: readings),
         ]);
@@ -531,7 +539,7 @@ class _ReadingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // High or critical on either condition (thesis label, ClinicalLevels).
+    // Yellow or red under the home triage (HomeProtocol).
     final isHigh = reading.isAlert && !superseded;
 
     return Container(
@@ -650,7 +658,7 @@ class _ReadingTile extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           unit,
-          style: TextStyle(fontSize: 10, color: AppColors.textMuted(context)),
+          style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
         ),
       ],
     );

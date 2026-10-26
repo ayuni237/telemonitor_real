@@ -1,11 +1,13 @@
-"""Regenerate the parity fixture of the Flutter app's labelling rule.
+"""Regenerate the parity fixtures of the Flutter app.
 
-The app mirrors configs/thresholds.yaml in lib/services/clinical_levels.dart;
-its test (test/clinical_levels_parity_test.dart) compares the Dart levels with
-the levels computed here, on every boundary of every channel. Run this script
-after any change of the threshold table, update clinical_levels.dart, then run
+1. Research labels: the app mirrors configs/thresholds.yaml in
+   lib/services/clinical_levels.dart (test/clinical_levels_parity_test.dart).
+2. Home triage and verification profile: the app mirrors configs/home_protocol.yaml in
+   lib/services/home_protocol.dart (test/home_protocol_parity_test.dart).
+Each test compares the Dart results with those computed here, on every boundary of every
+channel. Run this script after any change of either table, update the Dart mirror, then run
 `flutter test` in telemonitor/.
-Output: ../telemonitor/test/fixtures/levels_parity.json
+Output: ../telemonitor/test/fixtures/levels_parity.json and home_parity.json
 """
 import json
 
@@ -50,3 +52,67 @@ fixture = {
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(fixture), encoding="utf8")
 print("written", OUT, "| threshold version", t.version)
+
+
+# ---------------------------------------------------------------- home protocol (thesis ch.4 §triage)
+from datetime import datetime, timedelta  # noqa: E402
+
+from telemonitor.home_protocol import HomeReading, load_home_protocol  # noqa: E402
+
+HOME_OUT = OUT.parent / "home_parity.json"
+hp = load_home_protocol()
+T0 = datetime(2026, 10, 1, 8)
+contexts = ["Fasting", "Before meal", "After meal", "After medication", "After exercise", "Random", ""]
+g_values = [round(x, 1) for x in np.arange(1.0, 35.01, 0.1)]
+
+
+def home_cases():
+    cases = []
+    for i in range(500):
+        r = HomeReading(time=T0, sbp=opt(combos.sbp.iat[i % 400]), dbp=opt(combos.dbp.iat[i % 400]),
+                        hr=opt(combos.hr.iat[i % 400]),
+                        glucose=None if i % 3 == 0 else round(float(rng.choice(g_values)), 1),
+                        context=contexts[i % len(contexts)])
+        if r.sbp is not None and r.dbp is None:
+            r = HomeReading(r.time, r.sbp, r.sbp - 40, r.hr, r.glucose, r.context)
+        cases.append({"sbp": r.sbp, "dbp": r.dbp, "hr": r.hr, "glucose": r.glucose, "context": r.context,
+                      "haemodynamic": hp.haemodynamic_level(r), "glycaemic": hp.glycaemic_level(r),
+                      "level": hp.level(r)})
+    return cases
+
+
+def profile_case(kind, readings, now_hours):
+    rs = [HomeReading(time=T0 + timedelta(hours=h), **v) for h, v in readings]
+    now = T0 + timedelta(hours=now_hours)
+    p = hp.bp_profile(T0, rs, now) if kind == "bp" else hp.glucose_profile(T0, rs, now)
+    keep = {k: v for k, v in p.items() if k not in ("start", "end", "profile")}
+    return {"kind": kind, "input": [{"hours": h, **v} for h, v in readings], "now_hours": now_hours, **keep}
+
+
+bp_on = [(12 + 12 * i, {"sbp": 128 + i % 3, "dbp": 80}) for i in range(14)]
+bp_off = [(12 + 12 * i, {"sbp": 136 + i % 5, "dbp": 86}) for i in range(14)]
+bp_low = [(12 + 12 * i, {"sbp": 104, "dbp": 66}) for i in range(14)]
+bp_few = [(12 + 12 * i, {"sbp": 150, "dbp": 95}) for i in range(5)]
+bp_one_day = [(1 + i, {"sbp": 150, "dbp": 95}) for i in range(8)]
+glu_day = [(10, {"glucose": 6.0, "context": "Fasting"}), (12, {"glucose": 8.0, "context": "After meal"}),
+           (14, {"glucose": 6.5, "context": "Before meal"}), (16, {"glucose": 9.0, "context": "After meal"}),
+           (18, {"glucose": 6.8, "context": "Before meal"}), (20, {"glucose": 9.5, "context": "After meal"})]
+glu_high = glu_day[:5] + [(20, {"glucose": 16.0, "context": "After meal"})]
+profiles = [profile_case("bp", bp_on, 200), profile_case("bp", bp_off, 200), profile_case("bp", bp_low, 200),
+            profile_case("bp", bp_on, 100), profile_case("bp", bp_on, 169), profile_case("bp", bp_few, 200),
+            profile_case("bp", bp_one_day, 200), profile_case("glucose", glu_day, 21),
+            profile_case("glucose", glu_high, 21), profile_case("glucose", glu_day[:4], 49),
+            profile_case("glucose", glu_day[:4], 30)]
+
+home = {
+    "version": hp.version,
+    "sbp": {"values": sbp, "levels": [hp.channel_level("sbp", v) for v in sbp]},
+    "dbp": {"values": dbp, "levels": [hp.channel_level("dbp", v) for v in dbp]},
+    "pulse": {"values": hr, "levels": [hp.channel_level("pulse", v) for v in hr]},
+    "glucose_before_meal": {"values": g_values, "levels": [hp.channel_level("glucose_before_meal", v) for v in g_values]},
+    "glucose_after_meal": {"values": g_values, "levels": [hp.channel_level("glucose_after_meal", v) for v in g_values]},
+    "readings": home_cases(),
+    "profiles": profiles,
+}
+HOME_OUT.write_text(json.dumps(home), encoding="utf8")
+print("written", HOME_OUT, "| home protocol version", hp.version)

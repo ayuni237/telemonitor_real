@@ -70,13 +70,14 @@ void main() {
     test('a rule event is raised at yellow or red only, keyed by the reading', () {
       ({String id, Map<String, dynamic> data})? ev(Reading x) =>
           EventsService.ruleEvent(patientId: 'p', clinicianId: 'c', readingId: 'r1', r: x);
-      expect(ev(r('x', sbp: 145, dbp: 85)), isNull); // moderate -> green tier
-      final yellow = ev(r('x', sbp: 165, dbp: 95))!;
+      expect(ev(r('x', sbp: 128, dbp: 80)), isNull); // within the home target: green
+      final yellow = ev(r('x', sbp: 150, dbp: 90))!;
       expect(yellow.id, 'rule_r1');
       expect(yellow.data['tier'], 'yellow');
       expect(yellow.data['triggerSource'], 'rule');
       expect(yellow.data['status'], 'open');
-      expect(ev(r('x', glucose: 2.5))!.data['tier'], 'red'); // < 54 mg/dL
+      expect(ev(r('x', glucose: 2.5))!.data['tier'], 'red'); // < 4 mmol/L
+      expect(yellow.data['thresholdVersion'], 'home-2026-10-22');
     });
 
     test('event fields are the ones the events rules accept', () {

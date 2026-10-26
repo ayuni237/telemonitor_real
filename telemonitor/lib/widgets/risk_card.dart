@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/reading.dart';
 import '../models/risk_assessment.dart';
-import '../services/clinical_levels.dart';
+import '../services/home_protocol.dart';
 import '../services/events_service.dart';
 import '../services/risk_assessment_service.dart';
 import '../theme/app_theme.dart';
@@ -46,6 +46,9 @@ class RiskCard extends StatefulWidget {
 
   @override
   State<RiskCard> createState() => _RiskCardState();
+
+  /// The instruction the patient may receive at a tier (see _RiskCardState).
+  static String? patientInstruction(RiskTier t) => _RiskCardState.patientInstruction(t);
 }
 
 class _RiskCardState extends State<RiskCard> {
@@ -89,13 +92,15 @@ class _RiskCardState extends State<RiskCard> {
     }
   }
 
-  /// The one instruction the patient may receive (ch.4 §Safety boundary):
-  /// contact the health centre; seek care now at red. Never a dose.
+  /// The instruction the patient may receive (ch.4, Table "The boundary of
+  /// automation" and §Edge inference): at red, contact the health centre
+  /// today and, with emergency symptoms, go to hospital; at yellow, the
+  /// verification profile of the home protocol. Never a dose.
   static String? patientInstruction(RiskTier t) => switch (t) {
-        RiskTier.red => 'Seek care today: go to your health centre or hospital. '
-            'If you feel chest pain, breathlessness, weakness or confusion, go now.',
-        RiskTier.yellow => 'Contact your health centre and measure again as your '
-            'clinician advised.',
+        RiskTier.red => 'Contact your health centre today. If you feel chest pain, breathlessness, '
+            'weakness on one side or confusion, go to the hospital now.',
+        RiskTier.yellow => 'Above your home target. Measure again as shown in the check below; '
+            'your clinician will review the result.',
         RiskTier.green => null,
       };
 
@@ -120,18 +125,19 @@ class _RiskCardState extends State<RiskCard> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
         child: Text(a.hasData ? label : 'No data',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
       );
     }
 
     if (!a.hasData) {
       return _shell(
-        child: Text('No reading in the last four days — log a reading to see the risk tier.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
+        child: Text('No reading in the last four days — log a reading to see your level.',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
       );
     }
 
-    final muted = TextStyle(fontSize: 11, color: AppColors.textSecondary(context));
+    final muted = TextStyle(fontSize: 12, color: AppColors.textSecondary(context));
+    final profileOff = a.profiles.any((p) => p.status == ProfileStatus.complete && p.offTarget == true);
     return _shell(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -140,18 +146,24 @@ class _RiskCardState extends State<RiskCard> {
           Row(children: [
             Icon(Icons.insights_outlined, size: 16, color: fg),
             const SizedBox(width: 8),
-            Text('Risk tier',
+            Text(widget.forClinician ? 'Risk tier' : 'Your level',
                 style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
+                    fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-              child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+              child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg)),
             ),
           ]),
           const SizedBox(height: 10),
-          Text('Guideline rule on the last readings: ${ClinicalLevels.name(a.ruleLevel)}', style: muted),
+          Text(
+              widget.forClinician
+                  ? 'Home triage of the last readings: ${HomeProtocol.name(a.ruleLevel)}'
+                      '${profileOff ? '; verification profile off target' : ''}'
+                  : 'Your last readings against your home targets: ${HomeProtocol.name(a.ruleLevel)}'
+                      '${profileOff ? '; your check came out above target' : ''}',
+              style: muted),
           if (!widget.forClinician && a.tier.index > a.ruleTier.index) ...[
             const SizedBox(height: 4),
             Text('Your recent readings suggest a higher risk than the last value alone.', style: muted),
@@ -175,20 +187,24 @@ class _RiskCardState extends State<RiskCard> {
           if (!widget.forClinician && patientInstruction(a.tier) != null) ...[
             const SizedBox(height: 10),
             Text(patientInstruction(a.tier)!,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: fg)),
           ],
           const SizedBox(height: 8),
+          // the patient is told where the level comes from in plain words; the
+          // clinician also gets the technical reason (offline, version...)
           Text(
             a.source == RiskSource.online
                 ? (widget.forClinician
-                    ? 'Trigger: risk model (online) combined with the guideline rule; the model can raise the tier, never lower it.'
-                    : 'Checked with the risk service and the guideline rule.')
-                : 'Guideline rule only (${a.offlineReason ?? 'offline'}).',
-            style: TextStyle(fontSize: 10, color: AppColors.textMuted(context)),
+                    ? 'Risk model (online) combined with the home triage; the model can raise the tier, never lower it.'
+                    : 'Checked with your readings and the risk model.')
+                : (widget.forClinician
+                    ? 'Home triage only (${a.offlineReason ?? 'offline'}).'
+                    : 'Checked on your phone from your readings.'),
+            style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
           ),
-          if (widget.forClinician && a.provisionalThresholds)
-            Text('Tier cut-points are provisional until set with the clinician.',
-                style: TextStyle(fontSize: 10, color: AppColors.textMuted(context))),
+          if (widget.forClinician && a.provisionalThresholds && a.source == RiskSource.online)
+            Text('Model tier cut-points are provisional until set with the clinician.',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted(context))),
         ],
       ),
     );

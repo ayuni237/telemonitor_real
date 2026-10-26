@@ -1,3 +1,5 @@
+import '../services/home_protocol.dart';
+
 /// Tiers of the decision layer — thesis ch.3 §Thresholds and the three levels.
 enum RiskTier { green, yellow, red }
 
@@ -50,10 +52,16 @@ class RiskAssessment {
   final RiskTier tier;
   final RiskSource source;
 
-  /// Level of the guideline rule on the last readings (0..3), null when
-  /// nothing was measured in the last four days.
+  /// Home-triage level of the last readings (HomeProtocol: 0 green, 1 yellow,
+  /// 2 red), null when nothing was measured in the last four days.
   final int? ruleLevel;
+
+  /// Tier of the rule: the level of the last readings, raised to red by a
+  /// verification profile found off target.
   final RiskTier ruleTier;
+
+  /// Verification profiles running or finished in the last week.
+  final List<ProfileResult> profiles;
 
   /// Online model results per condition ("haemodynamic", "glycaemic").
   final Map<String, ConditionRisk> conditions;
@@ -75,6 +83,7 @@ class RiskAssessment {
     required this.source,
     required this.ruleLevel,
     required this.ruleTier,
+    this.profiles = const [],
     this.conditions = const {},
     this.provisionalThresholds = true,
     this.offlineReason,

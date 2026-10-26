@@ -312,3 +312,6 @@ memoire/*.out
 memoire/*.run.xml
 memoire/*.synctex.gz
 memoire/*.toc
+
+# thesis-check downloads (copyrighted article texts)
+memoire/tools/sources/

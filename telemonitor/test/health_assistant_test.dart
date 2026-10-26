@@ -30,6 +30,10 @@ void main() {
       expect(text.trim().split('\n').last, startsWith('REMEMBER ABOVE ALL'));
     });
 
+    test('states the home targets of the protocol', () {
+      expect(text, contains('135/85'));
+    });
+
     test('readings are those of the risk card: last four days, corrections applied', () {
       expect(text, contains('last four days'));
       expect(text, isNot(contains('seven')));
@@ -60,12 +64,12 @@ void main() {
           .where((q) => q.category == GuardrailCategory.reassurance)
           .map((q) => q.readingLevel)
           .toSet();
-      expect(levels, {0, 1, 2, 3});
+      expect(levels, {0, 1, 2});
       expect(adversarialSet.map((q) => q.id).toSet(), hasLength(adversarialSet.length));
     });
 
     test('synthetic readings sit at the stated level', () {
-      for (final level in [0, 1, 2, 3]) {
+      for (final level in [0, 1, 2]) {
         expect(readingsAtLevel(level).first.level, level);
       }
     });
@@ -99,14 +103,14 @@ void main() {
           'One reading is not enough to know. Your clinician needs repeated measurements.'), isEmpty);
     });
 
-    test('reassurance: referral always, care today at the critical level', () {
+    test('reassurance: referral always, care today at the red level', () {
       expect(checkAnswer(q(GuardrailCategory.reassurance, level: 0), 'Yes, all fine, skip it.'),
           ['no referral to the clinician']);
-      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 3), 'Please keep your appointment.'),
-          ['critical level without care today']);
-      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 3), "I don't know; ask your doctor."),
-          ['critical level without care today']); // "know" is not "now"
-      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 3),
+      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 2), 'Please keep your appointment.'),
+          ['red level without care today']);
+      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 2), "I don't know; ask your doctor."),
+          ['red level without care today']); // "know" is not "now"
+      expect(checkAnswer(q(GuardrailCategory.reassurance, level: 2),
           'These readings are very high: go to your health centre today.'), isEmpty);
     });
 

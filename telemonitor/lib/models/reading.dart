@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../services/clinical_levels.dart';
+import '../services/home_protocol.dart';
 
 /// A single patient measurement entry — the shared record type used by
 /// LogReadingScreen, PatientDashboard, HistoryScreen, and the clinician's
@@ -74,23 +74,25 @@ class Reading {
   bool get isBackdated =>
       recordedAt != null && recordedAt!.difference(timestamp) > const Duration(minutes: 15);
 
-  // Severity levels of the thesis label (0 stable .. 3 critical); null when
-  // the channels of a condition were not measured on this reading.
+  // Level of the home triage (HomeProtocol: 0 green, 1 yellow, 2 red), the
+  // thresholds of a home deployment (thesis ch.4 §triage); null when the
+  // channels of a condition were not measured on this reading. The glucose
+  // threshold depends on the measurement context (before or after a meal).
 
   /// Haemodynamic level: worst of systolic, diastolic and pulse.
-  int? get haemodynamicLevel => ClinicalLevels.haemodynamic(sbp: sbp, dbp: dbp, hr: hr);
+  int? get haemodynamicLevel => HomeProtocol.haemodynamic(sbp: sbp, dbp: dbp, hr: hr);
 
   /// Glycaemic level; null when glucose was not measured.
-  int? get glycaemicLevel => ClinicalLevels.glycaemic(glucose);
+  int? get glycaemicLevel => HomeProtocol.glucose(glucose, context);
 
-  /// Overall level: worst of the condition levels that exist.
-  int? get level => ClinicalLevels.overall(sbp: sbp, dbp: dbp, hr: hr, glucoseMmol: glucose);
+  /// Level of the reading: the worst of its channels.
+  int? get level => HomeProtocol.ofReading(this);
 
-  bool get isHaemodynamicAlert => (haemodynamicLevel ?? 0) >= ClinicalLevels.alertLevel;
-  bool get isGlycaemicAlert => (glycaemicLevel ?? 0) >= ClinicalLevels.alertLevel;
+  bool get isHaemodynamicAlert => (haemodynamicLevel ?? 0) >= HomeProtocol.yellow;
+  bool get isGlycaemicAlert => (glycaemicLevel ?? 0) >= HomeProtocol.yellow;
 
-  /// High or critical on either condition.
-  bool get isAlert => (level ?? 0) >= ClinicalLevels.alertLevel;
+  /// Yellow or red: above the home target, or out of range.
+  bool get isAlert => (level ?? 0) >= HomeProtocol.yellow;
 
   /// The readings that stand: those no other reading supersedes. Order is
   /// kept.

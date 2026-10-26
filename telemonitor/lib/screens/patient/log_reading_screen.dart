@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../services/clinical_levels.dart';
+import '../../models/risk_assessment.dart';
+import '../../services/app_messenger.dart';
+import '../../services/home_protocol.dart';
 import '../../models/reading.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/level_style.dart';
+import '../../widgets/risk_card.dart';
 
 /// Manual entry of a reading (thesis ch.4 §Manual entry): fixed glucose
 /// unit, plausible ranges, coherent pressure pair, measurement context, the
@@ -36,7 +39,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   final _hr1Controller = TextEditingController();
 
   String _selectedMeasurementType = 'Both';
-  String _selectedContext = 'Fasting';
+  /// Measurement context; required when glucose is measured, because the
+  /// glucose target depends on it (before or after a meal).
+  String? _selectedContext;
   bool _isLoading = false;
 
   /// Protocol: two readings one minute apart, the second retained.
@@ -72,13 +77,25 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   }
 
   static const _measurementTypes = ['Both', 'Blood Pressure', 'Glucose'];
+  /// Stored values; the labels shown are in [_contextLabels]. Fasting and
+  /// before a meal use the before-meal glucose targets, the others the
+  /// after-meal targets (HomeProtocol).
   static const _contextOptions = [
     'Fasting',
+    'Before meal',
     'After meal',
     'After medication',
     'After exercise',
     'Random',
   ];
+  static const _contextLabels = {
+    'Fasting': 'Fasting (before breakfast)',
+    'Before meal': 'Before a meal',
+    'After meal': 'About 90 minutes after a meal',
+    'After medication': 'After medication',
+    'After exercise': 'After exercise',
+    'Random': 'Other / not sure',
+  };
 
   // ---------------------------------------------------------------
   // Physiologically plausible input ranges.
@@ -181,6 +198,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             '($_glucoseMin–$_glucoseMax mmol/L). Check your units — this '
             'app uses mmol/L, not mg/dL.';
       }
+      if (_selectedContext == null) {
+        return 'Choose when the glucose was measured: your target depends on the meal.';
+      }
     }
 
     return null;
@@ -217,9 +237,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Live interpretation',
+            'Against your home targets',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryText(context),
             ),
@@ -228,7 +248,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           if (hasBP)
             _previewRow(
               'BP: $sbpText/$dbpText mmHg',
-              _levelStyle(ClinicalLevels.haemodynamic(
+              _levelStyle(HomeProtocol.haemodynamic(
                 sbp: int.tryParse(sbpText),
                 dbp: int.tryParse(dbpText),
                 hr: int.tryParse(_heartRateController.text.trim()),
@@ -236,10 +256,13 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             ),
           if (hasBP && hasBG) const SizedBox(height: 8),
           if (hasBG)
-            _previewRow(
-              'Glucose: $bgText mmol/L',
-              _levelStyle(ClinicalLevels.glycaemic(double.tryParse(bgText))),
-            ),
+            _selectedContext == null
+                ? Text('Glucose: $bgText mmol/L. Choose the measurement context below.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context)))
+                : _previewRow(
+                    'Glucose: $bgText mmol/L',
+                    _levelStyle(HomeProtocol.glucose(double.tryParse(bgText), _selectedContext!)),
+                  ),
         ],
       ),
     );
@@ -270,7 +293,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: fg,
             ),
@@ -303,53 +326,56 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     final hr = int.tryParse(_heartRateController.text);
     final pair = _needsBP && _twoReadings;
 
-    setState(() => _isLoading = true);
+    final reading = Reading(
+      timestamp: _measuredAt ?? DateTime.now(),
+      sbp: _needsBP ? sbp : null,
+      dbp: _needsBP ? dbp : null,
+      glucose: _needsGlucose ? bg : null,
+      hr: _needsBP ? hr : null,
+      context: _selectedContext ?? '',
+      notes: _notesController.text.trim(),
+      readingCount: pair ? 2 : 1,
+      firstSbp: pair ? int.tryParse(_sbp1Controller.text) : null,
+      firstDbp: pair ? int.tryParse(_dbp1Controller.text) : null,
+      firstHr: pair ? int.tryParse(_hr1Controller.text) : null,
+      supersedes: widget.correcting?.id,
+    );
 
+    setState(() => _isLoading = true);
     try {
-      await ReadingsRepository.instance.addReading(
-        Reading(
-          timestamp: _measuredAt ?? DateTime.now(),
-          sbp: _needsBP ? sbp : null,
-          dbp: _needsBP ? dbp : null,
-          glucose: _needsGlucose ? bg : null,
-          hr: _needsBP ? hr : null,
-          context: _selectedContext,
-          notes: _notesController.text.trim(),
-          readingCount: pair ? 2 : 1,
-          firstSbp: pair ? int.tryParse(_sbp1Controller.text) : null,
-          firstDbp: pair ? int.tryParse(_dbp1Controller.text) : null,
-          firstHr: pair ? int.tryParse(_hr1Controller.text) : null,
-          supersedes: widget.correcting?.id,
-        ),
+      // returns at once: offline, the reading waits in the phone's queue
+      ReadingsRepository.instance.addReading(
+        reading,
+        onRejected: (e) => AppMessenger.show('A reading was not accepted by the server: $e', error: true),
       );
     } catch (e) {
-      if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not save: $e'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppMessenger.show('Could not save: $e', error: true);
       return;
     }
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('Reading saved successfully'),
+    // Local warning at the red level, whatever the connectivity (thesis ch.4
+    // §Data flow and §Edge inference): the patient is told at once.
+    if (reading.level == HomeProtocol.red) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: Icon(Icons.error_outline, color: AppColors.dangerText(ctx), size: 36),
+          title: const Text('This reading is out of range'),
+          content: Text(RiskCard.patientInstruction(RiskTier.red)!,
+              style: const TextStyle(fontSize: 15, height: 1.4)),
+          actions: [
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('I understand')),
           ],
         ),
-        backgroundColor: AppColors.success,
-        duration: Duration(seconds: 2),
-      ),
-    );
+      );
+    }
+    if (!mounted) return;
+
+    AppMessenger.show(ReadingsRepository.instance.pendingCount > 0
+        ? 'Reading saved on your phone. It will be sent when you are online.'
+        : 'Reading saved.');
     Navigator.pop(context);
   }
 
@@ -400,7 +426,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                   _sbpController, _dbpController, _heartRateController),
               const SizedBox(height: 6),
               Text(
-                'Pressures in mmHg; pulse in beats per minute, optional.',
+                'Pressures in mmHg, pulse in beats per minute.',
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
               ),
               const SizedBox(height: 20),
@@ -641,13 +667,13 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               child: _inputField(
                   controller: dbpC, hint: 'e.g. 82', label: 'Diastolic', maxLength: 3),
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 76,
-              child: _inputField(
-                  controller: hrC, hint: 'e.g. 72', label: 'Pulse', maxLength: 3),
-            ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // on its own line, so that the label stays readable with large text
+        FractionallySizedBox(
+          widthFactor: 0.5,
+          child: _inputField(controller: hrC, hint: 'e.g. 72', label: 'Pulse (optional)', maxLength: 3),
         ),
       ],
     );
@@ -777,11 +803,12 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           style: Theme.of(context).textTheme.bodyMedium!.copyWith(
               color: AppColors.textPrimary(context), fontSize: 14),
           iconEnabledColor: AppColors.textSecondary(context),
+          hint: Text(_needsGlucose ? 'Choose (required for glucose)' : 'Optional',
+              style: TextStyle(color: AppColors.textMuted(context), fontSize: 14)),
           items: _contextOptions
-              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+              .map((c) => DropdownMenuItem(value: c, child: Text(_contextLabels[c]!)))
               .toList(),
-          onChanged: (val) =>
-              setState(() => _selectedContext = val ?? 'Fasting'),
+          onChanged: (val) => setState(() => _selectedContext = val),
         ),
       ),
     );

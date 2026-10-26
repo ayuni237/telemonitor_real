@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/reading.dart';
-import '../../services/clinical_levels.dart';
+import '../../services/home_protocol.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/level_style.dart';
@@ -28,7 +28,10 @@ class _HistoryScreenState extends State<HistoryScreen>
   String _filter = 'All';
 
   /// 'All', then the levels of the thesis label, most severe first.
-  static final _filters = ['All', for (final l in [3, 2, 1, 0]) ClinicalLevels.name(l)];
+  static final _filters = ['All', for (final l in _levels) HomeProtocol.name(l)];
+
+  /// Levels of the home triage, most severe first.
+  static const _levels = [HomeProtocol.red, HomeProtocol.yellow, HomeProtocol.green];
 
   @override
   void initState() {
@@ -55,7 +58,7 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   List<Reading> get _filtered {
     if (_filter == 'All') return _all;
-    final level = ClinicalLevels.names.indexOf(_filter);
+    final level = HomeProtocol.names.indexOf(_filter);
     return _all.where((r) => _levelOf(r) == level).toList();
   }
 
@@ -206,13 +209,6 @@ class _HistoryScreenState extends State<HistoryScreen>
               _chip('${_dateLabel(r.timestamp)} · ${_time(r.timestamp)}',
                   AppColors.primaryText(context), AppColors.tint(context),
                   bold: true),
-              if (r.context.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: _chip(r.context, AppColors.textSecondary(context),
-                      AppColors.field(context)),
-                ),
-              ],
               const Spacer(),
               style.badge(fontSize: 12),
             ],
@@ -225,7 +221,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                   Icons.favorite_outline,
                   r.hasBP ? '${r.sbp}/${r.dbp}' : '—',
                   'mmHg',
-                  color: LevelStyle.valueColor(context, r.hasBP ? ClinicalLevels.haemodynamic(sbp: r.sbp, dbp: r.dbp) : null),
+                  color: LevelStyle.valueColor(
+                      context, r.hasBP ? HomeProtocol.haemodynamic(sbp: r.sbp, dbp: r.dbp) : null),
                 ),
               ),
               const SizedBox(width: 8),
@@ -243,7 +240,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   Icons.monitor_heart_outlined,
                   r.hr != null ? '${r.hr}' : '—',
                   'bpm',
-                  color: LevelStyle.valueColor(context, ClinicalLevels.pulse(r.hr)),
+                  color: LevelStyle.valueColor(context, HomeProtocol.pulse(r.hr)),
                 ),
               ),
             ],
@@ -273,11 +270,13 @@ class _HistoryScreenState extends State<HistoryScreen>
               Expanded(
                 child: Text(
                   [
+                    if (r.context.isNotEmpty) _contextText(r.context),
+                    if (ReadingsRepository.instance.isPending(r)) 'saved on your phone, not sent yet',
                     if (r.readingCount == 2) 'second of two readings',
                     if (r.isCorrection) 'corrected entry',
                     if (r.isBackdated) 'entered later',
                   ].join(' · '),
-                  style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted(context)),
                 ),
               ),
               // Append-only record: no edit or delete, a correction is a new
@@ -300,6 +299,17 @@ class _HistoryScreenState extends State<HistoryScreen>
       ),
     );
   }
+
+  /// The measurement context in plain words (the entry screen's labels).
+  static String _contextText(String c) => switch (c) {
+        'Fasting' => 'fasting',
+        'Before meal' => 'before a meal',
+        'After meal' => 'after a meal',
+        'After medication' => 'after medication',
+        'After exercise' => 'after exercise',
+        'Random' => 'other time',
+        _ => c,
+      };
 
   Widget _chip(String text, Color fg, Color bg, {bool bold = false}) {
     return Container(
@@ -336,19 +346,24 @@ class _HistoryScreenState extends State<HistoryScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: fg,
+                // scaled down rather than cut: a truncated 164/... hides the diastolic
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: fg,
+                    ),
                   ),
                 ),
                 Text(
                   unit,
                   style: TextStyle(
-                      fontSize: 10, color: AppColors.textMuted(context)),
+                      fontSize: 11, color: AppColors.textMuted(context)),
                 ),
               ],
             ),
@@ -388,7 +403,7 @@ class _HistoryScreenState extends State<HistoryScreen>
         : glucoseReadings.map((r) => r.glucose!).reduce((a, b) => a + b) /
             glucoseReadings.length;
 
-    final counts = {for (final l in [3, 2, 1, 0]) l: _all.where((r) => _levelOf(r) == l).length};
+    final counts = {for (final l in _levels) l: _all.where((r) => _levelOf(r) == l).length};
     final total = _all.length;
 
     return ListView(
@@ -426,9 +441,9 @@ class _HistoryScreenState extends State<HistoryScreen>
           'Reading distribution',
           Column(
             children: [
-              for (final l in [3, 2, 1, 0]) ...[
-                _distributionBar(ClinicalLevels.name(l), counts[l]!, total, LevelStyle.of(context, l).fg),
-                if (l > 0) const SizedBox(height: 12),
+              for (final l in _levels) ...[
+                _distributionBar(HomeProtocol.name(l), counts[l]!, total, LevelStyle.of(context, l).fg),
+                if (l > HomeProtocol.green) const SizedBox(height: 12),
               ],
             ],
           ),
@@ -445,20 +460,20 @@ class _HistoryScreenState extends State<HistoryScreen>
   /// shown an alarming sentence with a zero in it.
   List<Widget> _insights(Map<int, int> counts, int total) {
     final out = <Widget>[];
-    final alerts = counts[3]! + counts[2]!;
+    final alerts = counts[HomeProtocol.red]! + counts[HomeProtocol.yellow]!;
     final highShare = alerts / total;
 
     if (alerts > 0) {
       out.add(_insightRow(
         Icons.warning_amber_rounded,
-        '${(highShare * 100).round()}% of your readings were high or '
-        'critical.',
-        AppColors.dangerText(context),
+        '${(highShare * 100).round()}% of your readings were above your home '
+        'target or out of range.',
+        AppColors.warningText(context),
       ));
     } else {
       out.add(_insightRow(
         Icons.check_circle_outline,
-        'None of your readings so far have been high or critical.',
+        'All your readings so far have been within your home targets.',
         AppColors.successText(context),
       ));
     }

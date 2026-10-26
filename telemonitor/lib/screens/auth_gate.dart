@@ -7,7 +7,7 @@ import '../services/push_service.dart';
 import '../theme/app_theme.dart';
 import '../services/readings_repository.dart';
 import 'login_screen.dart';
-import 'patient/patient_dashboard.dart';
+import 'patient/patient_home.dart';
 import 'clinician/clinician_home_screen.dart';
 
 /// Root routing widget: Login vs Patient view vs Clinician view, based
@@ -74,7 +74,7 @@ class _PatientShellState extends State<_PatientShell> {
   }
 
   @override
-  Widget build(BuildContext context) => const PatientDashboard();
+  Widget build(BuildContext context) => const PatientHome();
 }
 
 class _SplashLoader extends StatelessWidget {

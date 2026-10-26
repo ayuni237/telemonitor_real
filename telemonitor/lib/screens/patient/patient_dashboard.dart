@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'log_reading_screen.dart';
-import 'profile_screen.dart';
-import 'history_screen.dart';
-import 'chat_screen.dart';
-import '../../services/clinical_levels.dart';
+import '../../services/home_protocol.dart';
 import '../../models/reading.dart';
 import '../../services/auth_service.dart';
-import '../../services/queue_logic.dart' show trendWindow;
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/clinician_reviews_card.dart';
 import '../../widgets/evolution_card.dart';
 import '../../widgets/level_style.dart';
+import '../../widgets/profile_card.dart';
+import '../../widgets/trend_chart.dart';
 import '../../widgets/clinician_link_card.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/find_care_card.dart';
@@ -26,8 +23,6 @@ class PatientDashboard extends StatefulWidget {
 }
 
 class _PatientDashboardState extends State<PatientDashboard> {
-  int _currentIndex = 0;
-
   @override
   void initState() {
     super.initState();
@@ -83,70 +78,20 @@ class _PatientDashboardState extends State<PatientDashboard> {
   String get _alertMessage {
     final r = _latest;
     if (r == null) return '';
-    // Critical levels first, then high (thesis label, ClinicalLevels).
-    if (r.haemodynamicLevel == 3) {
-      return 'Blood pressure or pulse critical — seek care immediately';
+    // Red first, then yellow (home triage, HomeProtocol).
+    if (r.haemodynamicLevel == HomeProtocol.red) {
+      return 'Blood pressure or pulse out of range — contact your health centre today';
     }
-    if (r.glycaemicLevel == 3) {
-      return 'Blood glucose critical — seek care immediately';
+    if (r.glycaemicLevel == HomeProtocol.red) {
+      return 'Blood glucose out of range — contact your health centre today';
     }
-    if (r.haemodynamicLevel == 2) {
-      return 'Blood pressure high — contact your health centre';
+    if (r.haemodynamicLevel == HomeProtocol.yellow) {
+      return 'Blood pressure above your home target — see the 7-day check below';
     }
-    if (r.glycaemicLevel == 2) {
-      return 'Blood glucose out of range — monitor closely';
+    if (r.glycaemicLevel == HomeProtocol.yellow) {
+      return 'Blood glucose above your target — see the one-day check below';
     }
     return '';
-  }
-
-  /// Readings carrying a BP value in the fourteen-day window shown to the
-  /// patient (ch.4 §Trends), oldest first.
-  List<Reading> get _bpHistory {
-    final start = _windowStart;
-    return _readings
-        .where((r) => r.hasBP && r.timestamp.isAfter(start))
-        .toList()
-        .reversed
-        .toList();
-  }
-
-  DateTime get _windowStart => DateTime.now().subtract(trendWindow);
-
-  /// x = days since the start of the window, so gaps between readings show.
-  List<FlSpot> get bpTrendData => [
-        for (final r in _bpHistory)
-          FlSpot(r.timestamp.difference(_windowStart).inMinutes / (60 * 24),
-              r.sbp!.toDouble()),
-      ];
-
-  String _dayLabel(double x) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final d = _windowStart.add(Duration(days: x.round()));
-    return '${d.day} ${months[d.month - 1]}';
-  }
-
-  /// Home systolic target (ESH 2023 home threshold 135/85 mmHg).
-  static const double _homeTargetSbp = 135;
-
-  /// Chart bounds follow the data rather than being fixed, so a reading
-  /// outside a preset range is not clipped off the chart.
-  double get _minY {
-    if (_bpHistory.isEmpty) return 110;
-    final lowest = _bpHistory
-        .map((r) => r.sbp!)
-        .reduce((a, b) => a < b ? a : b);
-    return (lowest - 15).clamp(40, _homeTargetSbp - 20).toDouble();
-  }
-
-  double get _maxY {
-    if (_bpHistory.isEmpty) return 170;
-    final highest = _bpHistory
-        .map((r) => r.sbp!)
-        .reduce((a, b) => a > b ? a : b);
-    return (highest + 15).clamp(_homeTargetSbp + 10, 320).toDouble();
   }
 
   @override
@@ -163,6 +108,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 16),
+                  if (ReadingsRepository.instance.pendingCount > 0) ...[
+                    _buildPendingBanner(ReadingsRepository.instance.pendingCount),
+                    const SizedBox(height: 16),
+                  ],
                   const ClinicianLinkCard(),
                   if (_hasAlert) _buildAlertBanner(),
                   if (_hasAlert) const SizedBox(height: 16),
@@ -175,12 +124,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     raiseEvents: true,
                   ),
                   const SizedBox(height: 20),
+                  // the yellow level's verification profile, while it runs
+                  ProfileCard(readings: _readings),
+                  const ClinicianReviewsCard(),
                   EvolutionCard(readings: _readings),
                   const SizedBox(height: 20),
 
                   _buildMetricCards(),
                   const SizedBox(height: 20),
-                  _buildTrendChart(),
+                  TrendChart(readings: _readings),
                   const SizedBox(height: 20),
                   _buildRecentReadings(),
                   const AssistantCard(),
@@ -193,7 +145,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
           const AssistantBubble(),
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -248,6 +199,29 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   /// Banner colour follows the level: critical in red, high in amber, the
   /// same colours as the risk tier the level maps to.
+  /// Readings saved on the phone that the server has not received yet.
+  Widget _buildPendingBanner(int n) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.tint(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(children: [
+        Icon(Icons.cloud_upload_outlined, size: 20, color: AppColors.primaryText(context)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            n == 1
+                ? '1 reading is saved on your phone and will be sent when you are online.'
+                : '$n readings are saved on your phone and will be sent when you are online.',
+            style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
+          ),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildAlertBanner() {
     final level = _latest?.level;
     final style = LevelStyle.of(context, level);
@@ -261,7 +235,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
       child: Row(
         children: [
           Icon(
-            level == 3 ? Icons.error_outline : Icons.warning_amber_rounded,
+            level == HomeProtocol.red ? Icons.error_outline : Icons.warning_amber_rounded,
             color: style.fg,
             size: 20,
           ),
@@ -330,7 +304,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           value: hr == null ? '—' : '${hr.hr}',
           unit: hr == null ? 'bpm' : 'bpm · ${_ago(hr.timestamp)}',
           icon: Icons.monitor_heart_outlined,
-          level: hr == null ? null : ClinicalLevels.pulse(hr.hr),
+          level: hr == null ? null : HomeProtocol.pulse(hr.hr),
         ),
         _metricCard(
           label: 'Last reading',
@@ -352,7 +326,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     required IconData icon,
     required int? level,
   }) {
-    final alert = (level ?? 0) >= ClinicalLevels.alertLevel;
+    final alert = (level ?? 0) >= HomeProtocol.yellow;
     final style = LevelStyle.of(context, level);
     final fg = alert ? style.fg : AppColors.primaryText(context);
 
@@ -408,162 +382,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrendChart() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border(context), width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  'Systolic trend — last 14 days',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryText(context),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // the green band of the chart: an objective, not an alarm
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.successBg(context),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Home target < 135/85',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.successText(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (bpTrendData.isEmpty)
-            SizedBox(
-              height: 140,
-              child: Center(
-                child: Text(
-                  'No blood pressure reading in the last 14 days',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted(context),
-                  ),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 140,
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: 10,
-                    getDrawingHorizontalLine: (value) => FlLine(
-                      color: AppColors.border(context),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 32,
-                        interval: 20,
-                        // round values only, not the chart's own bounds
-                        getTitlesWidget: (value, meta) => value % 20 != 0
-                            ? const SizedBox.shrink()
-                            : Text(
-                                value.toInt().toString(),
-                                style: TextStyle(fontSize: 9, color: AppColors.textMuted(context)),
-                              ),
-                      ),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 24,
-                        interval: 7,
-                        getTitlesWidget: (value, meta) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              _dayLabel(value),
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: AppColors.textMuted(context),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  // Target band behind the series: the patient sees their
-                  // position relative to the home target.
-                  rangeAnnotations: RangeAnnotations(
-                    horizontalRangeAnnotations: [
-                      HorizontalRangeAnnotation(
-                        y1: _minY,
-                        y2: _homeTargetSbp,
-                        color: AppColors.successBg(context),
-                      ),
-                    ],
-                  ),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: bpTrendData,
-                      isCurved: false,
-                      color: AppColors.primaryText(context),
-                      barWidth: 2.5,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, bar, index) =>
-                            FlDotCirclePainter(
-                              radius: 3,
-                              color: AppColors.card(context),
-                              strokeWidth: 2,
-                              strokeColor: AppColors.primaryText(context),
-                            ),
-                      ),
-                      belowBarData: BarAreaData(show: false),
-                    ),
-                  ],
-                  minX: 0,
-                  maxX: trendWindow.inDays.toDouble(),
-                  minY: _minY,
-                  maxY: _maxY,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -676,68 +494,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
           style.badge(),
         ],
       ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    // Colours come from bottomNavigationBarTheme in AppTheme, so this
-    // adapts without per-item styling here.
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      onTap: (i) {
-        if (i == 1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const LogReadingScreen()),
-          );
-        } else if (i == 2) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const HistoryScreen()),
-          );
-        } else if (i == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ChatScreen()),
-          );
-        } else if (i == 4) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfileScreen()),
-          );
-        } else {
-          setState(() => _currentIndex = i);
-        }
-      },
-      selectedFontSize: 11,
-      unselectedFontSize: 11,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle_outline),
-          activeIcon: Icon(Icons.add_circle),
-          label: 'Log',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.history_outlined),
-          activeIcon: Icon(Icons.history),
-          label: 'History',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
-          activeIcon: Icon(Icons.chat_bubble),
-          label: 'Chat',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'Profile',
-        ),
-      ],
     );
   }
 }

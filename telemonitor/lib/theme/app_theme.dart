@@ -164,6 +164,24 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(backgroundColor: surface),
 
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surface,
+        indicatorColor: isDark ? const Color(0xFF223049) : const Color(0xFFDCE6F5),
+        labelTextStyle: WidgetStatePropertyAll(TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isDark ? const Color(0xFFC9D3E3) : AppColors.primary,
+        )),
+        iconTheme: WidgetStatePropertyAll(IconThemeData(
+          color: isDark ? const Color(0xFFC9D3E3) : AppColors.primary,
+        )),
+        elevation: 3,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
+
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surface,
         selectedItemColor:

@@ -127,6 +127,13 @@ class HealthAssistantService {
       '- Encourage them to record readings regularly, and to record '
       'blood pressure and glucose together when they can.',
     );
+    buffer.writeln(
+      '- Their home targets, from the protocol the app follows: blood pressure '
+      'from 110/60 up to below 135/85 mmHg; glucose from 4 to 7 mmol/L before a '
+      'meal and up to 10 mmol/L 90 minutes after a meal. A reading above target '
+      'starts a short series of extra measurements in the app; never present a '
+      'target as a treatment decision.',
+    );
     buffer.writeln();
 
     // ---- Style ----------------------------------------------------

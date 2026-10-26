@@ -77,7 +77,7 @@ def environment() -> dict:
         except metadata.PackageNotFoundError:
             pk[name] = None
     return {"python": sys.version.split()[0], "platform": platform.platform(), "cpus": os.cpu_count(),
-            "packages": pk, "in_docker": Path("/.dockerenv").exists()}
+            "packages": pk}
 
 
 def _pid_alive(pid: int) -> bool:

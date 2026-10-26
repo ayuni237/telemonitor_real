@@ -4,15 +4,18 @@ import '../models/app_user.dart';
 import '../models/clinical_event.dart';
 import '../models/reading.dart';
 import '../models/risk_assessment.dart';
+import 'app_messenger.dart';
 import 'auth_service.dart';
 import 'clinical_levels.dart';
+import 'home_protocol.dart';
 import 'risk_assessment_service.dart';
 
 /// The event record (thesis ch.4 §Data structure) and the functions that
-/// fill it. In the production design these run on the server (Table "Server
-/// functions specified"); this local build runs them in the application:
+/// fill it from the applications; the local worker (telemonitor-research,
+/// serve/worker.py) runs the same functions on the server side:
 ///  * escalation: the patient's phone writes a rule event with the reading
-///    that crosses a yellow or red level (ReadingsRepository), and a model
+///    that reaches yellow or red under the home triage (ReadingsRepository),
+///    a rule event when a verification profile ends off target, and a model
 ///    event when the online model raises the tier;
 ///  * non-transmission sweep: the clinician's application raises an event
 ///    for a patient silent for longer than their checkup period;
@@ -52,10 +55,49 @@ class EventsService {
         source: TriggerSource.rule,
         tier: tier,
         trigger: triggerOf(r),
-        thresholdVersion: ClinicalLevels.version,
+        thresholdVersion: HomeProtocol.version,
         readingId: readingId,
       ),
     );
+  }
+
+  final Set<String> _profilesRaised = {};
+
+  /// Verification profile ended off target (Table "tab:thresholds":
+  /// teleconsultation): a red rule event, once per profile. Called by the
+  /// patient's repository at every change of the readings.
+  void raiseProfileEvents(List<Reading> readings) {
+    final me = AuthService.instance.currentProfile;
+    if (me == null) return;
+    for (final p in VerificationProfile.active(readings, DateTime.now())) {
+      if (p.status != ProfileStatus.complete || p.offTarget != true) continue;
+      final kind = p.kind == ProfileKind.bloodPressure ? 'bp_7d' : 'glucose_6pt';
+      final id = 'profile_${kind}_${p.start.millisecondsSinceEpoch}';
+      if (!_profilesRaised.add(id)) continue;
+      final trigger = <String, dynamic>{
+        'profile': kind,
+        'readings': p.readings,
+        'startedAt': Timestamp.fromDate(p.start),
+        if (p.kind == ProfileKind.bloodPressure) ...{'meanSbp': p.meanSbp, 'meanDbp': p.meanDbp, 'days': p.days},
+        if (p.kind == ProfileKind.glucose) ...{
+          'meanBeforeMeal': p.meanBeforeMeal,
+          'meanAfterMeal': p.meanAfterMeal,
+        },
+      };
+      // not awaited: offline, the write waits in the local cache; an existing
+      // event (raised from another device) cannot be rewritten and is left as is
+      events(me.uid)
+          .doc(id)
+          .set(ClinicalEvent.newData(
+            patientId: me.uid,
+            clinicianId: me.assignedClinicianId,
+            source: TriggerSource.rule,
+            tier: RiskTier.red,
+            trigger: trigger,
+            thresholdVersion: HomeProtocol.version,
+          ))
+          .catchError((Object _) {});
+    }
   }
 
   /// Model escalation: the online model raised the tier above the rule's,
@@ -96,7 +138,7 @@ class EventsService {
         source: TriggerSource.nonTransmission,
         tier: RiskTier.yellow,
         trigger: {'lastReadingAt': Timestamp.fromDate(last.timestamp), 'checkupPeriodDays': checkupPeriodDays},
-        thresholdVersion: ClinicalLevels.version,
+        thresholdVersion: HomeProtocol.version,
         readingId: last.id,
       ));
     } on FirebaseException {
@@ -145,14 +187,17 @@ class EventsService {
       .snapshots()
       .map((s) => s.docs.map(ClinicalEvent.fromFirestore).toList());
 
-  /// Closes an event with the clinician's verdict.
-  Future<void> recordVerdict(ClinicalEvent e,
-      {required Verdict verdict, required ClinicalAction action, String comment = ''}) async {
+  /// Closes an event with the clinician's verdict. Returns at once: offline,
+  /// the verdict waits in the local cache (the event already shows as closed)
+  /// and is sent on reconnection; a refusal by the rules is reported then.
+  void recordVerdict(ClinicalEvent e,
+      {required Verdict verdict, required ClinicalAction action, String comment = ''}) {
     final me = AuthService.instance.currentProfile;
     if (me == null) throw StateError('No signed-in clinician.');
-    await events(e.patientId)
+    events(e.patientId)
         .doc(e.id)
-        .update(ClinicalEvent.verdictData(clinicianId: me.uid, verdict: verdict, action: action, comment: comment));
+        .update(ClinicalEvent.verdictData(clinicianId: me.uid, verdict: verdict, action: action, comment: comment))
+        .catchError((Object err) => AppMessenger.show('A verdict was not saved: $err', error: true));
   }
 
   /// Checkup period of a patient, set by their clinician.
