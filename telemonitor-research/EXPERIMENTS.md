@@ -2,8 +2,8 @@
 
 Two criticisms are addressed empirically:
 
-> *"choix des métriques arbitraire"*
-> *"les variables du patient... elles entrent à quel niveau ?"*
+> *"the choice of metrics is arbitrary"*
+> *"the patient variables... at what level do they come in?"*
 
 **Read the methodological note first.** It is the most important part of
 this document, and it changed the conclusions.

@@ -1,58 +1,60 @@
-# Relancer les analyses et les benchmarks
+# Rerunning the analyses and benchmarks
 
-Chaque chiffre de la partie 2 (méthodologie) est produit par un script de `scripts/`. Les
-protocoles sont déclarés dans `configs/` avant toute exécution, et le code testé se trouve
-dans `src/telemonitor/`. Pour Docker, voir `C:\Projects\INFRA.md`.
+Every number in part 2 of the thesis (methodology) is produced by a script in `scripts/`. The
+protocols are declared in `configs/` before any run, and the tested code lives in
+`src/telemonitor/`.
 
 ## 1. Installation
 
-Depuis le dossier `C:\Projects\telemonitor-research` :
+From the folder `C:\Projects\telemonitor-research`:
 
 ```
 python -m venv .venv
 .venv\Scripts\activate            (Windows)   |   source .venv/bin/activate  (Linux/Mac)
 pip install -e .[test,bench,serve]
-python -m pytest                  (toute la suite de tests doit passer)
+python -m pytest                  (the whole test suite must pass)
 ```
 
-Un environnement virtuel (`.venv`) est conseillé : il évite de modifier le Python du système.
+A virtual environment (`.venv`) is recommended: it avoids modifying the system Python.
+To reproduce exactly the versions used for the thesis, follow the header of
+`requirements-lock.txt`.
 
-## 2. Données
+## 2. Data
 
-| Données | Emplacement | Origine |
+| Data | Location | Origin |
 |---|---|---|
-| Fiches de Douala (scénario D) | `cohortB_complete.csv` | transcription des fiches de surveillance |
-| Consultations de Douala (scénario A) | `data/patient_data_REAL_DO_NOT_MODIFY.csv` | ne jamais modifier |
-| Démo eICU 2.0.1 | `data/external/eicu-demo-2.0.1/` | https://physionet.org/content/eicu-crd-demo/2.0.1/ (accès libre) |
+| Douala inpatient charts (scenario D) | `cohortB_complete.csv` | transcription of the observation charts |
+| Douala consultations (scenario A) | `data/patient_data_REAL_DO_NOT_MODIFY.csv` | never modify |
+| eICU demo 2.0.1 | `data/external/eicu-demo-2.0.1/` | https://physionet.org/content/eicu-crd-demo/2.0.1/ (open access) |
 
-Pour la démo eICU, téléchargez au minimum `patient`, `diagnosis`, `pastHistory`,
-`vitalAperiodic`, `vitalPeriodic`, `lab` (fichiers `.csv.gz`) et `SHA256SUMS.txt` dans ce
-dossier. Le code vérifie les empreintes SHA-256 avant toute utilisation. Le dossier est
-exclu de git.
+For the eICU demo, download at least `patient`, `diagnosis`, `pastHistory`,
+`vitalAperiodic`, `vitalPeriodic`, `lab` (`.csv.gz` files) and `SHA256SUMS.txt` into that
+folder. The code checks the SHA-256 checksums before any use. The folder is excluded from
+git.
 
-La base eICU complète (benchmark définitif) exige un compte PhysioNet, la formation CITI
-« Data or Specimens Only Research » et la signature de l'accord d'utilisation. Une fois
-téléchargée, placez-la dans un dossier de même structure et pointez `DEMO` dans
-`scripts/_common.py` vers ce dossier.
+The full eICU database (final benchmark) requires a PhysioNet account, the CITI training
+"Data or Specimens Only Research" and the signature of the data use agreement. Once
+downloaded, place it in a folder with the same structure and point `DEMO` in
+`scripts/_common.py` to that folder.
 
-## 3. Les scripts, dans l'ordre de la méthodologie
+## 3. The scripts, in the order of the methodology
 
-| Script | Étape | Ce qu'il reproduit | Durée |
+| Script | Step | What it reproduces | Duration |
 |---|---|---|---|
-| `01_douala_audit.py` | 2 | description de la cohorte, contrôles qualité, chiffres terminaux (appareil électronique), incertitude des étiquettes (27 / 39 / 56 %), distributions → `out/audit_cohort.json` | secondes |
-| `02_label_rules.py` | 1 | ancienne règle contre règle sourcée, variante plafonnée, 103 mesures reclassées si l'on utilise toutes les bandes NEWS2 → `out/label_rules.csv` | secondes |
-| `03_pca_exploration.py` | — | analyse PCA exploratoire de l'ancien pipeline (≈ 7 dimensions effectives ; logistique sur 2 composantes ≈ XGBoost à 16 variables) | ≈ 5 min |
-| `04_sample_size.py` | 4 | critères de Riley (Douala et démo eICU), parité avec `pmsampsize` (n = 662) ; option `--no-eicu` | ≈ 2 min |
-| `05_eicu_cohort.py` | 4 | éligibilité eICU, harmonisation au rythme des fiches, échantillons et prévalences | ≈ 1 min |
-| `06_benchmark.py` | 6–9 | benchmark imbriqué sur eICU et validation externe sur Douala → un dossier de run `out/runs/<tâche>_<délai>h_<id>/` (voir ci-dessous) | `--quick` : minutes ; complet : ≈ 12 h par tâche |
-| `07_app_parity_fixture.py` | 11 | fixture de parité des niveaux pour l'app Flutter (`flutter test`) ; à relancer après toute modification des seuils | secondes |
-| `08_figures.py` | — | retrace toutes les figures d'un run à partir de ses sauvegardes, sans recalcul → `<run>/figures/` (PDF, PNG et CSV des valeurs tracées) | secondes |
-| `09_kappa_sample_size.py` | 2 | taille de l'échantillon à réétiqueter par le médecin : demi-largeur de l'IC du kappa pondéré ≤ 0,10 → ≈ 100 lectures (κ ≈ 0,75) à 150 (κ ≈ 0,6) | ≈ 1 min |
-| `10_sensitivity_flags_slots.py` | 3–4 | sensibilité de n₀ du MAD (5 / 7 / 9 lectures signalées pour n₀ = 10 / 20 / 40) et de la tolérance des créneaux eICU (± 1 / 2 / 3 h → 645 / 1 356 / 1 983 échantillons glycémiques) ; option `--no-eicu` | ≈ 1 min |
-| `12_state_comparison.py` | 10b | benchmark des 8 mesures de comparaison d'état (cosinus, euclidiennes, Manhattan, Chebyshev, Mahalanobis ; `configs/state_compare.yaml`) : AUROC pour le changement de niveau et la nouvelle alerte, développement eICU, contrôle externe Douala → `out/state_comparison.csv/.json`, échelles → `artifacts/state_scales.json`. Reporter ensuite la mesure retenue dans `configs/state_compare.yaml` (`status: selected`, `selected: <mesure>`) | ≈ 1 min |
-| `11_export_model.py` | 11 | exporte le modèle retenu (famille de plus faible coût de sélection dans la recherche finale sur tout eICU) d'un run **complet** vers `artifacts\<tâche>\`, lu par le service et le worker ; refuse un run étiqueté avec d'autres seuils | secondes |
+| `01_douala_audit.py` | 2 | cohort description, quality controls, terminal digits (electronic device), label uncertainty (27 / 39 / 56 %), distributions → `out/audit_cohort.json` | seconds |
+| `02_label_rules.py` | 1 | old rule against the sourced rule, capped variant, 103 readings reclassified if all NEWS2 bands are used → `out/label_rules.csv` | seconds |
+| `03_pca_exploration.py` | — | exploratory PCA of the old pipeline (≈ 7 effective dimensions; logistic regression on 2 components ≈ XGBoost on 16 variables) | ≈ 5 min |
+| `04_sample_size.py` | 4 | Riley criteria (Douala and eICU demo), parity with `pmsampsize` (n = 662); option `--no-eicu` | ≈ 2 min |
+| `05_eicu_cohort.py` | 4 | eICU eligibility, harmonisation to the rhythm of the charts, samples and prevalences | ≈ 1 min |
+| `06_benchmark.py` | 6–9 | nested benchmark on eICU and external validation on Douala → a run folder `out/runs/<task>_<lead>h_<id>/` (see below) | `--quick`: minutes; full: ≈ 12 h per task |
+| `07_app_parity_fixture.py` | 11 | parity fixtures for the Flutter app (`flutter test`): label levels (`thresholds.yaml`) and home triage with verification profile (`home_protocol.yaml`); rerun after any change to either table | seconds |
+| `08_figures.py` | — | redraws every figure of a run from its saved outputs, without recomputing → `<run>/figures/` (PDF, PNG and CSV of the plotted values) | seconds |
+| `09_kappa_sample_size.py` | 2 | size of the sample to be relabelled by the physician: half-width of the CI of the weighted kappa ≤ 0.10 → ≈ 100 readings (κ ≈ 0.75) to 150 (κ ≈ 0.6) | ≈ 1 min |
+| `10_sensitivity_flags_slots.py` | 3–4 | sensitivity to the MAD n₀ (5 / 7 / 9 readings flagged for n₀ = 10 / 20 / 40) and to the eICU slot tolerance (± 1 / 2 / 3 h → 645 / 1 356 / 1 983 glycaemic samples); option `--no-eicu` | ≈ 1 min |
+| `12_state_comparison.py` | 10b | benchmark of the 8 state-comparison measures (cosine, Euclidean, Manhattan, Chebyshev, Mahalanobis; `configs/state_compare.yaml`): AUROC for a change of level and for a new alert, eICU development, Douala external check → `out/state_comparison.csv/.json`, scales → `artifacts/state_scales.json`. Then record the chosen measure in `configs/state_compare.yaml` (`status: selected`, `selected: <measure>`) | ≈ 1 min |
+| `11_export_model.py` | 11 | exports the chosen model (the family with the lowest selection cost in the final search on all of eICU) from a **full** run to `artifacts\<task>\`, read by the service and the worker; refuses a run labelled with other thresholds | seconds |
 
-Exemples (depuis `C:\Projects\telemonitor-research`) :
+Examples (from `C:\Projects\telemonitor-research`):
 
 ```
 python scripts\01_douala_audit.py
@@ -60,116 +62,127 @@ python scripts\04_sample_size.py --no-eicu
 python scripts\06_benchmark.py --quick
 python scripts\06_benchmark.py --tasks haemodynamic
 python scripts\06_benchmark.py --tasks glycaemic --leads 0 12 36
-python scripts\08_figures.py                 (dernier run)   |   --all   |   --run out\runs\<dossier>
+python scripts\08_figures.py                 (latest run)   |   --all   |   --run out\runs\<folder>
 ```
 
-Les deux tâches peuvent tourner en parallèle, dans deux terminaux.
+The two tasks can run in parallel, in two terminals.
 
-### Dossier de run : les sauvegardes qui permettent de retracer les figures
+### Run folder: the saved outputs that allow the figures to be redrawn
 
-Chaque run est enregistré dans `out\runs\<tâche>_<délai>h_<id>\`, où `<id>` est une empreinte
-de ce qui détermine ses résultats : tâche, délai, candidats, configurations effectives,
-empreintes des données.
+Each run is saved in `out\runs\<task>_<lead>h_<id>\`, where `<id>` is a fingerprint of
+what determines its results: task, lead time, candidates, effective configurations, data
+checksums.
 
-| Fichier | Contenu |
+| File | Content |
 |---|---|
-| `manifest.json` | identité, entrées, sessions de calcul (date, version et état git du code, environnement Python, commande), progression, statut |
-| `config\` | les configurations effectivement utilisées |
-| `code\<version>\` | copie du code (`src\telemonitor`, `scripts\`) pour chaque version utilisée |
-| `folds.csv` | résultats par pli externe et par modèle |
-| `trials.csv` | tous les essais d'hyperparamètres : paramètres, mesures internes, coût, configuration retenue |
-| `predictions\outer\r<répétition>_f<pli>\<modèle>.npz` | prédictions de chaque pli externe : échantillon, patient, niveau observé, probabilités |
-| `external\` | prédictions Douala, mesures (`external.csv`), modèles finaux (`models\*.joblib`) |
-| `summary.json`, `figures\` | synthèse finale ; figures retracées par `08_figures.py` |
+| `manifest.json` | identity, inputs, computing sessions (date, version and git state of the code, Python environment, command), progress, status |
+| `config\` | the configurations actually used |
+| `code\<version>\` | copy of the code (`src\telemonitor`, `scripts\`) for each version used |
+| `folds.csv` | results per outer fold and per model |
+| `trials.csv` | every hyperparameter trial: parameters, inner measures, cost, configuration kept |
+| `predictions\outer\r<repeat>_f<fold>\<model>.npz` | predictions of each outer fold: sample, patient, observed level, probabilities |
+| `external\` | Douala predictions, measures (`external.csv`), final models (`models\*.joblib`) |
+| `summary.json`, `figures\` | final summary; figures redrawn by `08_figures.py` |
 
-Les fichiers sont écrits de façon atomique, et un pli n'est enregistré que lorsqu'il est complet.
+Files are written atomically, and a fold is saved only once it is complete.
 
-**Reprise.** Un run interrompu se relance avec la **même commande** : même empreinte, donc même
-dossier, et les plis déjà enregistrés sont conservés. Changer une configuration ou les données
-crée un nouveau dossier, sans écraser l'ancien.
+**Resuming.** An interrupted run is restarted with the **same command**: same fingerprint,
+hence same folder, and the folds already saved are kept. Changing a configuration or the
+data creates a new folder, without overwriting the old one.
 
-**Run long sous Windows**, une fenêtre par tâche avec les barres de progression (chemin absolu,
-depuis n'importe quel dossier) :
+**Long runs on Windows**, one window per task with the progress bars (absolute path, from
+any folder):
 
 ```
-powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\relancer_benchmarks.ps1
+powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchmarks.ps1
 ```
 
-Le journal `out\runs\<run>\run.log` indique, pour chaque pli et chaque candidat, la durée et le
-RPS externe. Fermer une fenêtre arrête le run ; la même commande le reprend.
+The log `out\runs\<run>\run.log` gives, for each fold and each candidate, the duration and
+the external RPS. Closing a window stops the run; the same command resumes it.
 
-## 4. Où modifier un choix
+## 4. Where to change a choice
 
-| Choix | Fichier | Remarque |
+| Choice | File | Note |
 |---|---|---|
-| Seuils d'étiquetage, variante de sensibilité | `configs/thresholds.yaml` | chaque règle cite sa source (clé de `references.bib`, vérifiée par les tests) |
-| Poids de la fonction coût, seuils du bénéfice net | `configs/cost.yaml` | provisoires jusqu'à la réponse du médecin partenaire |
-| Plis, répétitions, espaces de recherche, budgets | `configs/benchmark.yaml` | à fixer **avant** une exécution, puis à rapporter |
-| Niveaux vert / jaune / rouge du service | `configs/serve.yaml` | provisoires |
+| Labelling thresholds, sensitivity variant | `configs/thresholds.yaml` | each rule cites its source (key of `references.bib`, checked by the tests) |
+| Weights of the cost function, net-benefit thresholds | `configs/cost.yaml` | provisional until the partner physician answers |
+| Folds, repeats, search spaces, budgets | `configs/benchmark.yaml` | to be fixed **before** a run, then reported |
+| Green / yellow / red tiers of the service | `configs/serve.yaml` | provisional |
+| Home triage, verification profile | `configs/home_protocol.yaml` | thresholds of Mihevc et al. (2025); then `07_app_parity_fixture.py` and update `lib/services/home_protocol.dart` |
+| Worker delays (escalation, reminders) | `configs/worker.yaml` | provisional |
+| State-comparison measures | `configs/state_compare.yaml` | `selected` after `12_state_comparison.py` |
 
-## 5. Ancien pipeline (pour mémoire)
+## 5. Old pipeline (for the record)
 
-`train.py`, `features.py`, `TeleMonitor_model_REAL.ipynb` et les scripts `experiment*.py`
-/ `verify_*.py` à la racine sont l'ancien pipeline. Ils ne servent plus qu'à reproduire
-les chiffres antérieurs (par exemple : prévision à 0,425 contre 0,452 pour la persistance
-avec `python train.py`). Les chiffres de `CALIBRATION.md`, `FINDINGS.md` et
-`EXPERIMENTS.md` viennent de **données synthétiques** et ne doivent pas être présentés
-comme des résultats. Les fichiers `out\benchmark_*.csv` du premier essai (19–20/10) ne
-contiennent ni les essais ni les prédictions : ils ne permettent pas de retracer les figures.
+`train.py`, `features.py`, `TeleMonitor_model_REAL.ipynb` and the `experiment*.py` /
+`verify_*.py` scripts at the root are the old pipeline. They are kept only to reproduce
+earlier figures (for example: forecast at 0.425 against 0.452 for persistence with
+`python train.py`). The figures in `CALIBRATION.md`, `FINDINGS.md` and `EXPERIMENTS.md`
+come from **synthetic data** and must not be presented as results. The files
+`out\benchmark_*.csv` from the first attempt (19–20 October) contain neither the trials nor
+the predictions: they cannot be used to redraw the figures.
 
-## 6. Service local (FastAPI)
+## 6. Local service (FastAPI)
 
-```
-set TELEMONITOR_ARTIFACTS=artifacts          (dossier contenant haemodynamic/ et glycaemic/)
+In PowerShell:
+
+```powershell
+$env:TELEMONITOR_ARTIFACTS = "artifacts"          # folder containing haemodynamic/ and glycaemic/
 uvicorn telemonitor.serve.app:app --app-dir src --host 0.0.0.0 --port 8000
 ```
 
-Pour que l'application l'utilise (émulateur Android ; `10.0.2.2` désigne la machine hôte) :
+(In `cmd`, write `set TELEMONITOR_ARTIFACTS=artifacts` instead.)
+
+For the app to use it on an Android emulator (`10.0.2.2` is the host machine):
 
 ```
 cd C:\Projects\telemonitor
 flutter run --dart-define=RISK_API_URL=http://10.0.2.2:8000
 ```
 
-Sans `RISK_API_URL`, l'application applique seulement la règle clinique (plancher), hors ligne.
+For the web version in Chrome, allow its origin before starting the service, and give the
+app a fixed port:
 
-`GET /health` et `POST /v1/risk` ; la documentation interactive est disponible sur
-`http://127.0.0.1:8000/docs`. Pour la version web de l'application, autoriser son origine :
-`set TELEMONITOR_CORS=http://localhost:5000`.
+```powershell
+$env:TELEMONITOR_CORS = "http://localhost:5000"
+flutter run -d chrome --web-port 5000 --dart-define=RISK_API_URL=http://localhost:8000
+```
 
-Après un benchmark complet : `python scripts\11_export_model.py`, puis redémarrer le service.
-Sans artefact, le service applique seulement la règle (plancher).
+Without `RISK_API_URL`, the app applies only the clinical rule (floor), offline.
 
-## 7. Worker local : les fonctions serveur du chapitre 4
+`GET /health` and `POST /v1/risk`; the interactive documentation is available at
+`http://127.0.0.1:8000/docs`.
 
-`src/telemonitor/serve/worker.py`, réglages dans `configs/worker.yaml` (délais provisoires). À
-chaque cycle (60 s), pour chaque patient :
+After a full benchmark: `python scripts\11_export_model.py`, then restart the service.
+Without artifacts, the service applies only the rule (floor).
 
-| Fonction | Ce qu'elle fait |
+## 7. Local worker: the server functions of chapter 4
+
+`src/telemonitor/serve/worker.py`, settings in `configs/worker.yaml` (provisional delays).
+At each cycle (60 s), for each patient:
+
+| Function | What it does |
 |---|---|
-| Contrôle de la mesure | drapeau qualité (`quality.py`) écrit sur chaque nouvelle lecture |
-| Escalade | lecture jaune ou rouge → événement « règle » (même identifiant que celui écrit par le téléphone : jamais de doublon) |
-| Score | dernière lecture → règle + modèle (même code que l'API) ; un modèle qui relève le niveau → événement « modèle » |
-| Notification | chaque nouvel événement, une fois : rouge → patient et clinicien ; jaune → patient ; jamais de consigne de dose |
-| Non-transmission | pas de lecture depuis la période de contrôle → événement et rappel au patient |
-| Âge de la file | événement ouvert trop longtemps (rouge 4 h, jaune 72 h) → transmis au remplaçant nommé par le clinicien, tous deux notifiés |
-| Verdict | événement fermé → le patient est informé de la revue |
+| Measurement check | quality flag (`quality.py`) written on each new reading |
+| Escalation | yellow or red reading according to the home triage (`home_protocol.yaml`, the rule of the app) → "rule" event (same identifier as the one written by the phone: never a duplicate) |
+| Score | last reading → rule + model (same code as the API); a model that raises the level → "model" event |
+| Notification | each new event, once: red → patient and clinician; yellow → patient; never a dose instruction |
+| Non-transmission | no reading since the checkup period → event and reminder to the patient, repeated every day while the silence lasts |
+| Queue age | event open for too long (red 4 h, yellow 72 h) → passed to the alternate named by the clinician, both notified |
+| Verdict | event closed → the patient is told of the review |
 
-Les lectures et événements de plus de 24 h trouvés au premier lancement sont marqués sans être
-notifiés (pas d'avalanche). Le SMS de secours n'est pas construit.
+Readings and events older than 24 h found at the first start are marked without being
+notified (no avalanche). The SMS fallback is not built.
 
-Il faut une clé de compte de service Firebase (console Firebase → Paramètres du projet →
-Comptes de service → Générer une nouvelle clé privée), enregistrée dans
-`secrets\service-account.json` (dossier exclu de git ; ne jamais la partager). Dans un
-environnement virtuel (firebase-admin exige une autre version de httpx que d'autres outils
-installés sur cette machine) :
+A Firebase service-account key is required (Firebase console → Project settings →
+Service accounts → Generate new private key), saved as `secrets\service-account.json`
+(folder excluded from git; never share it). In a virtual environment (firebase-admin
+requires another httpx version than other tools installed on this machine):
 
 ```
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .[serve,worker]
-python -m telemonitor.serve.worker --credentials secrets\service-account.json --once    (un cycle, pour tester)
-python -m telemonitor.serve.worker --credentials secrets\service-account.json           (en continu)
+python -m telemonitor.serve.worker --credentials secrets\service-account.json --once    (one cycle, to test)
+python -m telemonitor.serve.worker --credentials secrets\service-account.json           (continuously)
 ```
-
-Avec Docker : `docker compose --profile worker up -d worker`.

@@ -1,3 +1,0 @@
-﻿2026-10-20 15:42:46  === Début de l'installation ===
-2026-10-20 15:42:47  BIOS : 'SVM CPU Virtualization' déjà activé.
-2026-10-20 15:42:47  WSL2 : installation des composants...

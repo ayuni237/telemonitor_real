@@ -7,7 +7,7 @@ Outputs land in `out/`.
 
 ## Why this replaces gain-based importance
 
-Your supervisor wrote *"le poids des métriques n'est pas mesuré"*. It was
+Your supervisor wrote *"the weight of the metrics is not measured"*. It was
 measured — but with **gain-based importance**, which has two documented
 weaknesses that both apply to this data:
 

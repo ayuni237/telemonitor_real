@@ -111,7 +111,7 @@ pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_re
 | Document | Content |
 |---|---|
 | [`telemonitor-research/RESEARCH_PLAN.md`](telemonitor-research/RESEARCH_PLAN.md) | Step-by-step plan, standing decisions and the register of incoherences found and fixed |
-| [`telemonitor-research/BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md) | How to rerun every analysis (in French) |
+| [`telemonitor-research/BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md) | How to rerun every analysis |
 | [`memoire/memoire_restructure.pdf`](memoire/memoire_restructure.pdf) | Current version of the thesis |
 
 ## Author
