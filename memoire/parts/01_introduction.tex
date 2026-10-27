@@ -1,0 +1,82 @@
+%==========================================================================
+% INTRODUCTION (unnumbered)
+%==========================================================================
+\unnumberedchapter{Introduction}\label{ch:intro}
+
+Hypertension is the leading modifiable risk factor for premature death worldwide. The number of adults aged 30--79 years living with hypertension doubled between 1990 and 2019 to reach 1.3 billion, about 78\% of whom live in low- and middle-income countries, and elevated systolic blood pressure causes an estimated 10.8 million deaths each year \parencite{who2023hypertension}. Sub-Saharan Africa combines a high and rising prevalence with poor detection, treatment and control \parencite{gafane2024}: in the WHO African Region only 12\% of hypertensive adults have their blood pressure controlled. Diabetes compounds the burden. In Africa, 58\% of people living with diabetes are also hypertensive \parencite{hinneh2023}; the two conditions share their risk factors, aggravate each other, and call for the same care: repeated measurement and treatment adjusted over decades.
+
+\section*{The Follow-up Challenge}
+
+Care for hypertension and diabetes in Cameroon is episodic. Blood pressure and glucose are measured at consultations a few times a year, recorded on paper, and rarely assembled into a history that a clinician can read as a trend. Yet diagnosis and treatment adjustment are longitudinal acts: the WHO protocol requires measurements repeated over several visits and monthly follow-up until the target is reached \parencite{who2021guideline,who2023hypertension}. Two failures follow. Loss to follow-up affects half of patients or more in resource-limited settings, and therapeutic inertia leaves treatment unchanged while blood pressure stays above target \parencite{who2023hypertension}. In the African Region, 72\% of the patients already diagnosed are not controlled: they are known to the health system and lost during follow-up.
+
+\section*{The Potential of Telemonitoring and Prediction}
+
+Mobile telephony now reaches most of the population \parencite{segun2025}, and a controlled study in Cameroonian district hospitals has shown that remote clinical support is feasible in primary care \parencite{bediang2021}. Telemonitoring, the transmission of home measurements to a care team, lowers systolic pressure by 3 to 7~mmHg and glycated haemoglobin by 0.4 to 0.5 points, provided a clinician acts on the data \parencite{mao2020,mihevc2025}. Where clinicians are scarce, the system must also decide which readings deserve their time. The only validated protocol for patients with both conditions sorts readings into three levels with fixed thresholds \parencite{mihevc2025}: it reacts to the level of a reading, not to its trend, and uses no learned model. Machine learning could forecast deterioration from a patient's own series, but the reported results of the field are fragile. The same algorithm is reported as the best on one dataset \parencite{efendi2025} and as no better than chance on another \parencite{mendoza2025}, because the first study predicts a label already encoded in its inputs.
+
+\section*{Research Problem and Motivation}
+
+This thesis addresses two problems.
+\begin{enumerate}
+  \item \textbf{A practical problem.} No telemonitoring system evaluated in Central Africa combines consultation records, home measurements and a predictive model for patients with hypertension and diabetes, and orders the clinician's attention under intermittent connectivity and scarce specialist time \parencite{dodoo2022,agbeyangi2025}.
+  \item \textbf{A methodological problem.} The predictive results of the field rest on labels that leak into the features, improper metrics and validation on the training population. Whether a learned model forecasts deterioration better than the guideline rule, and whether a model developed elsewhere transfers to Cameroonian patients, has not been measured.
+\end{enumerate}
+
+The data available to this work were not collected at home. The public eICU Collaborative Research Database, which records intensive-care stays in United States hospitals, is used to develop and compare the models. The observation charts of 32 patients hospitalised in Douala, with blood pressure, pulse and glucose recorded morning and evening, are used only to validate them externally. No home measurement or sensor data were collected: the system is built for home follow-up, but its predictive component is evaluated on hospital data, and its transfer to home data remains to be established.
+
+\section*{Objectives and Research Questions}
+
+The general objective is to design a telemonitoring system for patients with hypertension and type~2 diabetes that supports the clinician through risk assessment and alert prioritisation, and to evaluate its predictive component without the biases of previous work. The specific objectives are:
+\begin{itemize}
+  \item to derive the requirements of the system and the gaps of the field from the literature (\cref{ch:review});
+  \item to formalise the risk-tiering problem: a sourced labelling rule, a forecasting task free of label leakage, and the combination of rule and model (\cref{ch:framework});
+  \item to build a documented pipeline of data collection and treatment, and a benchmark protocol that selects the model instead of presupposing it (\cref{ch:methodology});
+  \item to compare the candidate models on public multi-centre data, validate them externally on Cameroonian patients, and build the system around the result (\cref{ch:results}).
+\end{itemize}
+
+Four research questions follow:
+\begin{description}
+  \item[RQ1.] Can a telemonitoring system combining consultation records, home readings and risk prediction be built under the connectivity, workload and cost constraints of Cameroonian care?
+  \item[RQ2.] Do learned models forecast the risk level of the next reading better than the guideline rule, and does a deep temporal model outperform classical models?
+  \item[RQ3.] Does the advantage persist when the forecast is made 24 and 48 hours ahead?
+  \item[RQ4.] Do models developed on another health system transfer to Cameroonian patients?
+\end{description}
+
+\section*{Hypotheses}
+
+RQ1 is a design question, answered by the system and by the traceability of each of its elements to a requirement. RQ2 to RQ4 lead to four testable hypotheses, stated with the measures of \cref{sec:metrics}:
+\begin{description}
+  \item[H1.] At least one learned model forecasts the level of the next reading with a lower ranked probability score than the guideline rule applied to the last reading (persistence).
+  \item[H2.] This advantage persists at lead times of 24 and 48~hours.
+  \item[H3.] The deep temporal models do not outperform the tabular models.
+  \item[H4.] Performance is lower on the Douala patients than on the development data, and updating the intercept on the local data recovers part of the calibration.
+\end{description}
+
+\section*{Contributions and Thesis Outline}
+
+This work contributes:
+\begin{itemize}
+  \item \textbf{A data collection and treatment pipeline}: a labelling rule in which every threshold comes from an official source, quality controls that tell artefacts from events, an analysis of the instruments from the readings themselves, and the harmonisation of intensive-care records to the rhythm of ward charts.
+  \item \textbf{A benchmark protocol}: candidates taken from published benchmarks rather than chosen in advance, nested validation grouped by hospital, proper scoring rules combined in a declared selection cost, and external validation on Cameroonian patients. The same discipline selects the measure that tracks the evolution of a patient's state.
+  \item \textbf{A telemonitoring system}: a patient application and a clinician dashboard implementing the three-level home protocol, a local risk service sharing the code of the benchmark, and server functions for escalation, reminders and verdicts.
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, node distance=0.32cm,
+  ch/.style={draw=cMain!60, rounded corners=2pt, align=center, text width=2.05cm, minimum height=2.3cm, fill=white, anchor=north},
+  hd/.style={font=\scriptsize\bfseries, text=cMain},
+  arr/.style={-{Stealth[length=1.8mm]}, semithick, cMain}]
+  \node[ch, fill=cMain!6] (i) {{\color{cAccent}\bfseries Introduction}\\[3pt] problem, questions RQ1--RQ4, hypotheses};
+  \node[ch, right=of i.north east, anchor=north west] (c1) {{\color{cAccent}\bfseries Chapter 1}\\[3pt] literature: what is known, the five gaps};
+  \node[ch, right=of c1.north east, anchor=north west] (c2) {{\color{cAccent}\bfseries Chapter 2}\\[3pt] framework: label, forecast, decision layer};
+  \node[ch, right=of c2.north east, anchor=north west] (c3) {{\color{cAccent}\bfseries Chapter 3}\\[3pt] data, treatment, benchmark protocol, system};
+  \node[ch, right=of c3.north east, anchor=north west] (c4) {{\color{cAccent}\bfseries Chapter 4}\\[3pt] results: data, models, system; discussion};
+  \node[ch, fill=cMain!6, right=of c4.north east, anchor=north west] (cc) {{\color{cAccent}\bfseries Conclusion}\\[3pt] findings and future work};
+  \foreach \a/\b in {i/c1, c1/c2, c2/c3, c3/c4, c4/cc} \draw[arr] (\a.east) -- (\b.west);
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, cText2] ([yshift=-3pt]c3.south west) -- node[below=5pt, text=cText2]{RQ1: the system} ([yshift=-3pt]c4.south east);
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, cText2] ([yshift=-17pt]c2.south west) -- node[below=5pt, text=cText2]{RQ2--RQ4: the predictive component} ([yshift=-17pt]c4.south east);
+\end{tikzpicture}
+\caption{Organisation of the thesis and where each research question is answered.}\label{fig:roadmap}
+\end{figure}
+
+\Cref{fig:roadmap} summarises the organisation. \Cref{ch:review} reviews the clinical and technical literature and identifies the gaps. \Cref{ch:framework} formalises the risk-tiering problem. \Cref{ch:methodology} describes the data, their treatment, the benchmark protocol and the system. \Cref{ch:results} reports the results and discusses them, and the Conclusion summarises the findings and the directions for future work. Every number of the results is produced by a script of the accompanying code, which can be rerun.

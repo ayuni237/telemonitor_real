@@ -1,0 +1,396 @@
+%==========================================================================
+% CHAPTER 1 -- THEORETICAL FOUNDATIONS AND LITERATURE REVIEW
+%==========================================================================
+\chapter{Theoretical Foundations and Literature Review}\label{ch:review}\label{ch:background}\label{ch:litreview}
+
+This chapter establishes what is known about the burden of hypertension and diabetes and the failure of their care, the clinical evidence for telemonitoring, the instruments and architectures available, and the use of machine learning for clinical risk. It draws on nineteen peer-reviewed sources, each checked against PubMed, Crossref or the publisher's record, complemented by the guidelines of the World Health Organization (WHO) \parencite{who2023hypertension,who2021guideline,whoHEARTS} and of the European Society of Hypertension (ESH) \parencite{mancia2023}. Each study is reported with its method, its main result and its limits, in six themes (\cref{tab:lr-overview}); the chapter ends with a comparison of the approaches and the gaps that motivate this work.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Sources of the review, by theme and in chronological order within each theme.}\label{tab:lr-overview}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}p{3.9cm} >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Theme} & \textbf{Source} & \textbf{Design and setting} \\
+\midrule
+1. Burden of disease & \textcite{hinneh2023} & systematic review and meta-analysis, Africa \\
+ & \textcite{who2023hypertension} & institutional global report \\
+\addlinespace
+2. Care and digital health in sub-Saharan Africa & \textcite{kingue2013} & interventional pilot, rural Cameroon \\
+ & \textcite{bediang2021} & controlled multicentre study, Cameroon \\
+ & \textcite{dodoo2022} & review of 66 empirical studies, sub-Saharan Africa \\
+ & \textcite{gafane2024} & narrative review, sub-Saharan Africa \\
+ & \textcite{agbeyangi2025} & systematic review, South Africa, Kenya, Nigeria \\
+ & \textcite{segun2025} & perspective, sub-Saharan Africa \\
+\addlinespace
+3. Mobile health and clinical evidence & \textcite{alessa2019} & review and content analysis of applications, United Kingdom \\
+ & \textcite{mao2020} & meta-analysis of 51 randomised trials \\
+ & \textcite{zhou2024} & meta-analysis of randomised trials \\
+ & \textcite{bandeira2024} & updated meta-analysis of randomised trials \\
+ & \textcite{mihevc2025} & multicentre randomised trial, Slovenia \\
+\addlinespace
+4. Sensors and IoT & \textcite{alhaddad2022} & review of non-invasive glucose sensing \\
+ & \textcite{tai2024} & IoT architecture and deep learning technique \\
+ & \textcite{efendi2025} & IoT and cloud implementation with device validation \\
+ & \textcite{liu2025review} & review of IoT sensing and machine learning \\
+ & \textcite{liu2025ppg} & smartphone photoplethysmography study \\
+\addlinespace
+5. Machine learning & \textcite{chatrati2022} & home monitoring system with machine learning \\
+ & \textcite{mendoza2025} & cross-sectional predictive study, Mexico \\
+\addlinespace
+6. Privacy and ethics & \textcite{alhammad2024} & systematic review of patient perspectives \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+\section{Key Concepts and Conceptual Framework}\label{sec:concepts}
+
+The terms of \cref{tab:concepts} are used throughout the thesis with the meaning given here; several are used differently in the literature.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Key concepts and the definitions adopted in this thesis.}\label{tab:concepts}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.3cm} X@{}}
+\toprule
+\textbf{Concept} & \textbf{Definition adopted} \\
+\midrule
+Hypertension & systolic pressure $\geq 140$~mmHg, diastolic pressure $\geq 90$~mmHg, or antihypertensive treatment \parencite{who2023hypertension}; ESH grades from 140/90, 160/100 and 180/110~mmHg \parencite{mancia2023}; home threshold 135/85~mmHg \\
+Type~2 diabetes & chronic hyperglycaemia due to insulin resistance and relative insulin deficiency; its follow-up requires a biological measurement (capillary or venous glucose, glycated haemoglobin) \\
+Care cascade & nested stages of care---hypertensive, diagnosed, treated, controlled---measured on the same population \parencite{who2023hypertension} \\
+Loss to follow-up & interruption of the planned follow-up of a patient already in care \\
+Therapeutic inertia & failure to intensify treatment while blood pressure remains above target \\
+Telemonitoring & transmission of physiological data from the patient's home to a care team, which provides clinical feedback \\
+Mobile health (mHealth) & health practices supported by mobile devices: applications, text messages, connected devices \\
+Self-measurement & measurement of blood pressure or capillary glucose by the patient at home, with a validated device and a standard protocol \\
+Internet of Things (IoT) & connected devices that acquire and transmit data without human intervention \\
+Clinical decision support & system that turns patient data into alerts or recommendations for a clinician, who keeps the decision \\
+Supervised learning & estimation of a function mapping input features to a known label; here, a forecast of a future clinical state from a past window of readings \\
+Label leakage & situation in which the label can be recovered from the inputs, so that measured performance reflects a rule rather than a prediction \\
+Triage & ordering of readings or patients by priority for clinical review \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Four models structure the reasoning (\cref{fig:concept-framework}). The \textbf{care cascade} locates where an intervention acts: screening acts on diagnosis, follow-up on treatment and control, where most diagnosed patients in Africa are lost. The \textbf{measurement model} treats a reading as the usual pressure plus an error that repeated readings reduce, which justifies series over isolated values. The \textbf{layered architecture} describes a monitoring system as a chain from acquisition to processing and presentation \parencite{tai2024,mucchi2021}. And \textbf{supervised learning for clinical prediction} fixes what a valid evaluation requires: a label outside the input window, proper measures, and a comparison with the guideline rule.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=0.35cm,
+  b/.style={draw,rounded corners,align=center,font=\scriptsize,minimum height=1.1cm,text width=2.25cm},
+  ar/.style={-{Stealth[length=2mm]},thick}]
+  \node[b,fill=cAfrica!14] (p) {\textbf{Problem}\\ care cascade fails at follow-up};
+  \node[b,fill=cGrey!14,right=of p] (m) {\textbf{Measurement}\\ repeated home readings};
+  \node[b,fill=cRef!12,right=of m] (a) {\textbf{Record}\\ application, database, server functions};
+  \node[b,fill=cRef!20,right=of a] (l) {\textbf{Prediction}\\ risk forecast from the series};
+  \node[b,fill=cGrey!8,right=of l] (d) {\textbf{Decision}\\ triage and clinician review};
+  \draw[ar] (p) -- (m); \draw[ar] (m) -- (a); \draw[ar] (a) -- (l); \draw[ar] (l) -- (d);
+  \draw[ar,dashed,cAfrica] (d.south) -- ++(0,-0.45) -| node[near start,below,font=\tiny]{retention and treatment adjustment act back on the cascade} (p.south);
+\end{tikzpicture}
+\caption{Conceptual framework of the thesis.}\label{fig:concept-framework}
+\end{figure}
+
+%--------------------------------------------------------------------------
+\section{Burden of Hypertension and Diabetes}\label{sec:burden}\label{sec:hta-burden}
+
+\subsection{The care cascade}\label{sec:cascade}
+
+For population surveillance, the WHO defines hypertension as a systolic blood pressure (SBP) $\geq 140$~mmHg, a diastolic blood pressure (DBP) $\geq 90$~mmHg, or the use of antihypertensive medication \parencite{who2023hypertension}; the ESH uses the same threshold and divides hypertension into three grades \parencite{mancia2023}. The number of hypertensive adults rose from 650 million in 1990 to 1.3 billion in 2019, while the age-standardised prevalence barely changed, from 32\% to 33\%: population growth and ageing, not individual risk, drive the increase. Elevated systolic pressure is the leading risk factor for premature death among the 87 compared.
+
+The WHO describes care as a cascade of nested stages measured on the same denominator (\cref{tab:cascade}). The European Region has a higher prevalence than the African Region but a control rate more than twice as high: the African deficit is organisational rather than epidemiological. In the African Region, 57\% of hypertensive adults are undiagnosed, 37\% of the diagnosed are untreated and 56\% of the treated are not controlled; among patients already diagnosed, 72\% are not controlled. Screening acts on the first link of the chain; longitudinal follow-up acts on the second and third.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Hypertension care cascade by WHO region, adults aged 30--79 years, 2019 \parencite{who2023hypertension}.}\label{tab:cascade}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Indicator} & \textbf{African Region} & \textbf{World} & \textbf{Americas} & \textbf{Europe} \\
+\midrule
+Age-standardised prevalence & 36\% & 33\% & 35\% & 37\% \\
+Diagnosis coverage & 43\% & 54\% & 70\% & 66\% \\
+Treatment coverage & 27\% & 42\% & 60\% & 53\% \\
+Effective treatment (control) & 12\% & 21\% & 36\% & 26\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The hypertension--diabetes comorbidity}\label{sec:comorbidity}
+
+Diabetes stiffens small vessels, which raises peripheral resistance and blood pressure, and hypertension accelerates the vascular damage of diabetes. \Textcite{hinneh2023} pooled 41 cross-sectional studies (144\,433 participants) following PRISMA: 58.1\% of people with diabetes in Africa are also hypertensive (95\% CI 52.0--63.2), and 60.8\% of those with type~2 diabetes. The risk rises with age, excess weight, years lived with diabetes, urban residence and male sex. The sub-regional estimates place Central Africa highest (\cref{tab:subregional,fig:forest}).
+
+\begin{table}[htbp]
+\centering\small
+\caption{Sub-regional pooled prevalence of hypertension among people with diabetes in Africa \parencite{hinneh2023}.}\label{tab:subregional}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Sub-region} & \textbf{Pooled prevalence} & \textbf{95\% CI} & \textbf{Studies} \\
+\midrule
+Central Africa & 77.6\% & 53.0--91.4 & 2 \\
+Southern Africa & 69.1\% & 59.8--77.1 & 10 \\
+Eastern Africa & 53.0\% & 45.8--59.1 & 15 \\
+Western Africa & 51.5\% & 41.8--61.1 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.82\textwidth,height=5.2cm,xlabel={Pooled prevalence of hypertension among people with diabetes (\%)},
+  xmin=30,xmax=100,ymin=0.5,ymax=5.5,ytick={1,2,3,4,5},
+  yticklabels={Western Africa,Eastern Africa,Southern Africa,Central Africa,All Africa},
+  grid=major,grid style={gray!20}]
+\addplot[dashed,cGrey,no markers] coordinates {(58.1,0.5)(58.1,5.5)};
+\addplot[only marks,mark=*,mark size=2.5pt,cRef,error bars/.cd,x dir=both,x explicit,error bar style={thick}]
+  coordinates {(51.5,1) += (9.6,0) -= (9.7,0)
+               (53.0,2) += (6.1,0) -= (7.2,0)
+               (69.1,3) += (8.0,0) -= (9.3,0)};
+\addplot[only marks,mark=*,mark size=2.5pt,cAfrica,error bars/.cd,x dir=both,x explicit,error bar style={thick}]
+  coordinates {(77.6,4) += (13.8,0) -= (24.6,0)};
+\addplot[only marks,mark=square*,mark size=2.5pt,black,error bars/.cd,x dir=both,x explicit,error bar style={thick}]
+  coordinates {(58.1,5) += (5.1,0) -= (6.1,0)};
+\end{axis}
+\end{tikzpicture}
+\caption{Estimates and 95\% intervals of \cref{tab:subregional}; the dashed line marks the pooled African estimate. The Central African interval spans 38 points.}\label{fig:forest}
+\end{figure}
+
+The Central African value must be read with its interval. It rests on two small Cameroonian hospital series (109 and 210 patients), while three other Central African studies listed in the article (1\,832 patients, prevalences of 35.0--50.4\%) do not enter the subgroup; heterogeneity is extreme ($I^2 \approx 98\%$), and the restriction to English-language publications under-represents francophone Central Africa. It cannot carry the case for this work on its own. That case rests on the continental estimate, on the mechanism, and on the WHO position that uncontrolled hypertension is among the risk factors most strongly associated with premature death in people with diabetes \parencite{who2023hypertension}. More generally, the prevalences quoted in this chapter differ in population, threshold, number of measurement visits and recruitment; none is nationally representative for Cameroon, so the nature of each estimate is stated where it is used.
+
+\subsection{Why one reading is not enough}\label{sec:variability}\label{sec:dx-requires}\label{sec:followup-requires}
+
+The WHO diagnostic protocol is longitudinal by construction: hypertension is diagnosed only if the threshold is exceeded at two visits \parencite{who2023hypertension}. A reading of patient $i$ at time $t$ can be written $b_{i,t} = \mu_i + \varepsilon_{i,t}$, where $\mu_i$ is the patient's usual pressure, the clinically relevant quantity, and $\varepsilon_{i,t}$ gathers circadian variation, activity, the measurement setting and instrument error. With $n$ readings far enough apart for their errors to be independent,
+\begin{equation}
+  \operatorname{Var}(\hat\mu_i) = \sigma_\varepsilon^2 / n .
+\end{equation}
+A consultation provides two to four readings a year; home follow-up provides several dozen, which estimate $\mu_i$ far more precisely and also estimate the patient's own variability $\sigma_\varepsilon$. Follow-up must moreover be frequent: Recommendation~7 of the WHO guideline sets monthly follow-up after a treatment change until the target is reached, then every three to six months \parencite{who2021guideline}. With 56\% of treated patients uncontrolled, this means about eight contacts per patient per year, where an episodic model delivers one or two.
+
+%--------------------------------------------------------------------------
+\section{Hypertension Care and Digital Health in Sub-Saharan Africa}\label{sec:lr-regional}\label{sec:diagnosis}
+
+\subsection{Why the episodic model fails}\label{sec:ltfu}\label{sec:inertia}
+
+\Textcite{gafane2024} synthesise the hypertension literature of sub-Saharan Africa from 2017 to 2023: a high burden with poor detection and control, driven by a westernised lifestyle, and obstacles to care that are individual (literacy, cost, distance) and systemic (medicines, staffing). Their inventory of national surveys is the most recent for Central Africa (\cref{tab:central-africa}): prevalence ranges from 13.5\% to 42.1\%, reflecting the diversity of instruments as much as real differences, and three countries have no data. In Cameroon, the May Measurement Month campaign of 2019 found a prevalence of 20.8\%, with only 11.2\% of hypertensive participants controlled.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Most recent hypertension surveys in Central Africa (adapted from \cite{gafane2024}, Table~1).}\label{tab:central-africa}
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X c r r r r r@{}}
+\toprule
+\textbf{Country} & \textbf{Instrument} & \textbf{Year} & \textbf{$n$} & \textbf{Prev.} & \textbf{Aware.} & \textbf{Treat.} & \textbf{Control} \\
+\midrule
+Burundi & hospital screening & 2018 & 353 & 16.7\% & -- & -- & -- \\
+Cameroon & May Measurement Month & 2019 & 30\,167 & 20.8\% & 29.9\% & 24.0\% & 11.2\% \\
+Central African Rep. & WHO STEPS & 2017 & 3\,265 & 42.1\% & 30.2\% & -- & -- \\
+Comoros & national survey & 2019 & 2\,602 & 38.4\% & 47.9\% & 45.4\% & 30.2\% \\
+DR Congo & May Measurement Month & 2019 & 29\,857 & 25.5\% & 33.1\% & 23.2\% & 11.9\% \\
+Congo (Rep.) & May Measurement Month & 2019 & 3\,157 & 33.5\% & 42.6\% & 37.3\% & 23.3\% \\
+Gabon & retrospective study & 2013--15 & 2\,104 & 13.5\% & -- & -- & -- \\
+Chad, Eq.\ Guinea, S\~ao Tom\'e & no data & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The WHO documents the mechanisms \parencite{who2023hypertension}: loss to follow-up often affects half of patients or more, so screening is useful only when linked to follow-up; therapeutic inertia makes the last link the weakest; lifestyle change alone lowers systolic pressure by only about 1.3~mmHg, so nearly every patient needs medication and its timely adjustment; consultations often last less than five minutes; and paper records are lost or unavailable during the visit.
+
+\subsection{Telemedicine evidence from Cameroon}\label{sec:telemedcam}\label{sec:bediang}\label{sec:cameroon-joint}
+
+Two controlled evaluations of cardiovascular telemedicine have been conducted in Cameroonian primary care (\cref{tab:cameroon-pair}). In TELEMED-CAM, \textcite{kingue2013} supported thirty rural health centres from Yaoundé: among 268 participants followed for 24 weeks, attendance at scheduled visits was higher in the intervention arm at every grade of hypertension, but the benefit on control was confined to stage~III. \Textcite{bediang2021} equipped two district hospitals with an electrocardiograph and a tele-expertise platform: access to an electrocardiogram with a cardiologist's opinion reached 98.9\% against 33.3\%, and the expert modified the local diagnosis in 46.2\% of cases. The specialist's opinion, however, took 10.3 days on average against a protocol maximum of 72 hours, no faster than in the control centres: the bottleneck was expert availability, not transmission.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The two Cameroonian evaluations of cardiovascular telemedicine.}\label{tab:cameroon-pair}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+ & \textbf{\textcite{kingue2013}} & \textbf{\textcite{bediang2021}} \\
+\midrule
+Function & telemanagement of treatment & tele-expertise for diagnosis \\
+Design & partly randomised by centre, 268 patients & matched centres, not randomised, 171 patients \\
+Principal result & control improved in stage~III only & ECG with expertise, 98.9\% vs 33.3\% \\
+Retention & visit adherence higher at every grade & 52 control patients not seen at 3 months \\
+Main weakness & clustering ignored; effect of a package & non-comparable groups; differential attrition \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Read together, the two studies support three conclusions. Retention is the most robust result, observed by different mechanisms eight years apart; an effect on blood pressure control is not established in Cameroon; and the value added lies in the clinical decision rather than in a tool placed in the patient's hands. Both show that systematic expert review of every case does not scale where specialists are scarce.
+
+\subsection{Digital health landscape and barriers}\label{sec:digital-barriers}\label{sec:regional-landscape}
+
+\Textcite{dodoo2022} reviewed 66 empirical studies of telemedicine in sub-Saharan Africa and grouped the barriers into six dimensions (\cref{tab:barriers}).
+
+\begin{table}[htbp]
+\centering\small
+\caption{Six dimensions of barriers to telemedicine in sub-Saharan Africa \parencite{dodoo2022}.}\label{tab:barriers}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} X@{}}
+\toprule
+\textbf{Dimension} & \textbf{Definition given by the authors} \\
+\midrule
+Technological & information systems and connectivity \\
+Organisational & stakeholder engagement, sustainability of systems \\
+Individual & users' experience, knowledge and awareness \\
+Financial & financial resources and operating cost \\
+Cultural & social constraints and traditional beliefs \\
+Legal and regulatory & policies, legislation, confidentiality and privacy protection \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Most projects lost momentum once external funding ended, and health professionals facing a heavy workload perceived telemedicine as an additional task. \Textcite{agbeyangi2025} compared adoption in South Africa, Kenya and Nigeria over 53 studies; Central Africa is absent from the comparison. \Textcite{segun2025} report that more than 80\% of the population holds a mobile subscription, while about 550 million people lack reliable electricity and internet access and up to 18\% of countries had no registered cardiologist in 2020; artificial intelligence remains largely unvalidated on African populations. The population is reachable by mobile networks and the specialist is not: a system that forwards every reading reproduces the scarcity it should relieve, whereas one that sorts readings and orders the clinician's attention addresses it.
+
+%--------------------------------------------------------------------------
+\section{Mobile Health and Clinical Evidence}\label{sec:outpatient}\label{sec:evidence}
+
+\Textcite{alessa2019} analysed the 186 hypertension applications of the two main stores in 2018: most offered a single function, none of the thirty analysed in depth had been evaluated scientifically, and they contained a median of nine behaviour change techniques. \Textcite{mao2020} pooled 51 randomised trials (13\,054 participants with diabetes or hypertension): mobile health lowered systolic pressure by 2.99~mmHg and glycated haemoglobin (HbA1c) by 0.39 points. Combined with professional management, it lowered systolic pressure by 6.17~mmHg; alone, by a non-significant 2.16~mmHg; and in developing countries, whose trials used no professional management, it had no effect on systolic pressure. Only one of the 51 trials took place in sub-Saharan Africa. \Textcite{zhou2024} found $-5.78$~mmHg over 16 trials of mobile applications, larger with at least eleven behaviour change techniques, and \textcite{bandeira2024} identify telemonitoring with clinician feedback as the most effective modality.
+
+\subsection{A randomised trial in the target population}\label{sec:mihevc}
+
+\Textcite{mihevc2025} ran the trial most relevant to this work: 128 patients aged 65 or more with both hypertension and type~2 diabetes, in three Slovenian primary-care centres. The intervention group measured blood pressure and glucose at home with Bluetooth devices transmitting to a cloud platform, and a telemedicine centre reviewed the values according to a three-level protocol (green, yellow, red) adopted in this work (\cref{sec:triage}). After twelve months, systolic pressure was 6.9~mmHg lower than in the control group and HbA1c 0.5 points lower. The authors credit the effect to contact with the care team and treatment adapted on reliable measurements, not to behaviour change. Seven of the 64 intervention patients (10.9\%) withdrew in the first month because they could not use the equipment, and a third of the systolic effect was lost between six and twelve months.
+
+The clinical evidence (\cref{tab:effect-synthesis}) therefore supports a modest but clinically relevant effect, conditional on professional oversight. The evidence from sub-Saharan Africa is almost absent, and the absence of effect in developing countries is plausibly a design gap---no clinician at the end of the chain---rather than a context effect. Telemonitoring must be built as decision support linked to a clinician, not as a self-tracking tool.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Estimates of the effect of mobile health and telemonitoring on systolic pressure and glycaemic control.}\label{tab:effect-synthesis}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.3cm} >{\raggedright\arraybackslash}p{2.6cm} X >{\raggedright\arraybackslash}p{1.9cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Design} & \textbf{Effect on SBP (95\% CI)} & \textbf{HbA1c} \\
+\midrule
+\textcite{mao2020}, overall & 30 RCTs on SBP & $-2.99$~mmHg ($-4.19$ to $-1.80$) & $-0.39$ \\
+\quad with professional management & subgroup & $-6.17$~mmHg ($-8.83$ to $-3.50$) & -- \\
+\quad developing countries & subgroup & $+0.25$~mmHg ($-3.10$ to $3.59$), n.s. & $-0.52$ \\
+\textcite{zhou2024} & 16 RCTs & $-5.78$~mmHg ($-7.97$ to $-3.59$) & -- \\
+\textcite{mihevc2025} & RCT, 128 patients & $-6.9$~mmHg ($-11$ to $-2.7$) & $-0.5$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.84\textwidth, height=5.6cm,
+  xlabel={effect on systolic blood pressure (mmHg)},
+  xmin=-13, xmax=5, ymin=0.4, ymax=5.6, ytick={1,2,3,4,5},
+  yticklabels={Mao 2020{,} developing countries, Mao 2020{,} with professional, Mao 2020{,} overall, Zhou 2024, Mihevc 2025},
+  y tick label style={font=\scriptsize}, xmajorgrids, grid style={cGrey!20}]
+\addplot[dashed, cText2, no markers] coordinates {(0,0.4) (0,5.6)};
+\addplot[only marks, mark=square*, mark size=2.4pt, cRef, error bars/.cd, x dir=both, x explicit, error bar style={thick}]
+  coordinates {(-6.90,5) += (4.20,0) -= (4.10,0)
+               (-5.78,4) += (2.19,0) -= (2.19,0)
+               (-2.99,3) += (1.19,0) -= (1.20,0)
+               (-6.17,2) += (2.67,0) -= (2.66,0)};
+\addplot[only marks, mark=*, mark size=2.4pt, cAfrica, error bars/.cd, x dir=both, x explicit, error bar style={thick}]
+  coordinates {(0.25,1) += (3.34,0) -= (3.35,0)};
+\end{axis}
+\end{tikzpicture}
+\caption{Estimates of \cref{tab:effect-synthesis} with their 95\% intervals. The only interval that includes no effect is that of the trials conducted in developing countries, none of which involved professional management.}\label{fig:sbp-forest}
+\end{figure}
+
+%--------------------------------------------------------------------------
+\section{Devices, Sensors and Architectures}\label{sec:lr-iot}
+
+\subsection{The normative position on devices}\label{sec:metrology}
+
+The WHO recommends independently validated automated upper-arm cuffs and does not recommend cuffless devices for managing hypertension, because their accuracy and their ability to track change are unresolved; only about one automated device in five on the market has evidence of validation \parencite{who2023hypertension}. Non-invasive glucose sensing by electrocardiography, bioimpedance or photoplethysmography (PPG) shows promise for trends and hypoglycaemia but not for clinical-grade measurement \parencite{alhaddad2022}, and blood pressure from a smartphone camera correlates with reference devices on 127 participants but remains below cuff accuracy \parencite{liu2025ppg}. Blood pressure must therefore come from a validated cuff and glucose from a glucometer; PPG is at most a source of heart rate.
+
+\subsection{IoT architectures for remote monitoring}
+
+\Textcite{tai2024} embed a deep learning technique for chronic disease monitoring in a three-phase architecture---acquisition, processing, visualisation---evaluated in controlled conditions. \Textcite{efendi2025} built an Internet of Things (IoT) system for elderly people: an ESP32 microcontroller reads an optical heart-rate and oxygen sensor and a temperature sensor, sends the values over MQTT to a Firebase database with offline persistence, and displays them in a mobile application. Against a digital oximeter and thermometer, six volunteers measured for ten minutes gave a mean absolute percentage error of 0.90\%. The system measures neither blood pressure nor glucose. \Textcite{mucchi2021} decompose remote monitoring into body, environment, edge and cloud layers and tested their system with ten nurses on simulated patients; \textcite{yazdani2018} add a priority-ordered clinician queue and a configurable checkup period, without implementing them; \textcite{liu2025review} survey IoT sensing with machine learning and describe the defects of electronic records: duplicates, unit errors and values carried over. The architectures converge on acquisition, transmission and storage, processing and presentation; none has been validated on patients in routine care in a low-resource setting.
+
+%--------------------------------------------------------------------------
+\section{Machine Learning for Clinical Risk Prediction}\label{sec:lr-ml}
+
+\Textcite{chatrati2022} proposed a home system that analyses blood pressure and glucose readings with rules for hypertension and a classifier for diabetes; it classifies single readings rather than series. \Textcite{liu2025review} report accuracies of 95 to 100\% for the dominant algorithm families, whereas the only recurrent network applied to a genuine clinical prediction, the readmission of lupus patients, reaches an area under the curve of 0.70. The classifier comparison of \textcite{efendi2025} shows why such figures must be read with care. XGBoost reached an accuracy of 0.973, but the label \emph{stable} is defined by the same normal ranges used to discretise the three input features, so the label is a deterministic function of the inputs:
+\begin{equation}
+  y = 1 \iff (x_1 = 1) \wedge (x_2 = 1) \wedge (x_3 = 1),
+\end{equation}
+and the perfectly balanced classes (2\,250 against 2\,250) show that the dataset was constructed rather than observed. The models recover a rule instead of predicting a state.
+
+\Textcite{mendoza2025} provide the counter-example of a genuine prediction: uncontrolled blood pressure among 1\,308 hypertensive adults of a nationally representative Mexican survey, predicted from seven predictors selected by LASSO. Random forest reached an area under the curve of 0.75, logistic regression 0.61 and XGBoost 0.54, indistinguishable from chance; the best model detects only 51\% of uncontrolled cases. The same algorithm is thus the best in one study and the worst in the other. Reported performance is governed by how the task is constructed---label integrity and informativeness of the features---far more than by the algorithm; across clinical prediction studies, machine learning shows no systematic benefit over logistic regression \parencite{christodoulou2019}. Accuracy is moreover an improper measure when the positive class is rare: with prevalence $\pi$, a model that never alerts reaches $1-\pi$. Proper scoring rules, which a model cannot improve by reporting other probabilities than its own \parencite{gneiting2007}, and calibration \parencite{vancalster2019} are the measures this literature lacks. \Cref{tab:ml-studies} sets the studies side by side with the design adopted here.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{How the reviewed machine learning studies were evaluated, against the design of this work.}\label{tab:ml-studies}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Study} & \textbf{Data} & \textbf{Predicted} & \textbf{Reported} & \textbf{Limit for this problem} \\
+\midrule
+\textcite{chatrati2022} & home BP and glucose readings & state of the current reading & rules and a classifier & single readings, not a series \\
+\textcite{tai2024} & monitoring architecture & chronic disease status & controlled conditions & no patient validation \\
+\textcite{efendi2025} & constructed set, 2\,250 against 2\,250 & ``stable'', defined from the input ranges & XGBoost accuracy 0.973 & label is a function of the inputs \\
+\textcite{mendoza2025} & 1\,308 hypertensive adults, national survey & uncontrolled pressure & AUC 0.75 (forest), 0.54 (XGBoost) & cross-sectional; sensitivity 0.51 \\
+\textcite{liu2025review} & review of IoT studies & various & accuracy 95--100\%; AUC 0.70 for readmission & accuracy on unclear tasks \\
+\addlinespace
+This work & eICU, 174 hospitals; Douala, 32 inpatients & level of the next reading & proper scores against persistence & evaluated on hospital data \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Tracking how a patient changes is a related problem. Patient-similarity research uses many distances without a common benchmark \parencite{parimbelli2018,sharafoddini2017}; the largest independent comparison of distance measures for series, nine measures on 38 data sets, separates lock-step measures, which compare aligned elements, from elastic ones \parencite{wang2013timeseries}; and statistical control charts, which compare a patient's readings with their own baseline, are promising in hypertension and diabetes but little evaluated \parencite{tennant2007}.
+
+%--------------------------------------------------------------------------
+\section{Data Privacy and Ethics}\label{sec:lr-privacy}
+
+\Textcite{alhammad2024} reviewed 33 studies of patients' views on the privacy of mobile health data: concern about data is a consistent barrier to adoption, and encryption, secure authentication and transparency improve trust. Most commercial applications lack a privacy policy or share data with third parties \parencite{alessa2019}, the regulatory dimension is one of the six barriers of the region \parencite{dodoo2022}, and the reference implementation of \textcite{efendi2025} stores its data in a cloud region outside the country of use. Data protection is therefore a design constraint of this work (\cref{sec:ethics-considerations}).
+
+%--------------------------------------------------------------------------
+\section{Critical Comparison of the Approaches}\label{sec:comparison}
+
+The studies reviewed follow five approaches (\cref{tab:approaches}). None combines what the problem requires: clinical validity, professional oversight, longitudinal data, prediction and suitability for low-resource settings.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Comparison of the approaches found in the literature.}\label{tab:approaches}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Approach} & \textbf{Studies} & \textbf{Strengths} & \textbf{Weaknesses} \\
+\midrule
+Self-management applications & \textcite{alessa2019,zhou2024} & low cost, behaviour change techniques & little clinical validation; weak effect without a professional \\
+Rule-based telemonitoring with a clinician & \textcite{kingue2013,mihevc2025} & validated effect on BP and HbA1c; simple, transparent & fixed thresholds, reacts to level not trend, no learning; costly expert time \\
+Tele-expertise between professionals & \textcite{bediang2021} & changes clinical decisions; feasible in Cameroon & no home data; specialist delay unchanged \\
+IoT platforms with machine learning & \textcite{tai2024,efendi2025,liu2025review} & complete technical chain; offline storage & no BP or glucose sensors; tiny or controlled validation; label leakage \\
+Predictive models on clinical data & \textcite{chatrati2022,mendoza2025} & interpretable risk predictors & cross-sectional or single readings; modest sensitivity; no deployment \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three trends emerge from the chronology. Telemonitoring moves from self-management towards systems linked to a clinician, which the most recent evidence identifies as the condition of effectiveness \parencite{mao2020,bandeira2024,mihevc2025}. Prediction moves from rules towards machine learning, with interpretability tools such as SHAP becoming standard \parencite{mendoza2025,liu2025ppg}. And sensing moves towards cuffless and smartphone-based measurement \parencite{alhaddad2022,liu2025ppg}, which the WHO does not accept for clinical decisions \parencite{who2023hypertension}. Two points remain controversial: whether mobile health works in Africa, since the effect disappears in developing countries when no professional is involved \parencite{mao2020}; and which algorithm is best, since XGBoost is reported as the best \parencite{efendi2025} and as the worst \parencite{mendoza2025}---a contradiction explained by how the tasks were constructed rather than by the algorithm (\cref{sec:task-not-algo}).
+
+%--------------------------------------------------------------------------
+\section{Observed Gaps in the Literature}\label{sec:lit-gaps}\label{sec:positioning}\label{sec:research-questions}
+
+Even with recent progress, five gaps limit the follow-up of patients with hypertension and diabetes in Central Africa:
+\begin{itemize}
+  \item \textbf{Blind spots.} Central Africa is almost absent from the evidence: one of 51 trials in sub-Saharan Africa \parencite{mao2020}, comparative reviews limited to South Africa, Kenya and Nigeria \parencite{agbeyangi2025}, and no system combining consultation records, home readings and prediction for both conditions.
+  \item \textbf{A rule without memory.} The only validated home protocol for both conditions \parencite{mihevc2025} uses fixed thresholds identical for all patients and reacts to the level of a reading, not to its trend.
+  \item \textbf{Fragile predictive evidence.} Machine learning studies of the field suffer from label leakage, improper metrics and validation on the training population \parencite{efendi2025,mendoza2025}; none forecasts a future state from a patient's own series of blood pressure and glucose.
+  \item \textbf{No transfer measured.} No model trained elsewhere has been validated on Cameroonian patients; early-warning scores derived elsewhere lose discrimination in African wards \parencite{moore2017uva,tomas2026ews}.
+  \item \textbf{Clinician time.} Systematic expert review does not scale \parencite{kingue2013,bediang2021}, yet no design sizes the alert volume or orders the clinician's work.
+\end{itemize}
+
+\Cref{tab:lr-synthesis} summarises what the literature establishes and the consequence for this work. The present work adopts the three-level protocol of \textcite{mihevc2025}, the layered architecture of \textcite{mucchi2021}, offline-first storage as in \textcite{efendi2025} and the interpretable modelling practice of \textcite{mendoza2025}; it departs from them by forecasting from each patient's series, by keeping the guideline rule as a floor that the model can raise but never lower, and by validating externally on Cameroonian patients.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Synthesis of the literature review.}\label{tab:lr-synthesis}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.1cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Theme} & \textbf{Established} & \textbf{Not established} & \textbf{Consequence for this work} \\
+\midrule
+Burden & cascade fails at follow-up; 72\% of diagnosed not controlled; 58\% of people with diabetes hypertensive & reliable Cameroonian estimates & longitudinal follow-up; joint blood pressure and glucose \\
+Context & loss to follow-up, inertia, paper records; specialist scarcity & effect of telemedicine on control in Cameroon & offline-first; triage of clinician attention \\
+Clinical evidence & modest effect, conditional on a clinician & effect in sub-Saharan Africa & clinician-in-the-loop decision support \\
+Devices & validated cuff and glucometer required & validated cuffless measurement & manual or Bluetooth entry from validated devices \\
+Machine learning & task construction drives performance & forecasting from individual series & leakage-free task; proper scores; benchmark \\
+Privacy & data concerns hinder adoption & evidence from African patients & anonymisation; declared data residency \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{keypoints}[Key points of Chapter 1]
+\begin{itemize}
+  \item Care for both conditions fails at follow-up: in the African Region, 72\% of the hypertensive adults already diagnosed are not controlled.
+  \item Telemonitoring lowers systolic pressure by 3 to 7~mmHg when a clinician acts on the data; without one, no effect was shown in developing countries.
+  \item The only validated protocol for both conditions triages single readings with fixed thresholds; it reacts to a level, not to a trend.
+  \item Reported machine learning performance depends on how the task is built: the same algorithm is the best in one study and no better than chance in another.
+  \item Central Africa is almost absent from the evidence, and no learned model has been validated on Cameroonian patients.
+\end{itemize}
+\end{keypoints}

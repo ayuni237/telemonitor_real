@@ -15,7 +15,7 @@ The project is a work in progress: this page describes it as it stands and will 
 |---|---|
 | [`telemonitor/`](telemonitor/) | The application (Flutter): patient and clinician views, Firebase back end |
 | [`telemonitor-research/`](telemonitor-research/) | The research code (Python): labelling rule, data quality, features, benchmark of risk models, local risk service and server worker |
-| [`memoire/`](memoire/) | The thesis (LaTeX): chapters in `parts/`, bibliography, compiled PDF |
+| [`memoire/`](memoire/) | The thesis (LaTeX): parts `00_front` to `07_appendices` in `parts/`, data-driven figures in `figures/`, bibliography, compiled PDF |
 | [`infra/windows/`](infra/windows/) | PowerShell scripts that launch the long benchmark runs on Windows |
 
 ## How the system works
@@ -32,7 +32,8 @@ flowchart LR
 
 - **Guideline rule first.** Each reading is graded on four levels (stable, moderate, high, critical) from sourced thresholds: ESH 2023 grades for blood pressure, NEWS2 red scores for low pressure and pulse, IHSG/ADA/CMS for glucose. The rule runs on the phone, offline.
 - **Model on top.** When the risk service is reachable, the model selected by the benchmark estimates the probability of each level at the next reading. The model may raise the tier set by the rule, never lower it.
-- **Clinician in the loop.** The app never advises on medication. Yellow and red readings go to the clinician, who decides.
+- **Home triage.** A yellow reading first asks the patient for a short verification profile (repeated measurements); red readings and profiles off target reach the clinician first, yellow ones are queued behind them.
+- **Clinician in the loop.** The app never advises on medication. The clinician reviews the queue and decides.
 
 ## Research method in brief
 
@@ -86,20 +87,24 @@ Requires a Firebase service-account key in `telemonitor-research/secrets/service
 
 ```powershell
 cd memoire
+python ../telemonitor-research/scripts/14_thesis_data_figures.py   # once per machine: data behind the figures
 python parts/build.py
 pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_restructure.tex; pdflatex memoire_restructure.tex
 ```
+
+The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` from completed benchmark runs only.
 
 ## Status
 
 | Built | Specified, not built yet |
 |---|---|
 | Patient app: manual entry, history, trends, risk card, messaging, health assistant, nearby-care search | Bluetooth acquisition from validated devices |
-| Clinician view of assigned patients | Priority-ordered review queue with verdict capture |
+| Clinician view of assigned patients; review queue (red before yellow) with verdict and action capture | Clinical pilot analysing the captured verdicts |
 | Offline guideline rule on the phone | Sensor prototype (ESP32) and MQTT transport |
 | Local risk service sharing the research code | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
-| Research pipeline and benchmark on the eICU demo | Benchmark on the full eICU database (credentialed access) |
+| Research pipeline; data description and sample size (Douala, eICU demo) | Benchmark on the full eICU database (credentialed access) |
+| Thesis (70 pages): introduction, review, framework, methodology, data results, system verification | Benchmark results (runs in progress), abstract, acknowledgments |
 
 ## Data
 
@@ -112,7 +117,8 @@ pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_re
 |---|---|
 | [`telemonitor-research/RESEARCH_PLAN.md`](telemonitor-research/RESEARCH_PLAN.md) | Step-by-step plan, standing decisions and the register of incoherences found and fixed |
 | [`telemonitor-research/BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md) | How to rerun every analysis |
-| [`memoire/memoire_restructure.pdf`](memoire/memoire_restructure.pdf) | Current version of the thesis |
+| [`memoire/memoire_restructure.pdf`](memoire/memoire_restructure.pdf) | Current version of the thesis (draft; benchmark results to come) |
+| [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) | Plan of the thesis, page budget and what remains to write |
 
 ## Author
 

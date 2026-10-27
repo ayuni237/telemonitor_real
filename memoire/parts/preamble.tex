@@ -1,0 +1,144 @@
+% Preamble of the thesis. Structure on the model of the NHPSD MSc thesis of Gwade (2025);
+% page design of our own: Charter body (XCharter), Fira Sans headings and figures, navy and
+% teal accents, chapter openings with a large number, running header with the chapter.
+% Citations: IEEE (school plan).
+\documentclass[11pt,a4paper,oneside]{report}
+% MiKTeX installs these fonts without registering their maps; loading the maps here keeps
+% every font in Type 1 (otherwise pdfTeX falls back to bitmaps and microtype stops).
+\pdfmapfile{+xcharter.map}
+\pdfmapfile{+fira.map}
+\pdfmapfile{+newtx.map}
+
+% ---------------------------------------------------------------- fonts and language
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[lining]{XCharter}
+\usepackage[xcharter,vvarbb]{newtxmath}
+\usepackage[scale=0.94,lining]{FiraSans}
+\usepackage[scale=0.86]{FiraMono}
+\usepackage[english]{babel}
+\usepackage{microtype}
+
+% ---------------------------------------------------------------- page
+\usepackage[a4paper,top=2.6cm,bottom=2.6cm,left=2.6cm,right=2.6cm,headheight=14pt,headsep=0.9cm,footskip=1.1cm]{geometry}
+\linespread{1.12}
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+\usepackage[table]{xcolor}
+\usepackage{tabularx,booktabs,longtable,multirow,array}
+\usepackage{amsmath,mathtools,bm}
+\usepackage{graphicx}
+\usepackage{etoolbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc,backgrounds,decorations.pathreplacing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{multicol}
+\usepackage[most]{tcolorbox}
+
+% ---------------------------------------------------------------- colours
+\definecolor{cMain}{RGB}{24,52,89}       % navy: headings, rules
+\definecolor{cAccent}{RGB}{0,122,135}    % teal: numbers, markers, links
+\definecolor{cText2}{RGB}{90,96,104}     % secondary text: header, notes
+\definecolor{cAfrica}{RGB}{192,57,43}    % figures: Douala, alerts
+\definecolor{cRef}{RGB}{41,128,185}      % figures: development data
+\definecolor{cGrey}{RGB}{127,140,141}    % figures: references
+\arrayrulecolor{cMain!75}
+
+% figures in the sans-serif face of the headings
+\AtBeginEnvironment{tikzpicture}{\sffamily}
+\pgfplotsset{every axis/.append style={tick label style={font=\scriptsize}, label style={font=\small},
+  legend style={font=\footnotesize, draw=none}, axis line style={cText2}, tick style={cText2},
+  scaled ticks=false, /pgf/number format/fixed}}
+
+% ---------------------------------------------------------------- lists, captions, boxes
+\usepackage{enumitem}
+\setlist{topsep=0.25em,itemsep=0.2em}
+\setlist[itemize]{label=\textcolor{cAccent}{\small$\blacktriangleright$}}
+\setlist[enumerate]{label=\textcolor{cAccent}{\sffamily\bfseries\arabic*.}}
+\setlist[description]{font=\sffamily\bfseries\color{cMain}}
+\DeclareCaptionFont{navy}{\color{cMain}}
+\usepackage[font=small,labelfont={sf,bf,navy},labelsep=quad,skip=6pt]{caption}
+\newtcolorbox{keypoints}[1][Key points]{enhanced, colback=cMain!4, colframe=cMain!4,
+  borderline west={2.5pt}{0pt}{cAccent}, sharp corners, left=10pt, right=10pt, top=7pt, bottom=7pt,
+  fontupper=\small, before skip=12pt, after skip=12pt,
+  title={#1}, coltitle=cMain, fonttitle=\sffamily\bfseries\small, attach title to upper={\par\smallskip}}
+
+% floats: never before the paragraph that defines them; share pages with text; float
+% pages start at the top
+\usepackage{flafter}
+\renewcommand{\topfraction}{0.88}
+\renewcommand{\bottomfraction}{0.7}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\makeatletter
+\setlength{\@fptop}{0pt}
+\makeatother
+
+% ---------------------------------------------------------------- headings
+\usepackage{needspace}
+\usepackage{titlesec}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\color{cMain}}
+  {{\small\bfseries\color{cAccent}\MakeUppercase{\chaptertitlename}}\hspace{0.5em}%
+   {\fontsize{50}{50}\selectfont\bfseries\color{cMain!22}\thechapter}}
+  {1.5ex}
+  {\fontsize{23}{28}\selectfont\bfseries\raggedright}
+  [{\vspace{1.6ex}\color{cAccent}\rule{3.2cm}{1.8pt}}]
+\titleformat{name=\chapter,numberless}[display]
+  {\normalfont\sffamily\color{cMain}}{}{0pt}
+  {\fontsize{23}{28}\selectfont\bfseries\raggedright}
+  [{\vspace{1.6ex}\color{cAccent}\rule{3.2cm}{1.8pt}}]
+\titlespacing*{\chapter}{0pt}{0.6cm}{1.3cm}
+\titleformat{\section}{\needspace{9\baselineskip}\normalfont\sffamily\bfseries\Large\color{cMain}}{\textcolor{cAccent}{\thesection}}{0.8em}{}
+\titleformat{\subsection}{\needspace{5\baselineskip}\normalfont\sffamily\bfseries\large\color{cMain}}{\textcolor{cAccent}{\thesubsection}}{0.8em}{}
+\titleformat{\subsubsection}{\normalfont\sffamily\bfseries\normalsize\color{cMain}}{}{0pt}{}
+\titleformat{\paragraph}[runin]{\normalfont\sffamily\bfseries\color{cMain}}{}{0pt}{}[.]
+\titlespacing*{\section}{0pt}{2.2ex plus 0.5ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.7ex plus 0.4ex}{0.5ex}
+\titlespacing*{\subsubsection}{0pt}{1.3ex plus 0.3ex}{0.3ex}
+\titlespacing*{\paragraph}{0pt}{0.8ex}{0.6em}
+
+% table of contents: chapters in the heading face
+\usepackage{titletoc}
+\titlecontents{chapter}[1.9em]{\addvspace{0.85em}\sffamily\bfseries\color{cMain}}
+  {\contentslabel{1.9em}}{\hspace*{-1.9em}}{\hfill\contentspage}
+\titlecontents{section}[4.4em]{\addvspace{0.15em}}
+  {\contentslabel{2.5em}}{\hspace*{-2.5em}}{\titlerule*[0.7pc]{.}\contentspage}
+\titlecontents{subsection}[7.5em]{\small}
+  {\contentslabel{3.1em}}{\hspace*{-3.1em}}{\titlerule*[0.7pc]{.}\contentspage}
+
+% ---------------------------------------------------------------- header and footer
+\newcommand{\thesisauthor}{Nsame Ayuni Rodrick}
+\newcommand{\shorttitle}{Telemonitoring of Hypertension and Diabetes}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{\ifnum\value{chapter}>0 \thechapter\quad\fi #1}{}}
+\renewcommand{\sectionmark}[1]{}
+\fancyhead[L]{\sffamily\footnotesize\color{cText2}\leftmark}
+\fancyhead[R]{\sffamily\footnotesize\bfseries\color{cMain}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{{\color{cMain!25}\hrule height\headrulewidth}}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\sffamily\footnotesize\color{cMain}\thepage}\renewcommand{\headrulewidth}{0pt}}
+% unnumbered parts (Introduction, Conclusion) set their own header text
+\newcommand{\unnumberedchapter}[1]{\chapter*{#1}\addcontentsline{toc}{chapter}{#1}\markboth{#1}{}}
+
+% ---------------------------------------------------------------- bibliography (IEEE)
+\usepackage[backend=biber,style=ieee,sorting=none,maxnames=3,minnames=1]{biblatex}
+\addbibresource{references.bib}
+\renewcommand*{\bibfont}{\small}
+
+% ---------------------------------------------------------------- links (load last)
+\usepackage[colorlinks=true,linkcolor=cMain,citecolor=cAccent,urlcolor=cAccent]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\hypersetup{pdftitle={Design of a Telemonitoring System for Patients with Hypertension and Diabetes},
+  pdfauthor={Nsame Ayuni Rodrick}}

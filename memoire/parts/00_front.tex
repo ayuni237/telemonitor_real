@@ -1,0 +1,129 @@
+% Front matter: title page, declaration, contents, acronyms, lists.
+% Acknowledgments, Abstract and Résumé are added when the author sends the acknowledgments
+% and the results are final.
+\begin{titlepage}
+% institutional band, bilingual as in Cameroonian university documents (logo space in the middle)
+\begin{tikzpicture}[remember picture,overlay]
+  \fill[cMain] (current page.north west) rectangle ([yshift=-4.4cm]current page.north east);
+  \fill[cAccent] ([yshift=-4.4cm]current page.north west) rectangle ([yshift=-4.55cm]current page.north east);
+  \node[anchor=north west, text=white, font=\sffamily\scriptsize, align=left, inner sep=0pt]
+    at ([xshift=2.6cm,yshift=-1.0cm]current page.north west)
+    {\textbf{REPUBLIC OF CAMEROON}\\ Peace -- Work -- Fatherland\\[4pt]
+     \textbf{MINISTRY OF HIGHER EDUCATION}\\[4pt]
+     \textbf{THE UNIVERSITY OF DOUALA}\\[4pt]
+     \textbf{NATIONAL HIGHER POLYTECHNIC}\\ \textbf{SCHOOL OF DOUALA}};
+  \node[anchor=north east, text=white, font=\sffamily\scriptsize, align=right, inner sep=0pt]
+    at ([xshift=-2.6cm,yshift=-1.0cm]current page.north east)
+    {\textbf{RÉPUBLIQUE DU CAMEROUN}\\ Paix -- Travail -- Patrie\\[4pt]
+     \textbf{MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR}\\[4pt]
+     \textbf{UNIVERSITÉ DE DOUALA}\\[4pt]
+     \textbf{ÉCOLE NATIONALE SUPÉRIEURE}\\ \textbf{POLYTECHNIQUE DE DOUALA}};
+\end{tikzpicture}
+\raggedright\sffamily
+\vspace*{3.6cm}
+
+{\small\color{cText2} Laboratory of Computer Engineering, Data Science and Artificial Intelligence (LCEDSAI)}
+
+\vspace{1.9cm}
+{\small\bfseries\color{cAccent} MASTER'S THESIS}\\[0.45cm]
+{\fontsize{26}{31}\selectfont\bfseries\color{cMain} Design of a Telemonitoring System\\ for Patients with Hypertension\\ and Diabetes}\\[0.5cm]
+{\rmfamily\itshape\Large\color{cText2} Consultation data, home measurements and risk prediction}\\[0.5cm]
+{\color{cAccent}\rule{3.2cm}{1.8pt}}
+
+\vspace{1.5cm}
+{\small\color{cText2} Presented by}\\[0.1cm]
+{\Large\bfseries\color{cMain} Nsame Ayuni Rodrick}\\[0.55cm]
+{\small\color{cText2} In partial fulfilment of the requirements for the degree of}\\[0.1cm]
+{\large\bfseries Master of Science in Data Science and Artificial Intelligence}
+
+\vspace{1.3cm}
+\begin{tabular}{@{}l@{\hspace{2.2cm}}l@{}}
+{\small\color{cText2} Supervisor} & {\small\color{cText2} Co-supervisor} \\[0.1cm]
+{\large\bfseries Dr.\ Malong Yannick} & {\large\bfseries Dr.\ Noulapeu Ngaffo} \\
+\end{tabular}
+
+\vfill
+{\color{cMain!30}\rule{\textwidth}{0.5pt}}\\[0.25cm]
+{\small\color{cText2} Academic year 2025--2026 \hfill Douala, \today}
+\end{titlepage}
+
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\chapter*{Declaration}
+\addcontentsline{toc}{chapter}{Declaration}
+I, \textbf{Nsame Ayuni Rodrick}, declare that this Master's thesis entitled \emph{``Design of a Telemonitoring System for Patients with Hypertension and Diabetes''} is the result of my own research, carried out under the supervision of Dr.\ Malong Yannick and Dr.\ Noulapeu Ngaffo at the National Higher Polytechnic School of Douala (NHPSD), University of Douala, Cameroon.
+
+I declare that, to the best of my knowledge, this work has not been submitted, in whole or in part, for any other degree, diploma or certification at any other institution.
+
+I further declare that all sources of information, ideas and data used in this thesis have been acknowledged and referenced.
+
+\vspace{3cm}
+\hfill\begin{tabular}{l@{\hspace{0.3cm}}l}
+Signed: & \rule{6cm}{0.4pt}\\[0.9cm]
+Date: & \rule{6cm}{0.4pt}\\[0.9cm]
+Place: & \rule{6cm}{0.4pt}
+\end{tabular}
+
+\cleardoublepage
+\phantomsection\addcontentsline{toc}{chapter}{Contents}
+\tableofcontents
+
+\chapter*{List of Acronyms}\addcontentsline{toc}{chapter}{List of Acronyms}
+{\small
+\begin{multicols}{2}\raggedright
+\textbf{ADA} American Diabetes Association\\
+\textbf{AI} Artificial intelligence\\
+\textbf{AUC} Area under the curve\\
+\textbf{AUROC} Area under the ROC curve\\
+\textbf{BP} Blood pressure\\
+\textbf{CI} Confidence interval\\
+\textbf{CPU, GPU} Central, graphics processing unit\\
+\textbf{DBP} Diastolic blood pressure\\
+\textbf{ECG} Electrocardiogram\\
+\textbf{eICU} eICU Collaborative Research Database\\
+\textbf{ENSPD} \'Ecole Nationale Sup\'erieure Polytechnique de Douala (NHPSD)\\
+\textbf{ESH} European Society of Hypertension\\
+\textbf{GRU-D} Gated recurrent unit with decay\\
+\textbf{HbA1c} Glycated haemoglobin\\
+\textbf{HEARTS} WHO technical package for cardiovascular care\\
+\textbf{IHSG} International Hypoglycaemia Study Group\\
+\textbf{IoT} Internet of Things\\
+\textbf{LASSO} Least absolute shrinkage and selection operator\\
+\textbf{LSTM} Long short-term memory\\
+\textbf{MAD} Median absolute deviation\\
+\textbf{MAR, MCAR, MNAR} Missing at random, completely at random, not at random\\
+\textbf{mHealth} Mobile health\\
+\textbf{MQTT} Message Queuing Telemetry Transport\\
+\textbf{NEWS2} National Early Warning Score 2\\
+\textbf{NHPSD} National Higher Polytechnic School of Douala\\
+\textbf{PCA} Principal component analysis\\
+\textbf{PPG} Photoplethysmography\\
+\textbf{PRISMA} Preferred Reporting Items for Systematic Reviews and Meta-Analyses\\
+\textbf{PROBAST} Prediction model Risk Of Bias Assessment Tool\\
+\textbf{RCT} Randomised controlled trial\\
+\textbf{ROC} Receiver operating characteristic\\
+\textbf{RPS} Ranked probability score\\
+\textbf{RQ} Research question\\
+\textbf{SBP} Systolic blood pressure\\
+\textbf{SD} Standard deviation\\
+\textbf{SDK} Software development kit\\
+\textbf{SHAP} Shapley additive explanations\\
+\textbf{SMS} Short message service\\
+\textbf{STEPS} WHO STEPwise approach to surveillance\\
+\textbf{TPE} Tree-structured Parzen estimator\\
+\textbf{TRIPOD} Transparent Reporting of a multivariable prediction model for Individual Prognosis Or Diagnosis\\
+\textbf{WHO} World Health Organization
+\end{multicols}}
+
+\cleardoublepage\phantomsection
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+
+\cleardoublepage\phantomsection
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}

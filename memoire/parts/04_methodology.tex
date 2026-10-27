@@ -1,0 +1,512 @@
+%==========================================================================
+% CHAPTER 3 -- METHODOLOGY AND SYSTEM IMPLEMENTATION
+%==========================================================================
+\chapter{Methodology and System Implementation}\label{ch:methodology}\label{ch:data}\label{ch:architecture}
+
+This chapter instantiates the framework of \cref{ch:framework}. It describes the data and how they were collected, their treatment, the features, the candidate models, the experimental protocol and the metrics, then the telemonitoring system built around them and the implementation details that make every result reproducible.
+
+\section{Type of Research and Study Design}\label{sec:research-type}\label{sec:analysis}
+
+The research is applied and follows a design-science logic: requirements are derived from the literature (\cref{ch:review}), the system is built, and its predictive component is evaluated experimentally on retrospective data under a protocol fixed in advance. The approach is quantitative; the labels, however, are clinical judgements, so the partner physician validates the labelling rule and relabels a sample of readings. The data are secondary: no patient was recruited and no measurement was taken for this work. \Cref{fig:study-design} shows how the datasets enter the analysis: models are developed and compared on public multi-centre data only, and the Douala charts are used once, for external validation.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=9mm, text width=3.7cm, inner sep=3pt},
+  dev/.style={box, fill=cRef!12}, ext/.style={box, fill=cAfrica!12}, com/.style={box, fill=cGrey!12},
+  arr/.style={-{Stealth[length=2mm]}, semithick}, lab/.style={font=\scriptsize, fill=white, inner sep=1.5pt}]
+  \node[dev] (eicu)   at (-5.0, 0)   {eICU demonstration subset, 186 hospitals};
+  \node[dev] (harm)   at (-5.0,-1.6) {harmonisation to the 08:00 and 20:00 slots};
+  \node[ext] (douala) at ( 5.0,-1.6) {Douala charts, 32 inpatients};
+  \node[com] (qc)     at ( 0,-1.6)   {quality controls (\cref{tab:quality-controls})};
+  \node[com] (lab)    at ( 0,-3.1)   {labels per condition (\cref{tab:label-thresholds})};
+  \node[com] (win)    at ( 0,-4.6)   {samples and features (\cref{sec:windows,sec:features})};
+  \node[dev] (bench)  at (-3.6,-6.5) {nested benchmark: outer folds by hospital, inner by patient};
+  \node[dev] (sel)    at (-3.6,-8.2) {selection cost: one chosen model per task};
+  \node[ext] (val)    at ( 3.6,-8.2) {external validation, applied once};
+  \draw[arr] (eicu) -- (harm);
+  \draw[arr] (harm) -- (qc);
+  \draw[arr] (douala) -- (qc);
+  \draw[arr] (qc) -- (lab);
+  \draw[arr] (lab) -- (win);
+  \draw[arr] (win.south) -- ++(0,-0.45) -| node[lab, pos=0.3]{eICU samples} (bench.north);
+  \draw[arr] (win.south) -- ++(0,-0.45) -| node[lab, pos=0.3]{Douala samples} (val.north);
+  \draw[arr] (bench) -- (sel);
+  \draw[arr] (sel) -- node[lab, above=1pt]{refit on all eICU} (val);
+\end{tikzpicture}
+\caption{Study design. The same treatment, labels and samples apply to both datasets.}\label{fig:study-design}
+\end{figure}
+
+%--------------------------------------------------------------------------
+\section{Data Sources and Collection}\label{sec:data-collection}\label{sec:collection}\label{sec:datasets}
+
+\subsection{The three sources}
+
+Three sources are used, each for a single purpose (\cref{tab:datasets}). The research was carried out at the Laboratory of Computer Engineering, Data Science and Artificial Intelligence of the NHPSD, with a partner physician of a public hospital in Douala who facilitated access to the records.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The three data sources and their role.}\label{tab:datasets}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{2.6cm}@{}}
+\toprule
+\textbf{Source} & \textbf{Content} & \textbf{Collection} & \textbf{Role} \\
+\midrule
+eICU Collaborative Research Database \parencite{pollard2018,eicudemo} & intensive-care stays in United States hospitals, 2014--2015; open demonstration subset of 2\,520 stays of 1\,841 patients in 186 hospitals & electronic records of routine care, de-identified & development and comparison of the models \\
+Douala inpatient charts & 32 patients, 366 readings, 8 June to 30 August 2026; pressure, pulse and capillary glucose, morning and evening & paper observation charts, transcribed by hand without names & external validation only \\
+Douala consultation records & 58 outpatients, 81 readings, 49 with a single reading & paper consultation records, transcribed without names & description of the fragmentation of follow-up \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The Douala charts were transcribed one row per reading. The transcription records whether a reading was taken in the morning or the evening, but not its hour nor the admission diagnosis. In the wards, pressure and pulse follow the nursing schedule, whereas glucose is ordered according to the clinical picture. The consultation records, with a single reading for most patients, document the fragmentation of follow-up but cannot support longitudinal modelling; no home measurement could be collected, so the method is written for irregular home series and applied to the twice-daily charts. \Cref{fig:collection-flow} traces the path from the paper record to the analysis data, and \cref{fig:douala-timeline} shows what the charts contain, patient by patient.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw=cMain!60, rounded corners=2pt, align=center, minimum height=11mm, text width=2.75cm, fill=white},
+  arr/.style={-{Stealth[length=2mm]}, semithick, cMain}, lab/.style={font=\scriptsize, text=cText2, align=center}]
+  \node[box, fill=cAfrica!10] (chart) at (0,0) {ward observation charts, paper};
+  \node[box, fill=cAfrica!10] (cons) at (0,-2.0) {consultation records, paper};
+  \node[box] (tr) at (3.55,-1.0) {hand transcription without names: one row per reading};
+  \node[box] (csv) at (7.1,-1.0) {two files, one row per reading (\cref{app:data})};
+  \node[box, fill=cMain!8] (qc) at (10.65,0) {quality controls and audit: 366 readings, 32 patients};
+  \node[box, fill=cGrey!12] (desc) at (10.65,-2.0) {description only: 81 readings, 58 patients};
+  \draw[arr] (chart) -- (tr); \draw[arr] (cons) -- (tr); \draw[arr] (tr) -- (csv);
+  \draw[arr] (csv) -- (qc); \draw[arr] (csv) -- (desc);
+  \node[lab] at (3.55,0.45) {at the hospital};
+  \node[lab] at (10.65,0.95) {scripts 01 and 02};
+\end{tikzpicture}
+\caption{From the paper records of the Douala hospital to the analysis data. No name leaves the hospital; the slot is morning or evening, the hour is not recorded.}\label{fig:collection-flow}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/data/douala_readings_timeline.csv}{%
+\begin{tikzpicture}
+\begin{axis}[width=0.92\textwidth, height=10.2cm, xmin=-0.3, xmax=8.9, ymin=0.3, ymax=32.7,
+  xlabel={days since the patient's first reading}, ylabel={patient}, ytick={1,8,16,24,32},
+  y dir=reverse, xmajorgrids, grid style={cGrey!18},
+  scatter/classes={-1={mark=*,cText2}, 0={mark=*,cGrey!55}, 1={mark=*,cRef!75}, 2={mark=*,cAfrica!55}, 3={mark=*,cAfrica}},
+  legend style={at={(0.5,1.02)}, anchor=south, legend columns=5}]
+\addplot[scatter, only marks, mark size=2.3pt, scatter src=explicit symbolic]
+  table[x=day, y=pid, meta=level, col sep=comma, restrict expr to domain={\thisrow{has_glucose}}{1:1}] {figures/data/douala_readings_timeline.csv};
+\addplot[only marks, mark=o, mark size=2.3pt, cMain, thin]
+  table[x=day, y=pid, col sep=comma, restrict expr to domain={\thisrow{has_glucose}}{0:0}] {figures/data/douala_readings_timeline.csv};
+\legend{with glucose,,,,,without glucose}
+\end{axis}
+\end{tikzpicture}}{\fbox{\parbox{0.8\textwidth}{\centering\small Figure data missing: run \texttt{scripts/14\_thesis\_data\_figures.py}.}}}
+\caption{The 366 readings of the Douala charts. One row per patient, one mark per reading, coloured by level (grey stable, blue moderate, light red high, red critical); open marks are readings without glucose. Patients are numbered by date of first reading.}\label{fig:douala-timeline}
+\end{figure}
+
+Values are stored in one canonical unit per channel, with plausible ranges of 60--260~mmHg for SBP, 30--160 for DBP, 30--220 beats per minute for pulse and 1.0--35.0~mmol/L for glucose. Glucose is the riskiest field, because three conventions coexist and Cameroonian practice uses g/L: $1~\text{mmol/L} = 18.0156~\text{mg/dL}$ from the molar mass of glucose. The exact factor matters: with the rounded value of 18.0, a reading of 1.80~g/L falls below the 180~mg/dL threshold of \cref{tab:label-thresholds}.
+
+\subsection{Sample size and the role of each dataset}\label{sec:sampling}\label{sec:capacity}
+
+Whether the Douala charts suffice to develop a model is answered with the criteria of \textcite{riley2019partII,riley2020bmj}: the sample must keep the optimism of the model small (shrinkage $S \geq 0.9$), keep the apparent and adjusted $R^2$ within 0.05, and estimate the overall risk within $\pm 0.05$. The first criterion gives
+\begin{equation}
+  n \geq \frac{p}{(S - 1)\,\ln\bigl(1 - R^2_{\mathrm{CS}}/S\bigr)}
+\end{equation}
+for $p$ candidate parameters and an anticipated Cox--Snell $R^2_{\mathrm{CS}}$ \parencite{riley2021cstat}. The criteria are computed with a port of the reference implementation \parencite{pmsampsize}, checked against its published example. The samples of one patient are correlated, so the effective sample size divides their number by the design effect $1 + (\bar m - 1)\rho$ \parencite{kish1965}, with $\bar m$ the mean number of samples per patient and $\rho$ the intraclass correlation of the alert.
+
+The charts fall far below these criteria (\cref{sec:results-data}). The candidate models are therefore developed and compared on eICU, which covers many hospitals: the outer folds can be grouped by hospital, which estimates how a model transfers between sites before it meets the Douala patients \parencite{steyerberg2016}. The Douala charts serve for external validation only, a transfer that no study identified in the region has measured for a learned model; early-warning scores derived elsewhere lose discrimination in African wards and require local validation and recalibration \parencite{moore2017uva,tomas2026ews}. With about 64 haemodynamic and 112 glycaemic alert targets, below the 100 events and 100 non-events recommended for external validation \parencite{collins2016,riley2021external}, its estimates are reported with patient-level intervals and read as exploratory.
+
+\subsection{Harmonisation of the intensive-care records}\label{sec:harmonisation}
+
+In eICU, every adult stay with hypertension or diabetes recorded in the diagnoses or the past history is eligible. Intensive-care monitoring is far denser than a ward chart, so each stay is resampled to the rhythm of the charts: two slots a day, at 08:00 and 20:00, each taking the non-invasive cuff pressure, the pulse and the bedside glucose nearest to the slot within two hours (\cref{fig:harmonisation}). The slot hours are an assumption, since the charts record only morning and evening, and the tolerance is varied in a sensitivity analysis. Both datasets then share one sample definition, and the remaining differences---intensive care against the ward, the United States against Cameroon---are the shift that external validation measures.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, x=0.36cm, y=1cm]
+  \draw[-{Stealth[length=2mm]}] (0,0) -- (38,0) node[right]{time};
+  \foreach \h/\lab in {0/06:00, 2/08:00, 14/20:00, 26/08:00, 36/18:00} {
+    \draw (\h,0.08) -- (\h,-0.08); \node[below, font=\tiny] at (\h,-0.08) {\lab};}
+  \foreach \s in {2,14,26} \fill[cRef!15] (\s-2,0.25) rectangle (\s+2,1.85);
+  \foreach \s/\name in {2/M, 14/S, 26/M} {
+    \draw[cRef, thick, dashed] (\s,0.2) -- (\s,1.95); \node[cRef, above, font=\tiny] at (\s,1.95) {slot \name};}
+  \node[anchor=east, font=\tiny] at (-0.3,1.4) {cuff BP};
+  \foreach \h in {0.6,1.3,3.1,4.2,5.5,7.0,9.2,10.6,13.4,15.9,17.0,18.8,20.3,30.0,31.6,33.2,35.0}
+    \fill[cGrey] (\h,1.4) circle (2.2pt);
+  \fill[cAfrica] (1.3,1.4) circle (3pt); \fill[cAfrica] (13.4,1.4) circle (3pt);
+  \node[cAfrica, font=\tiny] at (26,1.4) {$\times$ none within 2 h};
+  \node[anchor=east, font=\tiny] at (-0.3,0.7) {glucose};
+  \foreach \h in {2.8,11.0,24.9} \fill[cGrey] (\h,0.7) circle (2.2pt);
+  \fill[cAfrica] (2.8,0.7) circle (3pt); \fill[cAfrica] (24.9,0.7) circle (3pt);
+  \node[cAfrica, font=\tiny] at (14,0.7) {$\times$};
+\end{tikzpicture}
+\caption{Harmonisation of an intensive-care stay to the rhythm of the ward charts. At each slot, the reading nearest in time within two hours is kept for each channel (red); a slot with none is missing, as an unrecorded value on a chart would be.}\label{fig:harmonisation}
+\end{figure}
+
+%--------------------------------------------------------------------------
+\section{Data Curation and Preprocessing}\label{sec:preprocessing}\label{sec:validity}
+
+\subsection{A two-phase pipeline}\label{sec:pipeline}
+
+This is where label leakage and biased imputation are either prevented or built in. Every step that learns a parameter from the data must be fitted on the training fold only, so the treatment is split into two phases separated by the train--test split (\cref{fig:pipeline-phases}) and implemented as a single pipeline object. A step placed on the wrong side of the split causes no error: it silently produces an optimistic estimate that fails in deployment.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[node distance=0.5cm,
+  ph/.style={draw,rounded corners,align=left,font=\footnotesize,inner sep=5pt,minimum width=6.4cm},
+  sp/.style={draw,rounded corners,align=center,font=\footnotesize\bfseries,fill=cAfrica!18,minimum width=6.4cm,minimum height=0.85cm},
+  ar/.style={-{Stealth[length=2.5mm]},thick}]
+  \node[ph,fill=cGrey!12] (p1) {\textbf{Phase 1 --- deterministic, all data}\\[2pt]
+    unit conversion, plausible ranges, coherence\\ duplicates, carried-forward and extreme flags\\ labels from the threshold table};
+  \node[sp,below=of p1] (split) {SPLIT: by hospital (outer), by patient (inner),\\ stratified on the presence of an alert};
+  \node[ph,fill=cRef!12,below=of split] (p2) {\textbf{Phase 2 --- learned, training fold only}\\[2pt]
+    imputation for the linear model, scaling\\ decay rates and training means of GRU-D\\ class weights and hyperparameters (inner folds)};
+  \draw[ar] (p1) -- (split);
+  \draw[ar] (split) -- (p2);
+\end{tikzpicture}
+\caption{The two-phase preprocessing pipeline.}\label{fig:pipeline-phases}
+\end{figure}
+
+\subsection{What the readings say about the instruments}\label{sec:instruments-obtained}
+
+The charts do not name the devices, so their validation cannot be checked; two analyses of the readings bound what this uncertainty implies. \textbf{Terminal digits}: a manual aneroid or mercury scale is graduated in steps of 2~mmHg, so manual readings end in even digits with an excess of zeros, whereas an electronic display shows any integer \parencite{kottke2022}; a $\chi^2$ test of uniformity of the last digit tells the two apart. \textbf{Label uncertainty}: a validated cuff may err by up to 5~mmHg on average \parencite{stergiou2018}, and a glucose meter by 15~mg/dL below 100~mg/dL and 15\% above \parencite{iso15197}; shifting every reading by these tolerances and counting the readings whose level changes measures how much of the disagreement between a model and the label is noise that no model can remove.
+
+\subsection{Quality controls at entry}\label{sec:quality}\label{sec:ingestion}
+
+The controls of \cref{tab:quality-controls} learn nothing from the data, so they are applied to all records before the train--test split. Flagged records are kept: a run of identical values is information about how the data were produced. Impossible values are the exception, and are removed from features and labels.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Quality controls applied at entry.}\label{tab:quality-controls}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} X >{\raggedright\arraybackslash}p{4.0cm}@{}}
+\toprule
+\textbf{Control} & \textbf{Rule} & \textbf{On violation} \\
+\midrule
+Plausibility & value within the plausible range of its channel & value removed \\
+Coherence & SBP $>$ DBP and SBP $-$ DBP $\geq$ 10~mmHg & pair removed: one value is wrong, which cannot be known \\
+Duplicate & same patient, time and values & one kept, the rest flagged \\
+Carried forward & three or more identical consecutive values & flagged \\
+Unit & magnitude consistent with another glucose convention & flagged \\
+Extreme & robust $\lvert z\rvert > 3.5$ (below) & flagged; ``contradicted'' if the next reading is not extreme \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Outliers: artefact or event?}\label{sec:outliers}\label{sec:mad-shrinkage}
+
+In a risk-detection system the outlier is often the event of interest: a systolic reading of 185~mmHg is a statistical outlier for a patient whose median is 138, and also a red alert. An automatic cleaning step would delete the positive class. The dividing line is therefore physiological plausibility, not statistical rarity. A statistical threshold is used for flagging only, with the median absolute deviation (MAD), which is not inflated by the outliers it detects, shrunk towards the cohort value because a personal MAD from ten readings is unstable:
+\begin{equation}
+  z_{i,t} = \frac{x_{i,t} - \operatorname{median}(x_i)}{1.4826\,\widehat{\mathrm{MAD}}_i}, \qquad
+  \widehat{\mathrm{MAD}}_i = w_i\,\mathrm{MAD}_i + (1-w_i)\,\mathrm{MAD}_{\text{pooled}}, \quad w_i = \frac{n_i}{n_i + n_0}.
+\end{equation}
+With $n_0 = 20$, a patient with ten readings takes one third of the estimate from their own data; as the series grows, the estimate becomes personal. A reading is flagged when $\lvert z_{i,t}\rvert > 3.5$ \parencite{iglewicz1993}; flags serve clinician review and never enter the features.
+
+\subsection{Missing data}\label{sec:missingness}\label{sec:masking}\label{sec:mask-models}
+
+Imputation is valid when data are missing completely at random or at random given observed values, and invalid when missingness depends on the unobserved value. Glucose in the wards is ordered according to the clinical picture, and at home discouraging readings may be omitted: in both cases absence is informative. Imputing a normal value would teach the model that absence predicts stability, whereas it predicts deterioration---a sign error that more data cannot correct. Absence is therefore represented as information: the number of glucose readings in the window and the time since the last one are features. Tree ensembles route missing values at each split. The recurrent model GRU-D \parencite{che2018} receives the mask of what was measured and decays the last value towards the training mean as the gap grows,
+\begin{equation}
+  \tilde{x}^{(c)}_t = m^{(c)}_t x^{(c)}_t + \bigl(1 - m^{(c)}_t\bigr)\bigl[\gamma^{(c)}_t\, x^{(c)}_{\text{last}} + (1-\gamma^{(c)}_t)\,\bar{x}^{(c)}\bigr],
+  \qquad \gamma^{(c)}_t = \exp\bigl(-\kappa_c\,\Delta t^{(c)}_{\text{last}}\bigr),
+\end{equation}
+with a decay rate per channel, since a three-day-old pressure says more about today than a three-day-old glucose. The proportional-odds model, which cannot accept missing inputs, receives the training median with a missingness indicator. The features keep their clinical units, since the label is defined on absolute thresholds; inputs are standardised with training statistics for the linear and neural models (\cref{tab:model-prep}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Preparation required by model family, fitted on the training fold.}\label{tab:model-prep}
+\begin{tabularx}{\textwidth}{@{}X c X@{}}
+\toprule
+\textbf{Model} & \textbf{Scaling} & \textbf{Missing values} \\
+\midrule
+Proportional-odds logistic regression & yes & training median with missingness indicators \\
+Random forest, CatBoost & no & handled natively by the splits \\
+GRU-D, masked LSTM & yes & mask and decay towards the training mean \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+\section{Features}\label{sec:feature-eng}\label{sec:features}\label{sec:budget}
+
+The tabular models receive descriptors of the window, computed per channel on its readings only: last value, mean, standard deviation, slope, number of readings and time since the last one, plus pulse pressure and the age and sex of the patient, the only covariates recorded in both datasets. The slope is the least-squares coefficient on the real reading times, which handles gaps without resampling, and is computed only from at least three readings spanning half the window; a feature the window cannot support is missing, not zero. A window of $n$ readings cannot carry more than $n$ independent quantities---with two readings, the standard deviation, the slope and the successive difference are the same number---so the feature sets are kept small and fixed before any result (\cref{tab:feature-sets}). No signed margin to a threshold is computed: for a fixed threshold it is an affine function of the last value and adds no information. The sequence models receive the readings of the window with their mask.
+
+The window length is a hyperparameter, searched over 24, 48, 72 and 96~hours, and what each length can carry follows from the number of readings it holds (\cref{tab:window-length}). Because the length is searched, the set of forecast targets must not depend on it, or each length would be evaluated on different targets: a reading is an anchor when the shortest window, 24~hours, holds at least two pressure readings, and longer windows add history to the same anchors. Overlapping windows multiply the rows but not the information, so the patient is the independent unit: all the windows of a patient fall on the same side of every split, and intervals are computed at the patient level.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Window length and the features it can support, at two readings a day.}\label{tab:window-length}
+\begin{tabular}{@{}ccl@{}}
+\toprule
+\textbf{$L$ (h)} & \textbf{Readings} & \textbf{Features supported} \\
+\midrule
+24 & 2 & level only \\
+48 & 4 & level and slope; variability marginal \\
+72 & 6 & level, slope and variability \\
+96 & 8 & level, slope and variability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Feature sets, fixed before any result.}\label{tab:feature-sets}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.2cm} c X@{}}
+\toprule
+\textbf{Set} & \textbf{$p$} & \textbf{Features} \\
+\midrule
+Primary & 8 & last SBP, slope of SBP, last DBP, last pulse, last glucose, slope of glucose, number of glucose readings, age \\
+Extended & 16 & primary, plus SD of SBP and glucose, slopes of DBP and pulse, pulse pressure, time since the last glucose, mean SBP, sex \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+\section{Candidate Models and Baselines}\label{sec:ml}\label{sec:families}\label{sec:baselines}
+
+No model is chosen in advance: the candidates are the families that published benchmarks of comparable problems put forward, and the benchmark of this work selects among them (\cref{tab:candidates}). On clinical prediction tasks, machine learning has shown no systematic benefit over logistic regression \parencite{christodoulou2019}; on tabular data, tree ensembles generally match or beat deep networks \parencite{grinsztajn2022}, and in the most recent living benchmark CatBoost is the best gradient-boosting model when tuned \parencite{erickson2025}. Only deep temporal models read the data as a sequence, which hypotheses H1 and H3 compare. Four families are left out for stated reasons: a single tree is dominated by its ensembles; support vector machines give poorly calibrated probabilities; XGBoost ranks below CatBoost in the same benchmark; and the foundation model TabPFN is limited to 10\,000 training samples \parencite{hollmann2025}, which the development data exceed.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Candidate families and baselines.}\label{tab:candidates}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{4.4cm} X@{}}
+\toprule
+\textbf{Family} & \textbf{Candidate} & \textbf{Why it is in the pool} \\
+\midrule
+Baselines & prior (level frequencies); persistence (rule on the last reading, with training transition probabilities) & the margin over persistence is the contribution of a model \\
+Linear & proportional-odds logistic regression \parencite{mccullagh1980}, L2 penalty; the same on principal components & no systematic loss against machine learning \parencite{christodoulou2019}; order of the levels in the model \\
+Bagging & random forest \parencite{breiman2001} & reference of the reviewed literature \parencite{mendoza2025} \\
+Boosting & CatBoost \parencite{prokhorenkova2018} & best tuned gradient boosting \parencite{erickson2025} \\
+Value forecast & ridge or CatBoost regression per channel, levels by integration (\cref{sec:formulation}) & the second formulation \\
+Deep temporal & GRU-D \parencite{che2018}; masked LSTM \parencite{hochreiter1997} & hypothesis H3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+\section{Experimental Protocol}\label{sec:evaluation}\label{sec:training}\label{sec:cv-structure}\label{sec:repeats}
+
+All constraints combine into a nested cross-validation on the development data (\cref{fig:nested-cv}). Five outer folds estimate performance and are grouped by hospital, so that every test fold contains hospitals the model has never seen; four inner folds, grouped by patient, select the window and the hyperparameters. The search uses the tree-structured Parzen estimator of Optuna \parencite{bergstra2011,akiba2019} over a space declared before any run, split into structural hyperparameters (window, depth, units, components) and training hyperparameters (learning rate, penalties, dropout, class weights); each configuration is scored by its ranked probability score on pooled inner-validation predictions, and the configuration kept is the one with the lowest selection cost (\cref{sec:metrics}). The number of configurations per candidate is fixed in advance (\cref{app:config}), since the optimism of a selection grows with it \parencite{cawley2010}. Across families, the lowest inner selection cost gives the \emph{selected} model of the fold, and its outer result estimates the whole procedure. The procedure is repeated three times with different fold assignments, and two models are compared with the corrected resampled $t$ test, which accounts for the overlap between training sets \parencite{nadeau2003}. \Cref{fig:search} details what happens inside one outer fold.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw=cMain!60, rounded corners=2pt, align=center, text width=3.5cm, minimum height=11mm, fill=white},
+  arr/.style={-{Stealth[length=2mm]}, semithick, cMain}]
+  \node[box, fill=cGrey!12] (prop) at (0,0) {Optuna TPE proposes a configuration};
+  \node[box, fill=cGrey!12] (inner) at (4.6,0) {fit on the inner training folds, predict the inner validation fold};
+  \node[box, fill=cGrey!12] (score) at (9.2,0) {score the pooled predictions; RPS is the search objective};
+  \draw[arr] (prop) -- (inner);
+  \draw[arr] (inner) -- (score);
+  \draw[arr] (score.north) -- ++(0,0.45) -| node[pos=0.25, above, font=\scriptsize]{next trial, until the declared budget} (prop.north);
+  \begin{scope}[on background layer]
+    \node[draw=cText2, dashed, rounded corners, fit=(prop)(inner)(score), inner sep=7pt, yshift=3pt, minimum height=2.3cm] (loop) {};
+  \end{scope}
+  \node[font=\scriptsize, text=cText2, anchor=north west] at (loop.south west) {inner loop, for each candidate family, inside one outer training set};
+  \node[box, fill=cRef!12] (cost) at (9.2,-2.6) {among the trials: lowest selection cost};
+  \node[box, fill=cRef!12] (refit) at (4.6,-2.6) {refit on the outer training hospitals};
+  \node[box, fill=cAfrica!12] (test) at (0,-2.6) {evaluate once on the outer test hospitals};
+  \draw[arr] (score.south) -- ++(0,-0.75) -- (cost.north);
+  \draw[arr] (cost) -- (refit);
+  \draw[arr] (refit) -- (test);
+  \node[box, fill=cRef!12, text width=9.0cm] (fam) at (4.6,-4.3) {across families, the lowest inner selection cost gives the \emph{selected} model of the fold; its outer result estimates the whole procedure};
+  \draw[arr] (cost.south) |- (fam.east);
+\end{tikzpicture}
+\caption{Search and selection in one outer fold. The outer test hospitals are used once, after every choice has been made on the inner folds.}\label{fig:search}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize]
+  \node[anchor=east] at (-0.2,2.2) {outer};
+  \foreach \i in {0,...,4} {
+    \pgfmathsetmacro{\xa}{\i*2.1}
+    \ifnum\i=2 \fill[cAfrica!25] (\xa,1.9) rectangle (\xa+1.9,2.5); \node at (\xa+0.95,2.2) {test};
+    \else \fill[cRef!18] (\xa,1.9) rectangle (\xa+1.9,2.5); \node at (\xa+0.95,2.2) {train}; \fi
+    \draw (\xa,1.9) rectangle (\xa+1.9,2.5);}
+  \node[anchor=west] at (10.7,2.2) {grouped by hospital};
+  \draw[-{Stealth[length=2mm]},thick] (5.0,1.75) -- (5.0,1.15);
+  \node[anchor=east] at (-0.2,0.6) {inner};
+  \foreach \i in {0,...,3} {
+    \pgfmathsetmacro{\xb}{\i*2.1}
+    \ifnum\i=1 \fill[cGrey!35] (\xb,0.3) rectangle (\xb+1.9,0.9); \node at (\xb+0.95,0.6) {validation};
+    \else \fill[cRef!12] (\xb,0.3) rectangle (\xb+1.9,0.9); \node at (\xb+0.95,0.6) {train}; \fi
+    \draw (\xb,0.3) rectangle (\xb+1.9,0.9);}
+  \node[anchor=west,align=left] at (8.6,0.6) {grouped by patient:\\ window and hyperparameters};
+\end{tikzpicture}
+\caption{Nested cross-validation on the development data, repeated three times.}\label{fig:nested-cv}
+\end{figure}
+
+Each selected configuration is then refitted on all the development data and applied once to the Douala charts; nothing is tuned on them, and their intervals come from a bootstrap that resamples patients \parencite{collins2016}. The prevalence of the alert differs between intensive care and Douala wards, which shifts calibration even for a model that transfers well, so performance is reported as is, and again after updating the intercept alone on the Douala data \parencite{janssen2008}: the first is the test of transportability (H4), the second shows what a local recalibration recovers. A classifier trained with class weights $w_k$ overstates each level in proportion to its weight; its probabilities are corrected exactly before use, $p_k = (p'_k/w_k) / \sum_j p'_j/w_j$. H2 is tested by repeating the benchmark with embargoes of 12 and 36~hours, for targets 24 and 48~hours ahead.
+
+%--------------------------------------------------------------------------
+\section{Evaluation Metrics}\label{sec:metrics}
+
+The measures are chosen by explicit criteria \parencite{vancalster2025}: a clear focus, and, for overall accuracy, a proper scoring rule \parencite{gneiting2007}. Accuracy, the F1 score and recall at a fixed threshold fail these criteria. \Cref{tab:metrics} lists the admissible measures; the positive class is the alert, and every measure carries a patient-level confidence interval. Performance is also reported by sex and by age band (below and above 65~years), and across the hospitals of the outer folds.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Admissible performance measures.}\label{tab:metrics}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{4.2cm} X@{}}
+\toprule
+\textbf{Focus} & \textbf{Measure} & \textbf{Why} \\
+\midrule
+Overall, four levels & ranked probability score (RPS) \parencite{epstein1969} & proper for ordered levels: an error across several levels costs more than an adjacent one \\
+Overall, alert & Brier score, log loss & proper \\
+Discrimination & area under the ROC curve (AUROC) of the alert & independent of any threshold \\
+Calibration & intercept and slope \parencite{vancalster2019} & a probability shown to a clinician must mean what it says \\
+Clinical utility & net benefit, decision curve \parencite{vickers2006} & true alerts weighed against false alarms at the clinical threshold \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+In the inner folds, configurations are compared on one number, the \textbf{selection cost}. Four terms---the RPS, the AUROC, the calibration error $\lvert a\rvert + \lvert \ln b\rvert$ for intercept $a$ and slope $b$, and the net benefit averaged over thresholds of 0.1 to 0.3---are standardised across the configurations compared (minus the median, divided by the scaled MAD, oriented so that lower is better) and combined:
+\begin{equation}
+  C = \sum_m w_m\, z_m, \qquad \textstyle\sum_m w_m = 1 .
+\end{equation}
+The weights express how much each focus matters clinically, so they are a value judgement, not a parameter: tuning them on the data that judge the models would let any weighting favour a chosen model. They are equal in the provisional analysis, to be replaced by weights derived from the costs of errors stated by the partner physician, and a sensitivity analysis draws them at random to report how often the selected configuration remains first. The outer folds report every measure separately, never the composite alone. Interpretability is reported only for a model shown to beat persistence: grouped permutation importance, which permutes the features of one channel together because systolic and diastolic pressures are correlated \parencite{strobl2008}, and exact tree SHAP values for CatBoost \parencite{lundberg2017}.
+
+The measures of state evolution (\cref{tab:state-measures}) are compared on the same samples: a measure is useful if its distance ranks higher the samples in which the level of the next reading differs from that of the baseline state (primary outcome), or becomes an alert (secondary outcome). Each is evaluated by its AUROC with a patient-level interval, its scales are estimated on eICU only, and the measure retained is the best on the primary outcome, or the simplest candidate whose interval contains the best value.
+
+%--------------------------------------------------------------------------
+\section{The Telemonitoring System}\label{sec:system}\label{sec:backend}\label{sec:interfaces}
+
+\subsection{Architecture}\label{sec:layers}
+
+The system has four parts (\cref{fig:architecture}). A cross-platform \textbf{application} (Flutter) serves the patient and the clinician. A managed document database (\textbf{Cloud Firestore}) holds the record and synchronises the applications, with a local cache that turns a reading entered offline into a delayed one. A local \textbf{risk service} (FastAPI) scores a patient's recent readings with the model selected by the benchmark, using the same code as the research pipeline, so that the features seen in deployment cannot drift from those seen in training. And a local \textbf{worker} runs the server functions: measurement check, escalation, notification, the non-transmission sweep and the escalation of events left unreviewed. Hosting the service and the worker online is outside the scope of this work; without them, the application still applies the home triage on the phone.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, text width=3.1cm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  \node[box, fill=cGrey!12] (pat) at (0,0) {\textbf{Patient app}\\ entry, triage, profile,\\ trend, messages};
+  \node[box, fill=cGrey!12] (cli) at (0,-2.0) {\textbf{Clinician app}\\ queue, verdict, record};
+  \node[box, fill=cRef!14] (db) at (5,-1.0) {\textbf{Cloud Firestore}\\ readings, events, messages;\\ security rules};
+  \node[box, fill=cAfrica!12] (risk) at (10,0) {\textbf{Risk service}\\ (FastAPI) rule + model};
+  \node[box, fill=cAfrica!12] (wk) at (10,-2.0) {\textbf{Worker}\\ checks, escalation,\\ sweeps, notifications};
+  \draw[arr,<->] (pat) -- (db); \draw[arr,<->] (cli) -- (db);
+  \draw[arr,<->] (wk) -- node[below, font=\tiny]{Admin SDK} (db);
+  \draw[arr] (pat.north) -- ++(0,0.45) -| node[pos=0.25, above, font=\tiny]{readings of the last 4 days, no identifier} (risk.north);
+  \draw[arr,dashed] (wk.south) -- ++(0,-0.55) -| node[pos=0.25, below, font=\tiny]{push notifications} (-2.3,0) -- (pat.west);
+  \draw[arr,dashed] (-2.3,-2.0) -- (cli.west);
+\end{tikzpicture}
+\caption{Architecture of the built system. Dashed: push notifications sent by the worker to the two applications.}\label{fig:architecture}
+\end{figure}
+
+\subsection{Data model and rules}\label{sec:record-schema}\label{sec:rules}
+
+Each patient's readings, events and messages are subcollections of their profile, so that one security rule governs them and the readings are read in time order with one query. A reading holds one measurement session: the measurement time stated by the patient and the arrival time set by the server, the retained values, the first reading of a protocol pair kept for audit, the context of a glucose reading, and the quality flag set by the worker. The record is append-only: the rules refuse any change or deletion of a reading, and a correction is a new reading that names the one it supersedes. Each write is validated on the server (known fields, plausible ranges, coherent pressure pair, measurement time at most thirty days before arrival). An event stores what raised it (rule, model, verification profile, or a silence longer than the patient's checkup period), the triggering values, the threshold and model versions, and the clinician's verdict and action; it is closed once, and its identifier is derived from what raised it, so the same alert raised by the phone and by the worker is one document (\cref{fig:data-model}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  coll/.style={draw=cMain!60, rounded corners=2pt, fill=white, align=left, text width=4.4cm, inner sep=5pt},
+  head/.style={font=\footnotesize\bfseries, text=cMain},
+  arr/.style={semithick, cMain!70}]
+  \node[coll, fill=cMain!8, text width=5.2cm] (user) at (0,0) {{\footnotesize\bfseries\color{cMain} users/\{uid\}}\\[1pt]
+    role (patient or clinician), assigned clinician, checkup period, named alternate};
+  \node[coll] (read) at (-5.0,-2.6) {{\footnotesize\bfseries\color{cMain} readings/\{id\}} \hfill append-only\\[1pt]
+    measurement time, arrival time (server), SBP, DBP, pulse, glucose and its context, number of readings and first pair, supersedes, quality flag};
+  \node[coll] (ev) at (0,-2.6) {{\footnotesize\bfseries\color{cMain} events/\{id\}} \hfill closed once\\[1pt]
+    source (rule, model or no transmission; a profile off target is a red rule event), tier, score, trigger, threshold and model versions, status, verdict, action, escalation};
+  \node[coll] (msg) at (5.0,-2.6) {{\footnotesize\bfseries\color{cMain} messages/\{id\}}\\[1pt]
+    sender, text, time sent, time read};
+  \node[coll, fill=cGrey!10, text width=3.6cm] (codes) at (5.6,0) {{\footnotesize\bfseries\color{cMain} clinician\_codes/\{code\}}\\[1pt] enrolment code of a clinician};
+  \draw[arr] (user.south) -- ++(0,-0.45) -| (read.north);
+  \draw[arr] (user.south) -- (ev.north);
+  \draw[arr] (user.south) -- ++(0,-0.45) -| (msg.north);
+  \draw[arr, dashed] (codes.west) -- node[above]{links} (user.east);
+\end{tikzpicture}
+\caption{Data model of the record in Cloud Firestore. Readings, events and messages are subcollections of the patient's document, so one security rule governs each of them.}\label{fig:data-model}
+\end{figure}
+
+\subsection{Server functions}\label{sec:risk-service}\label{sec:functions}
+
+\Cref{tab:triggers} lists the functions of the worker. It reads and writes the database through the Firebase Admin SDK at a fixed interval; readings and events older than a day found at its first run are marked without being notified, so that a backlog does not flood the queue. The delays are configuration values, provisional like the tier cut-points.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Server functions run by the worker.}\label{tab:triggers}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{3.2cm} X@{}}
+\toprule
+\textbf{Function} & \textbf{Fires on} & \textbf{Action} \\
+\midrule
+Measurement check & new reading & quality controls of \cref{sec:quality}; quality flag \\
+Escalation & yellow or red home level & event added to the clinician's queue \\
+Scoring & latest reading & rule and model, same code as the risk service; event if the model raises the tier \\
+Notification & new event & red: patient and clinician; yellow: patient, prompt for the verification profile \\
+Non-transmission & no reading for longer than the checkup period & event; daily reminder to the patient \\
+Queue age & event open 4~h (red) or 3 days (yellow) & escalated to the clinician's named alternate \\
+Verdict & event closed & the patient is told it was reviewed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\Cref{fig:alert-sequence} follows one alert through these functions, from the patient's reading to the clinician's verdict.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, y=0.62cm,
+  life/.style={draw=cMain!35, dashed},
+  hd/.style={draw=cMain!60, fill=cMain!8, rounded corners=2pt, font=\footnotesize\bfseries, text=cMain, minimum width=2.6cm, minimum height=7mm},
+  msg/.style={-{Stealth[length=1.8mm]}, semithick, cMain},
+  stepno/.style={circle, fill=cAccent, text=white, font=\tiny\bfseries, inner sep=1.2pt}]
+  \foreach \x/\n in {0/Patient app, 4.2/Firestore, 8.4/Worker, 12.6/Clinician app} {
+    \node[hd] at (\x,0.9) {\n}; \draw[life] (\x,0.3) -- (\x,-12.6);}
+  \node[anchor=west, align=left, text width=3.4cm] at (0.15,-0.4) {triage on the phone; red: local warning};
+  \draw[msg] (0,-2.0) -- node[above]{reading + rule event, one batch} (4.2,-2.0);
+  \node[font=\scriptsize, text=cText2, anchor=west] at (4.3,-2.7) {rules validate the write};
+  \draw[msg] (4.2,-3.6) -- node[above]{new reading, new event} (8.4,-3.6);
+  \node[anchor=west, align=left, text width=3.6cm] at (8.5,-4.7) {measurement check; scoring; model event if it raises the tier};
+  \draw[msg] (8.4,-6.3) -- node[above]{push} (12.6,-6.3);
+  \draw[msg] (8.4,-7.0) -- node[above]{push} (0,-7.0);
+  \draw[msg] (12.6,-8.2) -- node[above]{verdict and action} (4.2,-8.2);
+  \draw[msg] (4.2,-9.4) -- node[above]{event closed} (8.4,-9.4);
+  \draw[msg] (8.4,-10.6) -- node[above]{``reviewed by your clinician''} (0,-10.6);
+  \node[anchor=west, align=left, text width=3.9cm, text=cText2] at (8.5,-12.0) {if still open after 4 h (red) or 3 days (yellow): escalated to the alternate};
+  \foreach \y/\k in {-0.4/1, -2.0/2, -3.6/3, -6.3/4, -8.2/5, -10.6/6} \node[stepno] at (-0.55,\y) {\k};
+\end{tikzpicture}
+\caption{Life of an alert. The phone warns the patient without a network; the record, the checks, the notifications and the escalation do not depend on the phone staying online.}\label{fig:alert-sequence}
+\end{figure}
+
+\subsection{Interfaces}\label{sec:patient-app}\label{sec:dashboard}
+
+The \textbf{patient} enters the two pressure readings of the protocol, of which the second is retained, and may date a reading taken earlier; the glucose unit is fixed to mmol/L, a value outside its plausible range is refused with a message naming the unit, and the measurement context is required for glucose because the target depends on it. A reading at the red level brings up a local warning at once, whatever the connectivity. The home screen shows the level of the latest readings with the one instruction the patient may receive---contact the health centre, or seek care today---never a dose and never a probability; the verification profile to carry out and its progress; the fourteen-day trend with the target band; the evolution of each channel; and the outcome of the clinician's reviews. The \textbf{clinician} works from a queue of unreviewed events, red before yellow and then oldest first, each row showing the source of the alert, the triggering value, the fourteen-day trend and the versions, and closes an event with a verdict (true alert, false alert, uncertain) and the action taken in two or three taps; the verdicts are the clinically adjudicated labels that escape the circularity of rule-derived labels. A health assistant answers general questions in French or English under four guardrails (no medication advice, no diagnosis, no false reassurance, emergency symptoms sent to hospital); it receives no identifier, and its guardrails are tested on a fixed set of 22 adversarial questions. \Cref{app:screens} shows the screens.
+
+%--------------------------------------------------------------------------
+\section{Implementation Details and Reproducibility}\label{sec:tools}
+
+\paragraph{Environment} The analysis runs on a laptop (AMD Ryzen~5 PRO 3500U, four cores, no GPU) with the software of \cref{tab:software}; the exact versions of every package are fixed in a lock file. The tree SHAP values of CatBoost are computed by CatBoost itself.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Software and versions used for the analysis and the system.}\label{tab:software}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}p{3.0cm}@{}}
+\toprule
+\textbf{Role} & \textbf{Software} & \textbf{Version} \\
+\midrule
+Language of the analysis & Python & 3.10.11 \\
+Data handling & pandas; NumPy & 2.3.3; 2.2.6 \\
+Proportional-odds model, statistical tests & SciPy & 1.15.3 \\
+Random forest, principal components, folds & scikit-learn & 1.7.2 \\
+Gradient boosting, tree SHAP values & CatBoost & 1.2.10 \\
+GRU-D and masked LSTM & PyTorch (CPU) & 2.12.0 \\
+Hyperparameter search & Optuna & 5.0.0 \\
+Tests of the research package & pytest & 9.1.1 \\
+\addlinespace
+Risk service & FastAPI; Uvicorn & 0.149.0; 0.54.0 \\
+Worker (server functions) & Firebase Admin SDK for Python & 7.7.0 \\
+Application & Flutter; Dart & 3.44.2; 3.12.2 \\
+Record and notifications & Cloud Firestore; Firebase Cloud Messaging plugins & 6.7.1; 16.7.0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Reproducibility} The labelling rule, the home triage, the quality controls, the sample-size criteria and the measures are implemented once and checked by automated tests (171 in the research package, 48 in the application), including the parity of the levels computed on the phone with the Python reference on every threshold boundary. Thresholds, the selection cost, search spaces and the delays of the worker are kept in versioned configuration files, and exact package versions in a lock file. Every benchmark run is saved in a folder named after a hash of everything that determines its results, with its configuration, a copy of the code, every trial, every prediction and the fitted models, so that each figure is redrawn from saved outputs and an interrupted run resumes where it stopped. The seed is fixed. Code and configurations are versioned; the Douala data are not published, and the eICU data are available from PhysioNet under its licence.
+
+%--------------------------------------------------------------------------
+\section{Ethical Considerations}\label{sec:ethics-considerations}\label{sec:ethics}\label{sec:legal}
+
+The eICU data are de-identified and distributed by PhysioNet under its terms \parencite{pollard2018,goldberger2000}. The Douala charts are a secondary use of routine records transcribed without names, which requires the opinion of an ethics committee and the written authorisation of the hospital. Removing names is not enough to anonymise a small cohort: before any analysis file is shared, ages are grouped in five-year bands and calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses. Personal data in Cameroon are governed by Law No.~2024/017 on the protection of personal data \parencite{cameroon2024data}, which makes any transfer abroad conditional on the authorisation of a supervisory authority, and the security of electronic communications by Law No.~2010/012 \parencite{cameroon2010cyber}; the region of the database is therefore chosen before the first write. The health assistant sends conditions, medications and readings to a provider outside Cameroon, which requires the patient's informed consent.
+
+\begin{keypoints}[Key points of Chapter 3]
+\begin{itemize}
+  \item Models are developed and compared on eICU data from 174 hospitals, and applied once to the 32 Douala inpatients; nothing is tuned on the Douala data.
+  \item Quality controls flag rather than delete: only impossible values are removed, because an outlier may be the event the system must detect.
+  \item Absence of a measurement is information; every step that learns from the data is fitted inside the training fold.
+  \item Nested cross-validation grouped by hospital and patient, a declared search budget and a declared selection cost replace the choice of a model in advance.
+  \item The system---application, append-only record, risk service and worker---applies the home triage on the phone, without a network.
+\end{itemize}
+\end{keypoints}

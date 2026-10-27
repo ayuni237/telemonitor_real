@@ -1,0 +1,381 @@
+%==========================================================================
+% CHAPTER 4 -- RESULTS AND DISCUSSION
+%==========================================================================
+% Every number of this chapter is printed by a script of telemonitor-research:
+%   4.1  scripts/01_douala_audit.py (out/audit_cohort.json), 02_label_rules.py,
+%        04_sample_size.py, 05_eicu_cohort.py, 09_kappa_sample_size.py,
+%        10_sensitivity_flags_slots.py
+%   4.2-4.3  out/runs/<task>_0h_<hash>/ (06_benchmark.py), figures by 08_figures.py
+%   4.4  12_state_comparison.py
+%   4.5  pytest (telemonitor-research), flutter test / flutter analyze (telemonitor)
+\chapter{Results and Discussion}\label{ch:results}
+
+This chapter reports what the data, the benchmark and the system produced, in the order of \cref{ch:methodology}: the collected data and their treatment, the benchmark of the risk models and their external validation, the comparison of the measures of state evolution, and the verification of the system. It then answers the research questions, compares the results with the literature and states the limitations.
+
+%--------------------------------------------------------------------------
+\section{Data Collection and Treatment}\label{sec:results-data}
+
+\Cref{fig:flow} traces both datasets from their source to the forecast samples on which the models are developed and validated; the subsections below describe each step.
+
+% numbers printed by scripts/05_eicu_cohort.py (eICU) and scripts/01_douala_audit.py, 14 (Douala)
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize,
+  box/.style={draw=cMain!60, rounded corners=2pt, align=center, text width=4.6cm, minimum height=10mm, fill=white},
+  exbox/.style={draw=cText2!60, rounded corners=2pt, align=left, text width=3.6cm, fill=cGrey!8, font=\scriptsize},
+  hd/.style={font=\footnotesize\bfseries, text=cMain},
+  arr/.style={-{Stealth[length=1.8mm]}, semithick, cMain}]
+  \node[hd] at (0,0.75) {eICU demonstration subset};
+  \node[box, fill=cRef!10] (e1) at (0,0) {2\,520 stays, 1\,841 patients, 186 hospitals};
+  \node[box] (e2) at (0,-1.55) {1\,437 eligible stays, 1\,141 patients, 184 hospitals\\ hypertension 1\,200; diabetes 684; both 447};
+  \node[box] (e3) at (0,-3.1) {1\,348 stays with readings at the slots: 7\,269 readings};
+  \node[box, fill=cRef!18] (e4) at (0,-4.65) {4\,189 samples: 817 stays, 700 patients, 174 hospitals\\ haemodynamic 4\,182; glycaemic 1\,356};
+  \node[exbox, anchor=west] (x1) at (2.75,-0.78) {1\,083 stays excluded: not adult, or neither condition recorded};
+  \node[exbox, anchor=west] (x2) at (2.75,-2.33) {89 stays without a reading within 2~h of a slot};
+  \node[exbox, anchor=west] (x3) at (2.75,-3.88) {531 stays without an anchor: fewer than two pressures in 24~h, or no later reading};
+  \foreach \a/\b in {e1/e2, e2/e3, e3/e4} \draw[arr] (\a) -- (\b);
+  \foreach \y/\x in {-0.78/x1, -2.33/x2, -3.88/x3} \draw[arr, cText2] (0,\y) -- (\x.west);
+  \node[hd] at (9.2,0.75) {Douala charts};
+  \node[box, fill=cAfrica!10, text width=3.6cm] (d1) at (9.2,0) {366 readings, 32 inpatients, 8 June to 30 August 2026};
+  \node[box, text width=3.6cm] (d2) at (9.2,-2.33) {quality controls: 3 values removed, flagged values kept};
+  \node[box, fill=cAfrica!18, text width=3.6cm] (d3) at (9.2,-4.65) {283 samples, 32 patients\\ haemodynamic 282; glycaemic 190};
+  \draw[arr] (d1) -- (d2); \draw[arr] (d2) -- (d3);
+  \node[font=\tiny, text=cText2, align=center] at (4.6,-5.75) {development and comparison of the models};
+  \draw[cText2, densely dotted] (0,-5.2) -- (0,-5.55) -| (4.6,-5.6);
+  \node[font=\tiny, text=cText2] at (9.2,-5.75) {external validation only};
+\end{tikzpicture}
+\caption{Flow of the data from the two sources to the forecast samples.}\label{fig:flow}
+\end{figure}
+
+\subsection{The Douala charts}
+
+The charts give 366 readings of 32 inpatients between 8 June and 30 August 2026, a median of 11.5 readings per patient (range 5--18). The rhythm is that of the nursing round: two readings on 177 of the 189 patient-days, one on the other 12, and no gap longer than one day. Pressure and pulse are present at almost every reading, glucose at two thirds of them, and 8 patients have no glucose at all (\cref{tab:douala-cohort}).
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The Douala charts after the quality controls of \cref{tab:quality-controls}.}\label{tab:douala-cohort}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+ & \textbf{SBP} & \textbf{DBP} & \textbf{Pulse} & \textbf{Glucose} \\
+\midrule
+Readings present (of 366) & 97.3\% & 97.0\% & 96.7\% & 68.6\% \\
+Out of plausible range & 0 & 1 & 0 & 0 \\
+Incoherent pressure pair & \multicolumn{2}{c}{1} & -- & -- \\
+Carried forward ($\geq 3$ identical) & 0 & 6 & 9 & 0 \\
+Extreme, robust $\lvert z\rvert > 3.5$ & 4 & 3 & 0 & 0 \\
+\quad of which contradicted by the next reading & 4 & 3 & -- & -- \\
+Unit suspect, duplicate & 0 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three values were removed: a diastolic pressure outside its range, and both values of an incoherent pressure pair on another reading; everything else is kept and flagged. The seven extreme pressures are all isolated, each followed by a reading that is not extreme. They are therefore either transcription errors or transient events, which the readings alone cannot distinguish; they stay in the data, which is the reason for keeping outliers stated in \cref{sec:outliers}. The flagging depends little on the shrinkage constant: with $n_0 = 10$, 20 and 40, the number of extreme readings is 5, 7 and 9. The 15 carried-forward values concern the diastolic pressure and the pulse, never the systolic pressure or glucose.
+
+\subsection{What the readings say about the instruments}
+
+The terminal digits separate the channels clearly (\cref{fig:terminal-digits}). Systolic and diastolic values do not depart from a uniform last digit ($\chi^2$ test, $p = 0.74$ and $0.26$): 50\% and 46\% end in an odd digit, and zeros account for 10\% and 13\%, where a manual scale graduated in steps of 2~mmHg would give no odd digit and an excess of zeros. The pressures were therefore read from an electronic display. The pulse behaves differently: 84\% of the values are even and 69\% end in 0, 4 or 8 ($p < 10^{-50}$), consistent with values read off the graphical pulse curve of the chart, whose grid sets the resolution. This resolution does not affect the label, whose pulse thresholds lie far from it: the four readings at or above 131 beats per minute range from 135 to 144.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[ybar, bar width=4pt, width=0.86\textwidth, height=4.6cm,
+  xtick={0,...,9}, xlabel={terminal digit}, ylabel={share of readings},
+  ymin=0, ymax=0.3, ytick={0,0.1,0.2,0.3}, enlarge x limits=0.06,
+  area legend, legend style={at={(0.5,1.03)}, anchor=south, legend columns=3, draw=none},
+  extra y ticks={0.1}, extra y tick labels={}, extra y tick style={grid=major, grid style={dashed, cGrey}}]
+\addplot[fill=cRef!70, draw=none] coordinates {(0,0.1011)(1,0.1292)(2,0.0955)(3,0.0983)(4,0.0927)(5,0.1011)(6,0.0983)(7,0.0871)(8,0.1152)(9,0.0815)};
+\addplot[fill=cRef!30, draw=none] coordinates {(0,0.1296)(1,0.0704)(2,0.1127)(3,0.1127)(4,0.1183)(5,0.1042)(6,0.0930)(7,0.0958)(8,0.0845)(9,0.0789)};
+\addplot[fill=cAfrica!80, draw=none] coordinates {(0,0.2684)(1,0.0085)(2,0.0904)(3,0.0198)(4,0.2345)(5,0.0763)(6,0.0678)(7,0.0282)(8,0.1836)(9,0.0226)};
+\legend{SBP ($n=356$), DBP ($n=355$), pulse ($n=354$)}
+\end{axis}
+\end{tikzpicture}
+\caption{Terminal digits of the Douala readings. The dashed line marks the uniform share of 0.1.}\label{fig:terminal-digits}
+\end{figure}
+
+The device tolerance has a larger effect. Shifting every reading by the tolerance of a validated device can change the level of 27\% of the systolic readings, 39\% of the diastolic readings and 56\% of the glucose readings: these readings lie close enough to a threshold for the measurement error alone to move them across it. On them, a disagreement between a model and the label is not necessarily a model error, and no model can be expected to remove it.
+
+\subsection{Labels}
+
+\Cref{fig:level-distribution} gives the levels at the forecast targets, the unit at which the models are evaluated. In Douala the alert concerns 22.7\% of the 282 haemodynamic targets (64 alerts) and 58.9\% of the 190 glycaemic targets (112 alerts); critical hyperglycaemia alone accounts for a quarter of the glycaemic targets.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[xbar stacked, bar width=9pt, width=0.80\textwidth, height=4.4cm,
+  xmin=0, xmax=100, xlabel={share of targets (\%)},
+  symbolic y coords={eICU glyc., Douala glyc., eICU haem., Douala haem.}, ytick=data,
+  y tick label style={font=\scriptsize}, enlarge y limits=0.18,
+  legend style={at={(0.5,1.03)}, anchor=south, legend columns=4, draw=none}]
+\addplot[fill=cGrey!25, draw=white] coordinates {(55.0,Douala haem.) (63.9,eICU haem.) (26.3,Douala glyc.) (43.4,eICU glyc.)};
+\addplot[fill=cRef!40, draw=white] coordinates {(22.3,Douala haem.) (19.3,eICU haem.) (14.7,Douala glyc.) (27.4,eICU glyc.)};
+\addplot[fill=cAfrica!50, draw=white] coordinates {(11.3,Douala haem.) (8.1,eICU haem.) (32.6,Douala glyc.) (26.4,eICU glyc.)};
+\addplot[fill=cAfrica, draw=white] coordinates {(11.3,Douala haem.) (8.7,eICU haem.) (26.3,Douala glyc.) (2.8,eICU glyc.)};
+\legend{stable, moderate, high, critical}
+\end{axis}
+\end{tikzpicture}
+\caption{Levels at the forecast targets. Douala: 282 haemodynamic and 190 glycaemic targets; eICU demonstration subset: 4\,182 and 1\,356.}\label{fig:level-distribution}
+\end{figure}
+
+\paragraph{The sourced rule against the earlier rule} The first version of this work used an unsourced rule (ESH grades, glucose cut-points of 8, 11 and 14~mmol/L, no low thresholds). On the 366 readings as transcribed, the two rules agree on 84\% of the readings (quadratically weighted $\kappa = 0.81$), and 58 readings change level (\cref{tab:rule-change}). The changes have two sources. Low values now count: 18 readings rated stable by the earlier rule are critical, 15 of them with a systolic pressure of 90~mmHg or less and 4 with a pulse of 131 or more. And the glucose bands moved to the official thresholds: the 22 readings between 14.0 and 16.7~mmol/L go from critical to high, and 11 readings of 10~mmol/L or more go from moderate to high. Capping hyperglycaemia at the high level (\cref{sec:labelling}) has a large effect: the critical glycaemic readings fall from 65 to 2.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Levels of the 366 Douala readings under the earlier rule (rows) and the sourced rule (columns).}\label{tab:rule-change}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+ & \textbf{stable} & \textbf{moderate} & \textbf{high} & \textbf{critical} & \textbf{total} \\
+\midrule
+stable   & 106 & 2  & 0   & 18  & 126 \\
+moderate & 0   & 57 & 15  & 1   & 73 \\
+high     & 0   & 0  & 63  & 0   & 63 \\
+critical & 0   & 0  & 22  & 82  & 104 \\
+\midrule
+total    & 106 & 59 & 100 & 101 & 366 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The relabelling by the partner physician, the secondary endpoint, is sized by simulation on the observed levels: 100 readings give a 95\% interval of half-width 0.10 for a weighted kappa near 0.74, and 150 readings a half-width of 0.09 for a kappa near 0.63.
+
+\subsection{The development data}
+
+The eICU demonstration subset holds 2\,520 stays of 1\,841 patients in 186 hospitals. Of these, 1\,437 stays of 1\,141 patients in 184 hospitals are eligible (hypertension 1\,200, diabetes 684, both 447). Harmonisation to the two daily slots gives 7\,269 readings in 1\,348 stays, then 4\,189 forecast samples of 817 stays, 700 patients and 174 hospitals. The rhythm is now that of the charts, but the content is not: glucose is present in 34\% of the harmonised readings against 69\% in Douala, and critical hyperglycaemia concerns 2.8\% of the glycaemic targets against 26.3\% (\cref{fig:level-distribution}). The slot tolerance matters for glucose and little for the pressures (\cref{tab:tolerance}).
+
+The values differ as well (\cref{fig:values}). Systolic pressure has almost the same distribution in both datasets: median 124~mmHg (interquartile range 108--145) in Douala and 122 (107--141) in intensive care. Diastolic pressure does not: median 82~mmHg (70--94) against 64 (55--74), a shift that the haemodynamic label inherits through its diastolic thresholds. Glucose is higher in the wards, median 11.1~mmol/L (7.2--16.6) against 7.9 (6.3--10.2), with a long tail above the critical threshold that the intensive-care readings rarely reach.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=3 by 1, horizontal sep=1.15cm}, width=0.35\textwidth, height=4.6cm,
+  ymin=0, ylabel style={font=\scriptsize}, xlabel style={font=\scriptsize}, axis lines=left,
+  every axis plot/.append style={const plot mark mid, no markers, thick}]
+\nextgroupplot[xlabel={SBP (mmHg)}, ylabel={share of readings}, xmin=60, xmax=240, xtick={90,140,180}, ymax=0.25,
+  legend to name=valueslegend, legend columns=2]
+  \addplot[cAfrica] table[x=mid, y=douala, col sep=comma] {figures/data/values_sbp.csv}; \addlegendentry{Douala charts}
+  \addplot[cRef] table[x=mid, y=eicu, col sep=comma] {figures/data/values_sbp.csv}; \addlegendentry{eICU, harmonised}
+\nextgroupplot[xlabel={DBP (mmHg)}, xmin=30, xmax=150, xtick={60,90,110}, ymax=0.38]
+  \addplot[cAfrica] table[x=mid, y=douala, col sep=comma] {figures/data/values_dbp.csv};
+  \addplot[cRef] table[x=mid, y=eicu, col sep=comma] {figures/data/values_dbp.csv};
+\nextgroupplot[xlabel={glucose (mmol/L)}, xmin=1, xmax=31, xtick={3.9,10,16.7}, xticklabels={3.9,10,16.7}, ymax=0.2]
+  \addplot[cAfrica] table[x=mid, y=douala, col sep=comma] {figures/data/values_glucose.csv};
+  \addplot[cRef] table[x=mid, y=eicu, col sep=comma] {figures/data/values_glucose.csv};
+\end{groupplot}
+\end{tikzpicture}\\[2pt]
+\pgfplotslegendfromname{valueslegend}
+\caption{Distribution of the readings in the two datasets, with the thresholds of \cref{tab:label-thresholds} on the axes. Douala: 356 systolic, 355 diastolic and 251 glucose readings; eICU: 6\,577, 6\,563 and 2\,444.}\label{fig:values}
+\end{figure}
+
+\subsection{How often the level changes}\label{sec:results-transitions}
+
+Persistence, the reference every model must beat, predicts that the next reading has the level of the current one. \Cref{fig:transitions} shows how often this holds. For the haemodynamic label the level is unchanged in 56\% of the Douala pairs and 59\% of the eICU pairs, and a reading below the alert becomes an alert in 13\% of the pairs in both datasets. An alert, however, persists more often in Douala (54\%) than in intensive care (34\%). The glycaemic label behaves differently in the wards: the level is unchanged in only 30\% of the Douala pairs, against 55\% in eICU, and a reading below the alert is followed by an alert in 43\% of the cases. Glucose in the Douala wards moves between levels from one reading to the next, which makes the glycaemic forecast harder there than in the development data, whatever the model.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=4 by 1, horizontal sep=0.55cm, yticklabels at=edge left},
+  width=0.30\textwidth, height=0.30\textwidth, enlargelimits=false, axis on top,
+  xmin=-0.5, xmax=3.5, ymin=-0.5, ymax=3.5, xtick={0,1,2,3}, ytick={0,1,2,3}, y dir=reverse,
+  xticklabels={S,M,H,C}, yticklabels={S,M,H,C}, tick label style={font=\scriptsize},
+  title style={font=\scriptsize\bfseries, text=cMain, yshift=-4pt},
+  colormap={levels}{rgb255=(255,255,255) rgb255=(170,196,222) rgb255=(70,120,175)},
+  point meta min=0, point meta max=100,
+  hm/.style={matrix plot*, mesh/cols=4, point meta={100*\thisrow{share}},
+    nodes near coords={\pgfmathprintnumber[fixed, precision=0]{\pgfplotspointmeta}},
+    nodes near coords style={font=\tiny, anchor=center}}]
+\nextgroupplot[title={haemodynamic, Douala}, ylabel={anchor level}, ylabel style={font=\scriptsize}]
+  \addplot[hm] table[x=target, y=anchor, col sep=comma] {figures/data/transitions_haemodynamic_douala.csv};
+\nextgroupplot[title={haemodynamic, eICU}]
+  \addplot[hm] table[x=target, y=anchor, col sep=comma] {figures/data/transitions_haemodynamic_eicu.csv};
+\nextgroupplot[title={glycaemic, Douala}]
+  \addplot[hm] table[x=target, y=anchor, col sep=comma] {figures/data/transitions_glycaemic_douala.csv};
+\nextgroupplot[title={glycaemic, eICU}]
+  \addplot[hm] table[x=target, y=anchor, col sep=comma] {figures/data/transitions_glycaemic_eicu.csv};
+\end{groupplot}
+\end{tikzpicture}
+\caption{Level of the target (columns) given the level of the anchor reading (rows), in percent of each row: S stable, M moderate, H high, C critical. The diagonal is what persistence predicts. Pairs where both readings carry the label: 282 and 4\,182 haemodynamic, 182 and 894 glycaemic.}\label{fig:transitions}
+\end{figure}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Effect of the slot tolerance on the eICU development samples.}\label{tab:tolerance}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Tolerance around 08:00 and 20:00} & \textbf{$\pm$ 1 h} & \textbf{$\pm$ 2 h (main)} & \textbf{$\pm$ 3 h} \\
+\midrule
+Glucose readings kept & 1\,350 & 2\,444 & 3\,331 \\
+Haemodynamic samples & 4\,018 & 4\,182 & 4\,249 \\
+Glycaemic samples & 645 & 1\,356 & 1\,983 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sample size}\label{sec:results-sample-size}
+
+\Cref{tab:sample-size} applies the criteria of \cref{sec:sampling} to both datasets. The samples of a patient are strongly correlated (intraclass correlation 0.13 to 0.32), so the effective sample sizes are three to five times smaller than the number of samples. The Douala charts cannot support a model: even the overall risk cannot be estimated to $\pm 0.05$ (270 and 372 samples needed, against 72 and 53 effective), and the budget is at most one parameter. In the development data, the haemodynamic task is well within the criteria. The glycaemic task is not: at a C statistic of 0.75, it supports about four parameters, and eight would need about 520 patients where the demonstration subset has 312. The full eICU database, about eighty times larger, removes this constraint. \Cref{fig:riley} shows how the budget depends on the discrimination anticipated: at no plausible value do the Douala charts support the eight features of the primary set.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.78\textwidth, height=5.6cm, xmin=0.6, xmax=0.85, ymin=0, ymax=38,
+  xlabel={anticipated C statistic}, ylabel={parameters allowed}, xtick={0.6,0.65,0.7,0.75,0.8,0.85},
+  axis lines=left, ymajorgrids, grid style={cGrey!18},
+  legend style={at={(0.02,0.98)}, anchor=north west, legend columns=1, fill=white, fill opacity=0.9, text opacity=1},
+  every axis plot/.append style={thick, mark size=1.6pt}]
+  \addplot[cRef, mark=*] table[x=c, y=effective, col sep=comma] {figures/data/riley_haemodynamic_eicu.csv};
+  \addplot[cRef, dashed, mark=o] table[x=c, y=effective, col sep=comma] {figures/data/riley_glycaemic_eicu.csv};
+  \addplot[cAfrica, mark=*] table[x=c, y=effective, col sep=comma] {figures/data/riley_haemodynamic_douala.csv};
+  \addplot[cAfrica, dashed, mark=o] table[x=c, y=effective, col sep=comma] {figures/data/riley_glycaemic_douala.csv};
+  \addplot[cText2, densely dotted, no markers, thin] coordinates {(0.6,8) (0.85,8)};
+  \legend{eICU haemodynamic, eICU glycaemic, Douala haemodynamic, Douala glycaemic}
+  \node[font=\scriptsize, text=cText2, anchor=south east] at (axis cs:0.85,8) {8 features (primary set)};
+\end{axis}
+\end{tikzpicture}
+\caption{Parameters allowed by the criteria of Riley et al.\ with the effective sample size, against the anticipated C statistic.}\label{fig:riley}
+\end{figure}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Sample size against the criteria of Riley et al. Parameters for an anticipated C statistic of 0.70 to 0.80.}\label{tab:sample-size}
+\begin{tabularx}{\textwidth}{@{}X cccc@{}}
+\toprule
+ & \multicolumn{2}{c}{\textbf{Douala}} & \multicolumn{2}{c}{\textbf{eICU demonstration}} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+ & \textbf{haem.} & \textbf{glyc.} & \textbf{haem.} & \textbf{glyc.} \\
+\midrule
+Samples (patients) & 282 (32) & 190 (24) & 4\,182 (699) & 1\,356 (312) \\
+Prevalence of the alert & 0.23 & 0.59 & 0.17 & 0.29 \\
+Intraclass correlation; design effect & 0.32; 3.9 & 0.31; 3.6 & 0.13; 3.2 & 0.30; 5.4 \\
+Effective sample size & 72 & 53 & 1\,292 & 251 \\
+Samples needed for the overall risk & 270 & 372 & 215 & 318 \\
+Parameters allowed, effective sample & 0--1 & 0--1 & 10--25 & 2--7 \\
+Patients needed for 8 parameters ($C = 0.75$) & $\approx 216$ & $\approx 168$ & $\approx 325$ & $\approx 518$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+% 4.2 BENCHMARK OF THE RISK MODELS -- to be written from the completed runs
+%   (out/runs/haemodynamic_0h_*, glycaemic_0h_*; 15 outer folds each).
+%   Tables: python scripts/13_results_tables.py (refuses incomplete runs) writes
+%   memoire/results/benchmark_<task>.tex, selected_<task>.tex, external_<task>.tex;
+%   insert them here with \input{results/benchmark_haemodynamic} etc.
+%   Contents: table of outer results per candidate and for the selected model
+%   (RPS, Brier, AUROC, calibration intercept/slope, net benefit at 0.1-0.3, with
+%   intervals); margin over persistence and corrected resampled t test (H1);
+%   tabular against deep temporal (H3); selected family per fold; weight
+%   sensitivity of the selection cost; results by sex, age band and hospital;
+%   figures from 08_figures.py: outer RPS, ROC, calibration, decision curves.
+%   H2: only if the 12 h and 36 h embargo runs are made (--leads 12 36).
+% 4.3 EXTERNAL VALIDATION ON THE DOUALA PATIENTS -- same runs, external/external.csv:
+%   performance as is, then after intercept update (H4), patient-bootstrap intervals.
+% 4.4 EVOLUTION OF THE PATIENT'S STATE -- out of 12_state_comparison.py:
+%   AUROC of the eight measures on the primary and secondary outcomes; measure retained.
+%--------------------------------------------------------------------------
+
+%--------------------------------------------------------------------------
+\section{System Verification}\label{sec:results-system}
+
+The system was verified by automated tests and by rendering its screens; it has not been used by patients or clinicians (\cref{tab:verification}). The test that matters most is the parity of the levels: the home triage is computed on the phone, in Dart, so that it works offline, and in Python by the worker and the risk service. A fixture generated by the Python reference---500 readings, the values on either side of every threshold and 11 verification profiles---is replayed by the application's tests, which must find the same level and the same profile status for every case.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Verification of the system.}\label{tab:verification}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} X >{\raggedright\arraybackslash}p{3.3cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Verification} & \textbf{Result} \\
+\midrule
+Research package & 171 automated tests: labelling rule, quality controls, windows, metrics, sample size, home triage, state measures, risk service, worker & all pass \\
+Sample-size port & published example of the reference implementation (623, 662 and 221 samples for the three criteria) & reproduced exactly \\
+Triage parity & 500 readings, threshold boundaries and 11 profiles, Python reference against the application & identical levels and statuses \\
+Application & 48 tests (record, events, queue order, assistant instruction, state evolution, parity); static analysis & all pass; no issue \\
+Screens & 28 renderings: light and dark themes, text enlarged to 130\% & no overflow \\
+Security rules & append-only readings, field and range validation, events and verdicts by role & written; deployment and emulator test pending \\
+Health assistant & fixed set of 22 adversarial questions against the four guardrails & set defined; run on a phone pending \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%--------------------------------------------------------------------------
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Answers to the research questions}
+
+\textbf{RQ1} asked whether the system can be built under the constraints of Cameroonian care. It was built, and each constraint is met by a design element rather than by an assumption. Intermittent connectivity is handled by the offline cache and by computing the home triage on the phone, so that a red reading brings up its warning without a network. Scarce clinician time is protected by the two-stage protocol, in which a yellow reading first asks the patient for a verification profile and only the mean of the profile reaches a clinical decision, and by a queue that puts red before yellow and the oldest first, each event closed in two or three taps. No proprietary device is needed, since any validated cuff or meter can be read by the patient. What remains open is whether patients and clinicians use it as intended, which only a pilot can measure.
+
+% RQ2 (H1, H3), RQ3 (H2), RQ4 (H4): to be answered from 4.2-4.3 once the runs are complete.
+
+\subsection{What the data imply for the transfer}
+
+The harmonisation made the two datasets alike in rhythm, not in content. Three differences remain, and each predicts a specific effect. The prevalence of the alert differs (17\% against 23\% for the haemodynamic task, 29\% against 59\% for the glycaemic task), which shifts calibration-in-the-large even for a model that ranks patients well; this is what the intercept update of H4 addresses. Critical hyperglycaemia is ten times more frequent in the Douala wards than in intensive care, so a model developed on eICU has seen few examples of the level that matters most for the glycaemic task. And glucose is measured twice as often in Douala, so the features that count glucose readings and the time since the last one have a different meaning in the two settings: in intensive care a long gap is the norm, in the ward it is not. The label uncertainty sets the expectations for all models: with more than half of the glucose readings within the device tolerance of a threshold, a glycaemic forecast will disagree with the label on many readings whatever the model.
+
+\subsection{Comparison with the literature}
+
+The study closest to this work reports an accuracy of 0.973 for XGBoost on blood pressure and glucose readings \parencite{efendi2025}; on similar data, \textcite{mendoza2025} find the same algorithm no better than chance. The difference is explained by the task, not by the algorithm: when the label is a threshold rule applied to the reading the model sees, the model recovers the rule (\cref{sec:task-not-algo}). The present work avoids this by forecasting the next reading, so the guideline rule applied to the last reading---persistence---is the reference any model must beat, and accuracy is not reported because it rewards the majority level. Its results are therefore not comparable with those figures, and are not meant to be. The reviewed telemonitoring protocol \parencite{mihevc2025} reports clinical effect, not predictive performance; the present system implements it as the rule floor, so a model can only add to it.
+
+\paragraph{The arithmetic of alert volume} Whatever the benchmark shows, the prevalence of the alert at home will be far lower than in the inpatient data. With $\pi$ the share of readings that need attention, a classifier of sensitivity Se and specificity Sp has a precision
+\begin{equation}
+  \mathrm{PPV} = \frac{\pi\,\mathrm{Se}}{\pi\,\mathrm{Se} + (1-\pi)(1-\mathrm{Sp})}.
+\end{equation}
+These formulas reproduce the precisions reported by \textcite{mendoza2025} at their prevalence of 0.303 (0.92 against 0.94 for the random forest). At a planning prevalence of 0.02, a sensitivity of 0.90 and a specificity of 0.98 give a precision of 0.48 and 19.6 false alerts per 1\,000 readings; a precision of 80\% requires a specificity above 0.995. The two-stage home protocol answers this arithmetic: a single yellow reading is queued behind the red ones and leads first to more measurements, so the clinician's decision rests on the mean of a profile rather than on one value, and only red readings call for immediate review. \Cref{fig:ppv-prevalence} shows how far the inpatient data used here are from that regime: the same classifier that is precise at the prevalence of the wards loses most of its precision at home.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.8\textwidth, height=5.6cm,
+  xlabel={share of readings that need attention, $\pi$}, ylabel={precision (PPV)},
+  xmin=0, xmax=0.3, ymin=0, ymax=1.02, axis lines=left, ymajorgrids, grid style={cGrey!18},
+  legend style={at={(0.98,0.03)}, anchor=south east, fill=white, fill opacity=0.9, text opacity=1}]
+\addplot[thick, cAfrica, domain=0.002:0.3, samples=200] {0.9*x/(0.9*x + (1-x)*0.02)};
+\addplot[thick, cRef, domain=0.002:0.3, samples=200] {0.9*x/(0.9*x + (1-x)*0.01)};
+\addplot[thick, cMain, domain=0.002:0.3, samples=200] {0.9*x/(0.9*x + (1-x)*0.005)};
+\addplot[densely dashed, cText2, domain=0:0.3, samples=2] {0.8};
+\legend{$\mathrm{Sp}=0.98$, $\mathrm{Sp}=0.99$, $\mathrm{Sp}=0.995$}
+\draw[densely dotted, thick, cText2] (axis cs:0.02,0) -- (axis cs:0.02,1.0);
+\node[font=\scriptsize, text=cText2, anchor=south west, align=left] at (axis cs:0.021,0.05) {home,\\ planning};
+\draw[densely dotted, thick, cText2] (axis cs:0.168,0) -- (axis cs:0.168,1.0);
+\draw[densely dotted, thick, cText2] (axis cs:0.227,0) -- (axis cs:0.227,1.0);
+\node[font=\scriptsize, text=cText2, anchor=south, align=center, fill=white, inner sep=1pt] at (axis cs:0.1975,0.12) {inpatient alerts:\\ eICU, Douala};
+\end{axis}
+\end{tikzpicture}
+\caption{Precision against the share of readings that need attention, at a sensitivity of 0.90. The dashed line marks a precision of 80\%. Dotted lines: the planning prevalence of 0.02 for a home deployment, and the prevalence of the haemodynamic alert at the targets of eICU (0.17) and Douala (0.23).}\label{fig:ppv-prevalence}
+\end{figure}
+
+\subsection{Limitations}\label{sec:limitations}
+
+\Cref{tab:limitations} states each limitation with its consequence and with what this work does about it.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Limitations, their consequences and the response of this work.}\label{tab:limitations}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Limitation} & \textbf{Consequence} & \textbf{Response} \\
+\midrule
+32 local patients & local estimates have wide intervals & development on eICU, validation only in Douala; patient-level intervals; read as exploratory \\
+Demonstration subset of eICU & glycaemic task below the sample-size criteria (\cref{tab:sample-size}) & primary set of 8 features; benchmark to be rerun on the full database \\
+Inpatients, not home users & prevalence and dynamics differ from home & home triage with out-of-office thresholds; model revalidated on home data before use \\
+Labels derived from thresholds & a model may learn the rule; no clinical adjudication yet & forecasting task; physician relabelling sized at 100--150 readings; clinician verdicts in deployment \\
+Unknown devices, hand transcription & up to 56\% of readings near a threshold within device tolerance & devices inferred from digits; uncertainty reported; isolated extremes flagged \\
+Diagnoses not transcribed & Douala cohort may include patients with neither condition & eligibility verified in eICU; Douala used for validation only \\
+Slot hours assumed & glycaemic samples depend on the tolerance & sensitivity analysis at $\pm$ 1 and $\pm$ 3~h \\
+Provisional choices & selection-cost weights and tier cut-points are not yet the physician's & declared in configuration; weight sensitivity; to be replaced by stated costs of errors \\
+No use by patients & no usability or effectiveness result & verified by tests; prospective pilot as future work \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% Key points of the benchmark (H1-H4) and of the state-evolution comparison: to be added
+% to the box below from sections 4.2-4.4 once the runs are complete.
+% a table float, so that it follows the limitations table
+\begin{table}[tbp]
+\begin{keypoints}[Key points of Chapter 4]
+\begin{itemize}
+  \item The Douala pressures were taken with electronic devices and the pulse read from the chart curve; the device tolerance alone can change the level of 27 to 56\% of the readings.
+  \item The sourced labelling rule changes the level of 58 of the 366 readings compared with the earlier rule, mostly through low values and the glucose bands.
+  \item eICU and Douala share the rhythm of two readings a day but not the content: diastolic pressure, glucose, its frequency and the prevalence of the alert differ.
+  \item The level of the next glucose reading equals the current one in only 30\% of the Douala pairs, so the glycaemic forecast is harder there than in the development data.
+  \item The Douala charts cannot support model development; the demonstration subset of eICU supports the haemodynamic task, not fully the glycaemic one.
+  \item The system passes 219 automated tests, including the parity of the triage on the phone with the Python reference; it has not yet been used by patients.
+\end{itemize}
+\end{keypoints}
+\end{table}

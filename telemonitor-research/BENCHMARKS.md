@@ -53,6 +53,8 @@ downloaded, place it in a folder with the same structure and point `DEMO` in
 | `10_sensitivity_flags_slots.py` | 3–4 | sensitivity to the MAD n₀ (5 / 7 / 9 readings flagged for n₀ = 10 / 20 / 40) and to the eICU slot tolerance (± 1 / 2 / 3 h → 645 / 1 356 / 1 983 glycaemic samples); option `--no-eicu` | ≈ 1 min |
 | `12_state_comparison.py` | 10b | benchmark of the 8 state-comparison measures (cosine, Euclidean, Manhattan, Chebyshev, Mahalanobis; `configs/state_compare.yaml`): AUROC for a change of level and for a new alert, eICU development, Douala external check → `out/state_comparison.csv/.json`, scales → `artifacts/state_scales.json`. Then record the chosen measure in `configs/state_compare.yaml` (`status: selected`, `selected: <measure>`) | ≈ 1 min |
 | `11_export_model.py` | 11 | exports the chosen model (the family with the lowest selection cost in the final search on all of eICU) from a **full** run to `artifacts\<task>\`, read by the service and the worker; refuses a run labelled with other thresholds | seconds |
+| `13_results_tables.py` | — | LaTeX tables of the results chapter from the saved outputs of the runs (RPS, Brier, AUROC, calibration, net benefit per candidate, difference from persistence with the corrected resampled t test; external validation on Douala) → `..\memoire\results\`; refuses an incomplete run (`--partial` for a look only, never for the thesis) | seconds |
+| `14_thesis_data_figures.py` | 2–5 | data behind the descriptive figures of the thesis (value distributions, level transitions, Riley curves, Douala timeline) → `..\memoire\figures\data\`; the per-reading Douala file it writes is ignored by git | ≈ 1 min |
 
 Examples (from `C:\Projects\telemonitor-research`):
 

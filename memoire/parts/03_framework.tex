@@ -1,0 +1,260 @@
+%==========================================================================
+% CHAPTER 2 -- RISK-TIERING FRAMEWORK
+%==========================================================================
+\chapter{Risk-Tiering Framework}\label{ch:framework}
+
+This chapter formalises the problem the system solves: turning a patient's irregular series of readings into a level of attention for the clinician. It defines the series and the samples, a label whose every threshold comes from an official source, a forecasting task in which the label cannot leak into the inputs, the decision layer that combines the guideline rule with a model, and a measure of how a patient's state evolves. \Cref{ch:methodology} instantiates each element on the data.
+
+\section{Patient Series and Samples}\label{sec:windows}\label{sec:irregular}
+
+A patient $i$ is observed through four channels $c \in \{\mathrm{SBP}, \mathrm{DBP}, \text{pulse}, \text{glucose}\}$, each sampled on its own schedule: a reading is a pair $(t, x^{(c)}_{i,t})$, and a channel may be missing at any time. The series is not resampled onto a grid: interpolating sparse home readings would invent values and understate variability, one of the quantities of interest.
+
+A sample anchored at time $t$ pairs a window of past readings with a label taken outside it:
+\begin{equation}
+  \mathcal{S}_{i,t} = \Bigl( \{x_{i,s} : t - L < s \leq t\},\; y_{i,t'} \Bigr),
+  \qquad t' = \min\{ s > t + \varepsilon \},
+\end{equation}
+where $L$ is the window length and $\varepsilon \geq 0$ an embargo that sets the lead time: the target is the first reading after $t + \varepsilon$ (\cref{fig:window-embargo}). Windows are defined in time rather than in number of readings, because every clinical reference is expressed in time---the seven-day profile, the monthly follow-up---and five readings may span four days for one patient and seven months for another. All the samples of a patient are correlated: the patient, not the sample, is the independent unit.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize]
+  \draw[thick,-{Stealth[length=2mm]}] (0,0) -- (11.4,0) node[right,font=\scriptsize]{time};
+  \fill[cRef!18] (0.6,-0.3) rectangle (5.4,0.3);
+  \node[anchor=south,font=\scriptsize,text=cRef!60!black] at (3.0,0.35) {input window, length $L$};
+  \foreach \x in {0.9,2.2,3.4,4.0,5.1} \node[circle,fill=cRef,inner sep=1.6pt] at (\x,0) {};
+  \fill[cGrey!30] (5.4,-0.3) rectangle (6.4,0.3);
+  \node[anchor=north,font=\scriptsize,text=cGrey!70!black] at (5.9,-0.35) {embargo $\varepsilon$};
+  \node[circle,fill=cAfrica,inner sep=2.2pt] at (7.5,0) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (7.5,-0.35) {target $y_{t'}$};
+  \draw[dotted] (5.4,-0.55) -- (5.4,0.55); \node[font=\scriptsize,anchor=south] at (5.4,0.55) {$t$};
+\end{tikzpicture}
+\caption{Construction of one sample: the readings of the window, the embargo and the first reading after it.}\label{fig:window-embargo}
+\end{figure}
+
+\section{A Label from Official Thresholds}\label{sec:labelling}\label{sec:label-rules}
+
+The label states how much clinical attention a reading calls for, on four ordered levels: 0 stable, 1 moderate, 2 high, 3 critical. Every threshold comes from an official source, low values count as well as high ones, and a missing channel never counts as normal (\cref{tab:label-thresholds}). Three choices need a justification. The ESH grades classify a patient's usual pressure, not one reading; they are used here as severity bands of a single reading, the repetition being carried by the window. For pressure and pulse, the National Early Warning Score~2 (NEWS2) is used only through its ``red score'', the single-parameter value that calls on its own for urgent review \parencite{rcp2017news2}: its intermediate bands have meaning only inside the aggregate score. And no accepted cut-off exists for severe hyperglycaemia; the 300~mg/dL of the official hospital-harm measure \parencite{cms871} is a convention, so a sensitivity analysis caps hyperglycaemia at the high level. Boundaries are stored in the unit of their source and converted at comparison, so that no rounding moves a reading across a level; the table is versioned, and every result records the version it was produced with.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Severity of a single reading, per channel. Pressure in mmHg, pulse in beats per minute, capillary glucose in mmol/L.}\label{tab:label-thresholds}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Level} & \textbf{Haemodynamic channels} & \textbf{Glucose} \\
+\midrule
+3 critical & SBP $\geq$ 180 or DBP $\geq$ 110, grade~3 \parencite{mancia2023}; SBP $\leq$ 90; pulse $\leq$ 40 or $\geq$ 131 \parencite{rcp2017news2} & $<$ 3.0, level~2 hypoglycaemia \parencite{ihsg2017}; $>$ 16.7 (300~mg/dL) \parencite{cms871} \\
+2 high & SBP 160--179 or DBP 100--109, grade~2 & 3.0 to $<$ 3.9, level~1 hypoglycaemia; $\geq$ 10.0 (180~mg/dL) \parencite{ada2026hospital} \\
+1 moderate & SBP 140--159 or DBP 90--99, grade~1 & $>$ 7.8 (140~mg/dL) \parencite{ada2026hospital} \\
+0 stable & otherwise & otherwise \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Within a condition the worst channel governs, and one label is computed per condition:
+\begin{equation}
+\begin{gathered}
+  y^{\mathrm{H}}_t = \max\bigl(s_{\mathrm{SBP},t}, s_{\mathrm{DBP},t}, s_{\mathrm{pulse},t}\bigr), \qquad
+  y^{\mathrm{G}}_t = s_{\mathrm{glu},t}\ \text{if glucose is measured at } t, \\
+  y_t = \max\bigl(y^{\mathrm{H}}_t, y^{\mathrm{G}}_t\bigr),
+\end{gathered}
+\end{equation}
+where $s$ is the level of a channel and the maximum runs over the labels that exist. A single label would read a missing glucose as a normal one; since glucose is ordered for some patients and not for others, the error would be systematic. The \emph{alert} of a condition is a level of high or critical. \Cref{fig:bands} draws the bands of the two channels that carry most of the alerts; both are U-shaped, with a critical level at each end.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, x=1cm, y=1cm]
+  \tikzset{lv0/.style={fill=cGrey!22}, lv1/.style={fill=cRef!40}, lv2/.style={fill=cAfrica!45}, lv3/.style={fill=cAfrica}}
+  % systolic pressure, 60 to 260 mmHg, 0.07 cm per mmHg
+  \node[anchor=east, font=\footnotesize\bfseries, text=cMain] at (-0.2,1.55) {SBP};
+  \foreach \a/\b/\s in {60/90/lv3, 90/140/lv0, 140/160/lv1, 160/180/lv2, 180/260/lv3}
+    \fill[\s] ({(\a-60)*0.07},1.3) rectangle ({(\b-60)*0.07},1.8);
+  \foreach \v in {90,140,160,180} \node[below] at ({(\v-60)*0.07},1.3) {\v};
+  \node[below, text=cText2] at (13.4,1.3) {mmHg};
+  % capillary glucose, 1 to 25 mmol/L, 14/24 cm per mmol/L
+  \node[anchor=east, font=\footnotesize\bfseries, text=cMain] at (-0.2,0.25) {Glucose};
+  \foreach \a/\b/\s in {1/3.0/lv3, 3.0/3.9/lv2, 3.9/7.8/lv0, 7.8/10/lv1, 10/16.7/lv2, 16.7/25/lv3}
+    \fill[\s] ({(\a-1)*14/24},0) rectangle ({(\b-1)*14/24},0.5);
+  \foreach \v/\l in {3.0/3.0, 3.9/3.9, 7.8/7.8, 10/10.0, 16.7/16.7} \node[below] at ({(\v-1)*14/24},0) {\l};
+  \node[below, text=cText2] at (13.4,0) {mmol/L};
+  % legend
+  \foreach \s/\l [count=\i] in {lv0/stable, lv1/moderate, lv2/high, lv3/critical} {
+    \fill[\s] ({2.2+2.4*\i},2.25) rectangle ({2.55+2.4*\i},2.5); \node[anchor=west] at ({2.6+2.4*\i},2.375) {\l};}
+\end{tikzpicture}
+\caption{Level of a single reading for systolic pressure and capillary glucose (\cref{tab:label-thresholds}). Diastolic pressure and pulse follow the same pattern with their own thresholds.}\label{fig:bands}
+\end{figure}
+
+\section{The Forecasting Task}\label{sec:principle}\label{sec:task-not-algo}\label{sec:formulation}\label{sec:dual-task}
+
+If the label is a rule applied to the current reading, $y_t = h(x_t)$, a model that sees $x_t$ only recovers the rule---the circularity of \cref{sec:lr-ml}. The legitimate task forecasts a future state from a past window,
+\begin{equation}
+  \hat{y}_{t'} = g\bigl(\{x_{i,s}\}_{t-L < s \leq t}\bigr), \qquad t' > t + \varepsilon,
+\end{equation}
+in which the label lies outside the input by construction. Its performance is lower, and that lower figure is the honest one. The comparison that matters is with \emph{persistence}, the guideline rule applied to the last reading of each channel: physiological series are strongly autocorrelated, so carrying the current level forward is a strong baseline, and the contribution of a model is its margin over it.
+
+Two formulations reach the same output, the probability $P(y_{t'} = k)$ of each level $k$, and neither is assumed better. The \textbf{direct ordinal classification} predicts the level of each condition, with a loss that respects the order of the levels. The \textbf{value forecast} predicts the value $\hat{x}^{(c)}$ of each channel at the target; with $\hat\sigma_c$ the root mean squared error of out-of-fold forecasts, the level probabilities follow by integrating the forecast distribution over the intervals of \cref{tab:label-thresholds},
+\begin{equation}
+  P\bigl(s_c = k\bigr) = \sum_{[a,b)\,:\,\text{level } k} \Bigl[\Phi\Bigl(\tfrac{b - \hat{x}^{(c)}}{\hat\sigma_c}\Bigr) - \Phi\Bigl(\tfrac{a - \hat{x}^{(c)}}{\hat\sigma_c}\Bigr)\Bigr],
+  \qquad P(y \leq k) = \prod_c P(s_c \leq k),
+\end{equation}
+the product assuming that the channel errors are independent given the inputs (\cref{fig:value-to-levels}). The value forecast gives a training signal in clinical units on every sample and survives a revision of the guidelines without retraining; the classification needs no assumption on the channels. The alert probability is $p = P(y = 2) + P(y = 3)$.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.86\textwidth, height=5.0cm,
+  xmin=80, xmax=200, ymin=0, ymax=0.048,
+  xlabel={forecast systolic pressure at the target (mmHg)}, ylabel={density},
+  ytick=\empty, axis lines=left, xtick={90,140,160,180},
+  declare function={dens(\t) = exp(-((\t-155)^2)/200)/(10*sqrt(2*pi));}]
+  \addplot[draw=none, fill=cGrey!25, domain=91:139.99, samples=60] {dens(x)} \closedcycle;
+  \addplot[draw=none, fill=cRef!35, domain=140:159.99, samples=60] {dens(x)} \closedcycle;
+  \addplot[draw=none, fill=cAfrica!40, domain=160:179.99, samples=60] {dens(x)} \closedcycle;
+  \addplot[draw=none, fill=cAfrica, domain=180:200, samples=40] {dens(x)} \closedcycle;
+  \addplot[thick, cMain, domain=80:200, samples=200] {dens(x)};
+  \draw[dashed, cMain] (axis cs:155,0) -- (axis cs:155,0.0399) node[above right, font=\scriptsize]{$\hat{x} = 155$, $\hat\sigma = 10$};
+  \draw[cText2, densely dotted] (axis cs:90,0) -- (axis cs:90,0.048);
+  \draw[cText2, densely dotted] (axis cs:140,0) -- (axis cs:140,0.048);
+  \draw[cText2, densely dotted] (axis cs:160,0) -- (axis cs:160,0.048);
+  \draw[cText2, densely dotted] (axis cs:180,0) -- (axis cs:180,0.048);
+  \node[font=\scriptsize, align=center] at (axis cs:117,0.028) {stable\\ $P = 0.07$};
+  \node[font=\scriptsize, align=center] at (axis cs:150,0.016) {moderate\\ $P = 0.62$};
+  \node[font=\scriptsize, align=center] at (axis cs:170,0.030) {high\\ $P = 0.30$};
+  \node[font=\scriptsize, align=center] at (axis cs:191,0.012) {critical\\ $P = 0.01$};
+\end{axis}
+\end{tikzpicture}
+\caption{From a value forecast to level probabilities, for one channel. The forecast distribution is cut by the thresholds of \cref{tab:label-thresholds}; each area is the probability of a level. Within a condition, the channels are then combined by their worst level.}\label{fig:value-to-levels}
+\end{figure}
+
+\section{The Decision Layer}\label{sec:tiers}\label{sec:rule-floor}\label{sec:risk-score}
+
+\subsection{Three tiers and the rule floor}
+
+The clinician needs a decision, not a probability: green (record), yellow (more measurements), red (review now). The model's alert probability is mapped to a tier by two cut-points $p_{\text{yellow}} < p_{\text{red}}$. Each cut-point is a decision threshold: alerting at $p_t$ means accepting $(1-p_t)/p_t$ false alarms per true alert. The yellow tier costs the patient extra readings and the clinician nothing, so its threshold is low; the red tier costs clinician time. Until the partner physician states the costs of errors, $p_{\text{yellow}} = 0.1$ and $p_{\text{red}} = 0.3$ are used, which accept nine and about two false alarms per true alert. The model may raise the tier set by the guideline rule, but never lower it:
+\begin{equation}
+  \text{tier}_{\text{final}} = \max\Bigl(\text{tier}_{\text{rule}}(x_{\text{last}}),\ \text{tier}_{\text{model}}(p)\Bigr), \qquad \text{green} \prec \text{yellow} \prec \text{red}.
+\end{equation}
+A patient at 185/110~mmHg is red whatever the model says, and if the model fails the system falls back to the standard of care rather than to nothing (\cref{fig:decision}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw=cMain!60, rounded corners=2pt, align=center, minimum height=9mm, text width=3.1cm, fill=white},
+  arr/.style={-{Stealth[length=2mm]}, semithick, cMain}]
+  \node[box] (last) at (0,1.1) {last reading of each channel};
+  \node[box] (win) at (0,-1.1) {readings of the window};
+  \node[box] (rule) at (4.2,1.1) {guideline rule\\ $\text{tier}_{\text{rule}}$};
+  \node[box] (model) at (4.2,-1.1) {model: alert probability $p$};
+  \node[box, fill=cMain!8, text width=2.6cm] (max) at (8.0,0) {$\max(\cdot,\cdot)$\\ final tier};
+  \draw[arr] (last) -- (rule); \draw[arr] (win) -- (model);
+  \draw[arr] (rule) -- (max); \draw[arr] (model.east) -- (max);
+  % probability scale under the model box
+  \begin{scope}[shift={(2.55,-2.55)}]
+    \fill[cGrey!30] (0,0) rectangle (0.33,0.32); \fill[orange!45] (0.33,0) rectangle (1.0,0.32); \fill[cAfrica!75] (1.0,0) rectangle (3.3,0.32);
+    \node[below, font=\scriptsize] at (0,0) {0}; \node[below, font=\scriptsize] at (0.33,0) {0.1};
+    \node[below, font=\scriptsize] at (1.0,0) {0.3}; \node[below, font=\scriptsize] at (3.3,0) {1};
+    \node[font=\scriptsize] at (0.66,0.5) {yellow}; \node[font=\scriptsize] at (2.15,0.5) {red};
+    \node[anchor=east, font=\scriptsize, text=cText2] at (-0.15,0.16) {$p \mapsto \text{tier}_{\text{model}}$};
+  \end{scope}
+  \node[align=left, anchor=west, font=\scriptsize, text=cText2] at (9.45,0) {green $\prec$ yellow\\ $\prec$ red};
+\end{tikzpicture}
+\caption{The decision layer. The model can raise the tier given by the guideline rule, never lower it; the cut-points 0.1 and 0.3 are provisional.}\label{fig:decision}
+\end{figure}
+
+\subsection{The home triage}\label{sec:triage}\label{sec:protocols}
+
+The label of \cref{tab:label-thresholds} uses in-hospital thresholds, those of the data actually collected. A home deployment substitutes the out-of-office thresholds of the only validated protocol for patients with both conditions \parencite{mihevc2025} (\cref{tab:thresholds}). The protocol is \emph{two-stage}: a yellow reading leads to a verification profile---seven days of blood pressure, two readings morning and evening with the second retained, or a one-day profile of six glucose readings---and only the mean of the profile reaches a clinical decision. Noise is thus separated from trend by increasing the number of readings rather than by lowering the threshold. The source leaves five points open, which this work decides: the more severe level applies when systolic and diastolic pressures disagree; a glucose of unknown meal status is held to the after-meal targets; the pulse keeps the NEWS2 red score; a seven-day profile is concluded only with at least six retained readings on three days, the minimum of the ESH practice guidelines \parencite{stergiou2021}, and is otherwise reported as incomplete, never as on target; and a glucose profile is done within two days of the trigger. \Cref{fig:triage-flow} shows the resulting path of a reading.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  box/.style={draw=cMain!60, rounded corners=2pt, align=center, minimum height=9mm, text width=3.0cm, fill=white},
+  gbox/.style={box, fill=cGrey!15}, ybox/.style={box, fill=orange!18}, rbox/.style={box, fill=cAfrica!15},
+  arr/.style={-{Stealth[length=2mm]}, semithick, cMain}, lab/.style={font=\scriptsize, fill=white, inner sep=1.5pt}]
+  \node[box, fill=cMain!8] (read) at (0,0) {reading at home: two BP readings, second retained; glucose with its context};
+  \node[box] (cls) at (0,-1.8) {level under the home thresholds (\cref{tab:thresholds})};
+  \node[gbox] (green) at (-4.6,-3.7) {\textbf{green}: recorded, no change};
+  \node[ybox] (yellow) at (0,-3.7) {\textbf{yellow}: queued behind red; patient asked for a verification profile};
+  \node[rbox] (red) at (4.6,-3.7) {\textbf{red}: warning on the phone at once; first in the clinician's queue};
+  \node[ybox] (prof) at (0,-5.7) {7-day BP profile (2 + 2 a day) or 6-point glucose day};
+  \node[box] (mean) at (0,-7.6) {mean of the profile against the targets};
+  \node[gbox] (ok) at (-4.6,-7.6) {on target: no change};
+  \node[box, fill=cGrey!8] (inc) at (-4.6,-9.3) {fewer than 6 readings on 3 days: \emph{incomplete}};
+  \node[rbox] (tele) at (4.6,-7.6) {above target: teleconsultation};
+  \draw[arr] (read) -- (cls);
+  \draw[arr] (cls) -| (green); \draw[arr] (cls) -- (yellow); \draw[arr] (cls) -| (red);
+  \draw[arr] (yellow) -- (prof); \draw[arr] (prof) -- (mean);
+  \draw[arr] (mean) -- (ok); \draw[arr] (mean) -- (tele); \draw[arr] (mean.south) |- (inc.east);
+  \draw[arr] (red) -- (tele);
+\end{tikzpicture}
+\caption{Path of a home reading through the two-stage triage. Only the mean of a verification profile, or a red reading, reaches a clinical decision.}\label{fig:triage-flow}
+\end{figure}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The three-level home triage of \textcite{mihevc2025}. Pressure in mmHg, glucose in mmol/L.}\label{tab:thresholds}\label{tab:triage-levels}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{1.5cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{3.9cm} X@{}}
+\toprule
+\textbf{Level} & \textbf{Blood pressure} & \textbf{Glucose} & \textbf{Action} \\
+\midrule
+Green & 110--134 / 60--84 & 4--7 before a meal; 7--10 after & no change \\
+Yellow & 135--174 / 85--104 & 7.1--10 before; 10.1--14 after & verification profile \\
+Red & $\geq$ 175 / $\geq$ 105, or $<$ 110 / $<$ 60 & $<$ 4; $>$ 10 before; $>$ 14 after & teleconsultation \\
+\midrule
+Profile mean & $\geq$ 135/85 or $<$ 110/60 & $>$ 7 before or $>$ 10 after & teleconsultation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Evolution of the Patient's State}\label{sec:state-evolution}
+
+The level answers whether a reading calls for attention; the clinician also needs to know whether the patient has changed. The state of a patient over a window is the vector of the mean of each channel, $\mathbf{s} = (\bar{x}_{\mathrm{SBP}}, \bar{x}_{\mathrm{DBP}}, \bar{x}_{\text{pulse}}, \bar{x}_{\text{glucose}})$. The current state $\mathbf{c}$ covers $(t - 24\,\text{h}, t]$ and the baseline $\mathbf{b}$ the three days before, $(t - 96\,\text{h}, t - 24\,\text{h}]$; evolution is a distance $d(\mathbf{c}, \mathbf{b})$ computed on the channels present in both (\cref{fig:state-windows}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize, x=1.3cm]
+  \draw[-{Stealth[length=2mm]}, cText2] (-0.3,0) -- (8.6,0) node[right, font=\scriptsize]{time};
+  \fill[cRef!15] (2,0.25) rectangle (6,1.35);
+  \fill[cAfrica!15] (6,0.25) rectangle (8,1.35);
+  \node[font=\scriptsize, text=cRef!70!black] at (4,1.6) {baseline $\mathbf{b}$: $(t-96\,\text{h},\, t-24\,\text{h}]$};
+  \node[font=\scriptsize, text=cAfrica] at (7,1.6) {current $\mathbf{c}$: last 24 h};
+  \foreach \x/\y in {0.4/0.75, 1.1/0.65, 2.3/0.7, 2.9/0.8, 3.4/0.72, 4.1/0.78, 4.6/0.7, 5.2/0.82, 5.8/0.75}
+    \fill[cRef] (\x,\y) circle (2pt);
+  \foreach \x/\y in {6.3/1.05, 6.9/1.12, 7.5/1.18} \fill[cAfrica] (\x,\y) circle (2.2pt);
+  \draw[cRef, thick] (2,0.75) -- (6,0.75); \draw[cAfrica, thick] (6,1.12) -- (8,1.12);
+  \foreach \x/\l in {2/{$t-96$\,h}, 6/{$t-24$\,h}, 8/$t$} { \draw[cText2] (\x,0.08) -- (\x,-0.08); \node[below, font=\scriptsize] at (\x,-0.08) {\l}; }
+  \draw[{Stealth[length=1.6mm]}-{Stealth[length=1.6mm]}, cMain] (8.25,0.75) -- node[right, font=\scriptsize]{$d(\mathbf{c},\mathbf{b})$} (8.25,1.12);
+\end{tikzpicture}
+\caption{The two windows compared for one channel. Each window is summarised by its mean; the four channel means form the state vectors $\mathbf{c}$ and $\mathbf{b}$.}\label{fig:state-windows}
+\end{figure}
+
+Cosine similarity compares directions, not sizes: if every channel rises by half, $\mathbf{c} = 1.5\,\mathbf{b}$ and the cosine distance is zero, so a patient whose pressures and pulse rise together appears unchanged. On raw values it is also dominated by the channel with the largest unit, and its behaviour depends on how the vectors are scaled \parencite{steck2024}. No measure is therefore assumed: the candidates (\cref{tab:state-measures}) are the lock-step measures of the benchmark of \textcite{wang2013timeseries}, plus two families for monitoring an individual: scaling each change by the patient's own variability, the idea of the reference change value of laboratory medicine \parencite{fraser1989}, and the Mahalanobis distance \parencite{mahalanobis1936}, the statistic of multivariate control charts for individual observations \parencite{tracy1992}. Elastic measures such as dynamic time warping align sequences; a state is a vector of four means, so they do not apply.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Candidate measures of the change between current state and baseline, from the simplest. $\sigma_j$: between-patient SD of channel $j$; $\sigma_{ij}$: SD of patient $i$, shrunk towards the pooled within-patient SD; $\Sigma$: pooled within-patient covariance of changes.}\label{tab:state-measures}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{4.6cm} X@{}}
+\toprule
+\textbf{Measure} & \textbf{Definition} & \textbf{Property} \\
+\midrule
+Cosine & $1 - \mathbf{c}\cdot\mathbf{b}/(\lVert\mathbf{c}\rVert\lVert\mathbf{b}\rVert)$ & blind to a common change of size \\
+Euclidean, raw & $\lVert\mathbf{c} - \mathbf{b}\rVert$ & dominated by the largest unit \\
+Euclidean, cohort scale & $\lVert(\mathbf{c} - \mathbf{b})/\boldsymbol{\sigma}\rVert$ & one scale for all patients \\
+Cosine, centred & cosine of the deviations from the cohort mean & direction of the deviation \\
+Euclidean, patient scale & $\lVert(\mathbf{c} - \mathbf{b})/\boldsymbol{\sigma}_i\rVert$ & change against own variability \\
+Manhattan, patient scale & $\sum_j \lvert c_j - b_j\rvert/\sigma_{ij}$ & less weight to one large change \\
+Chebyshev, patient scale & $\max_j \lvert c_j - b_j\rvert/\sigma_{ij}$ & the largest single change \\
+Mahalanobis & $\sqrt{(\mathbf{c} - \mathbf{b})^{\top}\Sigma^{-1}(\mathbf{c} - \mathbf{b})}$ & correlated channels counted once \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{keypoints}[Key points of Chapter 2]
+\begin{itemize}
+  \item One label per condition, on four ordered levels; every threshold comes from an official source, and a missing channel never counts as normal.
+  \item The task forecasts the level of the next reading from a past window, so the label cannot leak into the inputs; persistence is the baseline to beat.
+  \item Ordinal classification and value forecasting give the same output and are compared, not chosen in advance.
+  \item The model may raise the tier of the guideline rule, never lower it; at home, a yellow reading leads to a verification profile.
+  \item Eight measures of state evolution are candidates; the benchmark of \cref{ch:methodology} selects one.
+\end{itemize}
+\end{keypoints}
