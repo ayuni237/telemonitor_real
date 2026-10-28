@@ -79,7 +79,7 @@ def benchmark_table(task: str, s: pd.DataFrame, caption_extra: str) -> str:
             rows.append(r"\addlinespace")
     folds = int(s["folds"].max())
     return "\n".join([
-        r"\begin{table}[htbp]", r"\centering\footnotesize",
+        r"\begin{table}[htbp]", r"\centering\footnotesize\setlength{\tabcolsep}{4pt}",
         rf"\caption{{Outer-fold results, {task} task: mean (SD) over {folds} outer folds{caption_extra}. "
         r"$\Delta$RPS: difference with persistence (negative is better); $p$: corrected resampled $t$ test. "
         r"Net benefit averaged over the thresholds 0.1 to 0.3.}" + rf"\label{{tab:bench-{task}}}",
@@ -136,7 +136,9 @@ if __name__ == "__main__":
     if not runs:
         raise SystemExit("no recorded run in out/runs")
     a.out.mkdir(parents=True, exist_ok=True)
-    summary = {}
+    # one run per call is allowed: keep the other tasks already written
+    sfile = a.out / "summary.json"
+    summary = json.loads(sfile.read_text(encoding="utf8")) if sfile.exists() else {}
     for run in runs:
         man = json.loads((run / "manifest.json").read_text())
         task, prog = man["inputs"]["task"], man.get("progress", {})
@@ -160,4 +162,4 @@ if __name__ == "__main__":
             summary[task]["external"] = ext.to_dict("records")
         print(f"{run.name}: tables written to {a.out}")
     if summary:
-        (a.out / "summary.json").write_text(json.dumps(summary, indent=1, default=float), encoding="utf8")
+        sfile.write_text(json.dumps(summary, indent=1, default=float), encoding="utf8")

@@ -92,7 +92,7 @@ python parts/build.py
 pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_restructure.tex; pdflatex memoire_restructure.tex
 ```
 
-The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` from completed benchmark runs only.
+The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` and `scripts/15_results_details.py` from completed benchmark runs only.
 
 ## Status
 
@@ -103,8 +103,8 @@ The thesis follows the structure required by the school (unnumbered Introduction
 | Offline guideline rule on the phone | Sensor prototype (ESP32) and MQTT transport |
 | Local risk service sharing the research code | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
-| Research pipeline; data description and sample size (Douala, eICU demo) | Benchmark on the full eICU database (credentialed access) |
-| Thesis (70 pages): introduction, review, framework, methodology, data results, system verification | Benchmark results (runs in progress), abstract, acknowledgments |
+| Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
+| Thesis (82 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2) |
 
 ## Data
 
@@ -117,7 +117,7 @@ The thesis follows the structure required by the school (unnumbered Introduction
 |---|---|
 | [`telemonitor-research/RESEARCH_PLAN.md`](telemonitor-research/RESEARCH_PLAN.md) | Step-by-step plan, standing decisions and the register of incoherences found and fixed |
 | [`telemonitor-research/BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md) | How to rerun every analysis |
-| [`memoire/memoire_restructure.pdf`](memoire/memoire_restructure.pdf) | Current version of the thesis (draft; benchmark results to come) |
+| [`memoire/memoire_restructure.pdf`](memoire/memoire_restructure.pdf) | Current version of the thesis (draft under review) |
 | [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) | Plan of the thesis, page budget and what remains to write |
 
 ## Author

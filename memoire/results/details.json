@@ -1,0 +1,260 @@
+{
+ "haemodynamic": {
+  "run": "haemodynamic_0h_7472a36df1",
+  "family": "catboost",
+  "subgroups": [
+   {
+    "subgroup": "All",
+    "model": "persistence",
+    "n": 4182.0,
+    "rps": 0.1380245082478018,
+    "auroc": 0.6344279071290566
+   },
+   {
+    "subgroup": "Sex F",
+    "model": "persistence",
+    "n": 1690.0,
+    "rps": 0.14912480318220955,
+    "auroc": 0.6439013491793548
+   },
+   {
+    "subgroup": "Sex M",
+    "model": "persistence",
+    "n": 2492.0,
+    "rps": 0.13049661962856055,
+    "auroc": 0.6243145492831917
+   },
+   {
+    "subgroup": "Age under 65",
+    "model": "persistence",
+    "n": 1283.0,
+    "rps": 0.14564323254241815,
+    "auroc": 0.673481587757054
+   },
+   {
+    "subgroup": "Age 65 and over",
+    "model": "persistence",
+    "n": 2899.0,
+    "rps": 0.13465271684732136,
+    "auroc": 0.6131247112528216
+   },
+   {
+    "subgroup": "All",
+    "model": "catboost",
+    "n": 4182.0,
+    "rps": 0.13370073058731016,
+    "auroc": 0.6664815087707808
+   },
+   {
+    "subgroup": "Sex F",
+    "model": "catboost",
+    "n": 1690.0,
+    "rps": 0.144421861697101,
+    "auroc": 0.6815767769530199
+   },
+   {
+    "subgroup": "Sex M",
+    "model": "catboost",
+    "n": 2492.0,
+    "rps": 0.1264299795537843,
+    "auroc": 0.6512723278488805
+   },
+   {
+    "subgroup": "Age under 65",
+    "model": "catboost",
+    "n": 1283.0,
+    "rps": 0.14109637225550423,
+    "auroc": 0.7005707520913204
+   },
+   {
+    "subgroup": "Age 65 and over",
+    "model": "catboost",
+    "n": 2899.0,
+    "rps": 0.1304276680622005,
+    "auroc": 0.6459124769899917
+   }
+  ],
+  "hospitals_better": 36,
+  "hospitals": 49,
+  "weight_share_first": {
+   "catboost": 0.515,
+   "forest": 0.286,
+   "grud": 0.088,
+   "value_catboost": 0.056,
+   "lstm": 0.055,
+   "pca_logistic": 0.0,
+   "ordinal_logistic": 0.0,
+   "value_ridge": 0.0
+  },
+  "p_vs_persistence": 0.0016174248168443043,
+  "importance": {
+   "douala": [
+    {
+     "group": "pressure",
+     "importance": 0.04987863629318226,
+     "sd": 0.005381198301988283
+    },
+    {
+     "group": "pulse",
+     "importance": 0.003695547518263523,
+     "sd": 0.00105742096807104
+    },
+    {
+     "group": "glucose",
+     "importance": 0.0007186970323185438,
+     "sd": 0.0014498338429710688
+    },
+    {
+     "group": "static",
+     "importance": -0.0018961589045573934,
+     "sd": 0.0008886274700665479
+    }
+   ],
+   "eicu": [
+    {
+     "group": "pressure",
+     "importance": 0.03499420646172326,
+     "sd": 0.0013312135199223904
+    },
+    {
+     "group": "pulse",
+     "importance": 0.004527902182488765,
+     "sd": 0.0002877746233142488
+    },
+    {
+     "group": "static",
+     "importance": 0.0029062177360326515,
+     "sd": 0.0001867465205844274
+    },
+    {
+     "group": "glucose",
+     "importance": 0.002215375723131456,
+     "sd": 0.00016885424663152178
+    }
+   ],
+   "shap": [
+    {
+     "feature": "sbp_last",
+     "mean_abs_shap": 1.9991872023396904
+    },
+    {
+     "feature": "hr_last",
+     "mean_abs_shap": 0.3189942424952158
+    },
+    {
+     "feature": "dbp_last",
+     "mean_abs_shap": 0.28093072779053135
+    },
+    {
+     "feature": "age",
+     "mean_abs_shap": 0.266086681549702
+    },
+    {
+     "feature": "glucose_last",
+     "mean_abs_shap": 0.14772323903434809
+    },
+    {
+     "feature": "glucose_n",
+     "mean_abs_shap": 0.12278409173028332
+    },
+    {
+     "feature": "sbp_slope",
+     "mean_abs_shap": 0.0
+    },
+    {
+     "feature": "glucose_slope",
+     "mean_abs_shap": 0.0
+    }
+   ]
+  }
+ },
+ "glycaemic": {
+  "run": "glycaemic_0h_8cce0579ad",
+  "family": "grud",
+  "subgroups": [
+   {
+    "subgroup": "All",
+    "model": "persistence",
+    "n": 1356.0,
+    "rps": 0.13230325669884055,
+    "auroc": 0.723969293630752
+   },
+   {
+    "subgroup": "Sex F",
+    "model": "persistence",
+    "n": 491.0,
+    "rps": 0.1399049423685298,
+    "auroc": 0.6910233085482255
+   },
+   {
+    "subgroup": "Sex M",
+    "model": "persistence",
+    "n": 865.0,
+    "rps": 0.127988311422751,
+    "auroc": 0.7440943427389209
+   },
+   {
+    "subgroup": "Age under 65",
+    "model": "persistence",
+    "n": 393.0,
+    "rps": 0.12049535608198288,
+    "auroc": 0.7353703049570234
+   },
+   {
+    "subgroup": "Age 65 and over",
+    "model": "persistence",
+    "n": 963.0,
+    "rps": 0.13712205726210644,
+    "auroc": 0.7165775043242899
+   },
+   {
+    "subgroup": "All",
+    "model": "grud",
+    "n": 1356.0,
+    "rps": 0.12714446918169905,
+    "auroc": 0.7778943953423121
+   },
+   {
+    "subgroup": "Sex F",
+    "model": "grud",
+    "n": 491.0,
+    "rps": 0.131422701375023,
+    "auroc": 0.7592878236565944
+   },
+   {
+    "subgroup": "Sex M",
+    "model": "grud",
+    "n": 865.0,
+    "rps": 0.12471601599450592,
+    "auroc": 0.7895043376971088
+   },
+   {
+    "subgroup": "Age under 65",
+    "model": "grud",
+    "n": 393.0,
+    "rps": 0.11846881604371395,
+    "auroc": 0.7888614152831744
+   },
+   {
+    "subgroup": "Age 65 and over",
+    "model": "grud",
+    "n": 963.0,
+    "rps": 0.1306850005246151,
+    "auroc": 0.7705282492396944
+   }
+  ],
+  "hospitals_better": 5,
+  "hospitals": 7,
+  "weight_share_first": {
+   "grud": 0.857,
+   "ordinal_logistic": 0.123,
+   "forest": 0.02,
+   "pca_logistic": 0.0,
+   "catboost": 0.0,
+   "value_ridge": 0.0,
+   "value_catboost": 0.0,
+   "lstm": 0.0
+  },
+  "p_vs_persistence": 0.1383851608875204
+ }
+}

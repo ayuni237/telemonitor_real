@@ -1,0 +1,17 @@
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Outer-fold results by subgroup, haemodynamic task: persistence against the deployed family (CatBoost). Each repeat pools its five outer folds; mean of the three repeats; $n$: targets per repeat. In 36 of the 49 hospitals with at least 30 targets, CatBoost has a lower RPS than persistence.}\label{tab:subgroups-haemodynamic}
+\begin{tabular}{@{}lrccccc@{}}
+\toprule
+ & & \multicolumn{3}{c}{\textbf{RPS}} & \multicolumn{2}{c}{\textbf{AUROC}} \\
+\cmidrule(lr){3-5}\cmidrule(l){6-7}
+\textbf{Subgroup} & \textbf{$n$} & \textbf{Persist.} & \textbf{CatBoost} & \textbf{$\Delta$} & \textbf{Persist.} & \textbf{CatBoost} \\
+\midrule
+All & 4182 & 0.1380 & 0.1337 & $-$0.0043 & 0.634 & 0.666 \\
+Sex F & 1690 & 0.1491 & 0.1444 & $-$0.0047 & 0.644 & 0.682 \\
+Sex M & 2492 & 0.1305 & 0.1264 & $-$0.0041 & 0.624 & 0.651 \\
+Age under 65 & 1283 & 0.1456 & 0.1411 & $-$0.0045 & 0.673 & 0.701 \\
+Age 65 and over & 2899 & 0.1347 & 0.1304 & $-$0.0042 & 0.613 & 0.646 \\
+\bottomrule
+\end{tabular}
+\end{table}

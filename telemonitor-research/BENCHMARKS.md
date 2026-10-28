@@ -55,6 +55,7 @@ downloaded, place it in a folder with the same structure and point `DEMO` in
 | `11_export_model.py` | 11 | exports the chosen model (the family with the lowest selection cost in the final search on all of eICU) from a **full** run to `artifacts\<task>\`, read by the service and the worker; refuses a run labelled with other thresholds | seconds |
 | `13_results_tables.py` | — | LaTeX tables of the results chapter from the saved outputs of the runs (RPS, Brier, AUROC, calibration, net benefit per candidate, difference from persistence with the corrected resampled t test; external validation on Douala) → `..\memoire\results\`; refuses an incomplete run (`--partial` for a look only, never for the thesis) | seconds |
 | `14_thesis_data_figures.py` | 2–5 | data behind the descriptive figures of the thesis (value distributions, level transitions, Riley curves, Douala timeline) → `..\memoire\figures\data\`; the per-reading Douala file it writes is ignored by git | ≈ 1 min |
+| `15_results_details.py` | 8–9 | secondary results from the saved outputs: outer results by sex, age band and hospital for persistence and the deployed family; stability of the family choice under 1 000 random weightings of the selection cost; grouped permutation importance and tree SHAP for a deployed model that beats persistence; data of the results figures → `..\memoireesults\`, `..\memoireigures\data\`. Run after `11_export_model.py` | ≈ 2 min |
 
 Examples (from `C:\Projects\telemonitor-research`):
 

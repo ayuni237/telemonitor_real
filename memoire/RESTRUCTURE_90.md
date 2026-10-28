@@ -18,34 +18,38 @@ Decisions of 27 October 2026:
 8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
    unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
 
-## 0. Status on 27 October 2026
+## 0. Status on 28 October 2026
 
 Written and compiling without errors or undefined references: `memoire_restructure.pdf`,
-**70 pages** (`python parts/build.py`, then `pdflatex`, `biber`, `pdflatex` ×2). The data
-figures read CSV files written by `scripts/14_thesis_data_figures.py` into `figures/data/`;
-the per-reading Douala file there is ignored by git and must be regenerated on a new machine.
+**82 pages** (`python parts/build.py`, then `pdflatex`, `biber`, `pdflatex` ×2). The benchmark
+runs are complete (`haemodynamic_0h_7472a36df1`, `glycaemic_0h_8cce0579ad`, 15 outer folds
+each) and sections 4.2–4.4, the answers to RQ2–RQ4, the key points, the conclusion, the
+Abstract and the Résumé are written from them.
+
+Every number of chapter 4 comes from a script of `telemonitor-research`:
+
+| Output | Script | Where |
+|---|---|---|
+| benchmark, selected family per fold, external validation | `13_results_tables.py` | `results/benchmark_*`, `selected_*`, `external_*` |
+| subgroups, weight stability, importance, figure data | `15_results_details.py` | `results/subgroups_*`, `weights`, `importance_*`; `figures/data/` |
+| deployed models | `11_export_model.py` | `artifacts/<task>/` (CatBoost, GRU-D) |
+| state-evolution measures | `12_state_comparison.py` | `out/state_comparison.csv`; `configs/state_compare.yaml` |
+| descriptive figures | `14_thesis_data_figures.py` | `figures/data/` (the per-reading Douala file is ignored by git) |
 
 | Part | File | Pages now | Budget |
 |---|---|---|---|
-| Front matter (title, declaration, contents, acronyms, lists) | `00_front.tex` | 10 | 12 |
+| Front matter (title, declaration, abstract, résumé, contents, acronyms, lists) | `00_front.tex` | 13 | 12 |
 | Introduction | `01_introduction.tex` | 4 | 4 |
 | Ch.1 Literature review | `02_review.tex` | 11 | 14 |
 | Ch.2 Risk-tiering framework | `03_framework.tex` | 6 | 5 |
 | Ch.3 Methodology and system | `04_methodology.tex` | 14 | 18 |
-| Ch.4 Results and discussion | `05_results.tex` | 9 (4.2–4.4 to come) | 17 |
-| Conclusion | `06_conclusion.tex` | 2 | 3 |
+| Ch.4 Results and discussion | `05_results.tex` | 17 | 17 |
+| Conclusion | `06_conclusion.tex` | 3 | 3 |
 | References | (biblatex) | 5 | 7 |
 | Appendices A–E | `07_appendices.tex` | 9 | 10 |
 
-Expected once 4.2–4.4, the Abstract, the Résumé and the acknowledgments are in: about 80 pages.
-
-Still to write, in this order:
-1. **4.2–4.4** (benchmark, external validation, state evolution): the slots are marked by
-   comments in `05_results.tex`. Tables come from `scripts/13_results_tables.py` in
-   telemonitor-research, which refuses incomplete runs (`--partial` only for a look).
-2. Answers to RQ2–RQ4 in 4.3.1, and the benchmark findings in the Conclusion (comments mark
-   both places).
-3. Acknowledgments, Abstract and Résumé (front matter), once the results are final.
+Still missing: the acknowledgments (after the Declaration) and, if you want them, the logos.
+H2 (24 and 48 hours ahead) is reported as not tested.
 
 The old 125-page chapters are kept in `parts/archive_125p/` (not built). The preamble loads the
 XCharter, Fira and newtx font maps itself, because MiKTeX had not registered them.
@@ -113,16 +117,10 @@ hand), as for the figures.
 
 ## 4. What you need to do
 
-1. Resume the benchmarks: `powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchmarks.ps1`
-   (about one more day for the glycaemic task, two to three days for the haemodynamic task).
-2. Run the state-evolution benchmark: `python scripts\12_state_comparison.py` from
-   `C:\Projects\telemonitor-research`.
-3. When both runs say `complete`: `python scripts\08_figures.py --all` and
-   `python scripts\13_results_tables.py` (figures in each run folder, tables in
-   `memoire\results\`). Then tell me, and I write 4.2–4.4 from them.
-4. Optional, for H2: `python scripts\06_benchmark.py --leads 12 36` (otherwise H2 is
-   reported as not tested).
-5. Send the logos of the University of Douala and of NHPSD (PNG), if you want them on the
-   title page.
-6. Confirm the academic year (2025–2026 assumed) and the full names and titles of your
-   supervisors; send the acknowledgments you want.
+1. Read the thesis and tell me what to cut or change.
+2. Send the acknowledgments, and the logos of the University of Douala and of NHPSD (PNG)
+   if you want them on the title page; confirm the academic year (2025–2026 assumed).
+3. Optional, for H2: `powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windowserun_benchmarks.ps1 -Leads "12 36"`
+   (otherwise H2 stays reported as not tested).
+4. If the risk service or the worker is running, restart it: it now loads the exported
+   models and the selected state measure.

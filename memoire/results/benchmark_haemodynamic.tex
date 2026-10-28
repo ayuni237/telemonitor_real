@@ -1,0 +1,22 @@
+\begin{table}[htbp]
+\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\caption{Outer-fold results, haemodynamic task: mean (SD) over 15 outer folds. $\Delta$RPS: difference with persistence (negative is better); $p$: corrected resampled $t$ test. Net benefit averaged over the thresholds 0.1 to 0.3.}\label{tab:bench-haemodynamic}
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+\textbf{Model} & \textbf{RPS} & \textbf{$\Delta$RPS} & \textbf{$p$} & \textbf{Brier} & \textbf{AUROC} & \textbf{Int.} & \textbf{Slope} & \textbf{NB} \\
+\midrule
+Prior & 0.1504 (0.0090) & +0.0119 & $<0.001$ & 0.140 & 0.500 (0.00) & $-$0.01 & 0.72 & 0.025 \\
+Persistence & 0.1384 (0.0082) & -- & -- & 0.133 & 0.648 (0.03) & $-$0.01 & 0.99 & 0.038 \\
+\addlinespace
+Ordinal logistic & 0.1391 (0.0087) & +0.0007 & 0.727 & 0.134 & 0.616 (0.04) & 0.07 & 0.67 & 0.036 \\
+Logistic on PCA & 0.1437 (0.0103) & +0.0052 & 0.034 & 0.137 & 0.595 (0.03) & 0.05 & 0.84 & 0.030 \\
+Random forest & 0.1339 (0.0074) & $-$0.0045 & 0.004 & 0.130 & 0.678 (0.03) & 0.02 & 1.02 & 0.043 \\
+CatBoost & 0.1341 (0.0077) & $-$0.0043 & 0.002 & 0.131 & 0.668 (0.03) & 0.02 & 1.02 & 0.042 \\
+Value forecast (ridge) & 0.1342 (0.0081) & $-$0.0042 & 0.004 & 0.131 & 0.677 (0.04) & $-$0.02 & 0.92 & 0.045 \\
+Value forecast (CatBoost) & 0.1349 (0.0074) & $-$0.0036 & 0.003 & 0.131 & 0.667 (0.04) & $-$0.03 & 1.03 & 0.042 \\
+GRU-D & 0.1348 (0.0089) & $-$0.0036 & 0.121 & 0.131 & 0.658 (0.03) & 0.07 & 0.77 & 0.043 \\
+Masked LSTM & 0.1339 (0.0083) & $-$0.0046 & 0.049 & 0.129 & 0.668 (0.03) & 0.08 & 0.81 & 0.044 \\
+Selected (procedure) & 0.1345 (0.0079) & $-$0.0039 & 0.035 & 0.131 & 0.665 (0.03) & 0.01 & 0.88 & 0.042 \\
+\bottomrule
+\end{tabular}
+\end{table}

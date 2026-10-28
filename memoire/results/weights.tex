@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Stability of the choice of family, final search on all eICU: selection cost with equal weights (lower is better), and share of 1\,000 random weightings (uniform Dirichlet) under which the family has the lowest cost.}\label{tab:weights}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+ & \multicolumn{2}{c}{\textbf{Haemodynamic}} & \multicolumn{2}{c}{\textbf{Glycaemic}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Family} & \textbf{Cost} & \textbf{First} & \textbf{Cost} & \textbf{First} \\
+\midrule
+CatBoost & $-$0.59 & 52\% & $-$0.59 & 0\% \\
+Random forest & $-$0.57 & 29\% & $-$0.42 & 2\% \\
+Masked LSTM & $-$0.25 & 6\% & $-$0.36 & 0\% \\
+Value forecast (ridge) & $-$0.21 & 0\% & 2.80 & 0\% \\
+Value forecast (CatBoost) & $-$0.13 & 6\% & 3.84 & 0\% \\
+GRU-D & 0.11 & 9\% & $-$0.88 & 86\% \\
+Ordinal logistic & 5.32 & 0\% & $-$0.15 & 12\% \\
+Logistic on PCA & 7.03 & 0\% & 0.68 & 0\% \\
+\bottomrule
+\end{tabular}
+\end{table}

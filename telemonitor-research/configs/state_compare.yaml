@@ -26,5 +26,5 @@ secondary_outcome: new_alert      # baseline state below high, target high or cr
 bootstrap: 1000
 seed: 20261021
 
-status: pending                   # set to "selected" once the script has been run
-selected: null                    # measure used by the risk service (evolution block)
+status: selected                  # scripts/12_state_comparison.py, 2026-10-28
+selected: euclidean_raw           # measure used by the risk service (evolution block); best: mahalanobis

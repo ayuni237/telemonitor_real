@@ -146,9 +146,8 @@
 
 \begin{document}
 
-% Front matter: title page, declaration, contents, acronyms, lists.
-% Acknowledgments, Abstract and Résumé are added when the author sends the acknowledgments
-% and the results are final.
+% Front matter: title page, declaration, abstract, résumé, contents, acronyms, lists.
+% Acknowledgments: added after the Declaration when the author sends them.
 \begin{titlepage}
 % institutional band, bilingual as in Cameroonian university documents (logo space in the middle)
 \begin{tikzpicture}[remember picture,overlay]
@@ -212,6 +211,24 @@ Signed: & \rule{6cm}{0.4pt}\\[0.9cm]
 Date: & \rule{6cm}{0.4pt}\\[0.9cm]
 Place: & \rule{6cm}{0.4pt}
 \end{tabular}
+
+% Abstract and Résumé: every number from chapter 4 (scripts 13 and 15 of telemonitor-research)
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Hypertension and type~2 diabetes are common in Cameroon, and the follow-up of patients between consultations is fragmented. This thesis designs a telemonitoring system for patients with either or both conditions and evaluates its predictive component. The system comprises a patient application and a clinician view built with Flutter on Firebase, a guideline rule that grades every reading on four levels offline on the phone, a two-stage home triage in which a single elevated reading first prompts repeated measurements, and a server worker for escalation, reminders and notifications; it passes 219 automated tests. The predictive component forecasts the risk level of the next reading, so that the label, derived from official thresholds, never enters the inputs, and the guideline rule applied to the last reading (persistence) is the baseline. Eight model families were compared in a nested cross-validation grouped by hospital on the eICU demonstration database (4\,182 haemodynamic and 1\,356 glycaemic samples, 174 hospitals), and validated externally on 366 readings of 32 inpatients of a public hospital in Douala. On blood pressure, five of the eight families forecast significantly better than persistence; the deployed CatBoost model lowers the ranked probability score from 0.1384 to 0.1341 ($p = 0.002$), a gain of about 3\%. On glucose, no family does so significantly (GRU-D 0.1275 against 0.1329, $p = 0.14$). Deep temporal models did not outperform tree ensembles. On the Douala patients, every model lost accuracy and under-predicted the alert; updating the intercept corrected the offset but not the slopes, and no model improved the alert decisions over the rule. Measures of the change in the patient's state discriminated weakly (AUROC at most 0.60). These results support a design in which the guideline rule is the floor and a model may only raise the alert level, and they call for revalidation on home data before any clinical use.
+
+\medskip
+\textbf{\sffamily\color{cMain}Keywords:} telemonitoring; hypertension; type~2 diabetes; risk prediction; external validation; mobile health; Cameroon.
+
+% French text without the French hyphenation patterns (not installed): no hyphenation,
+% thin spaces before the high punctuation set by hand
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+{\hyphenpenalty=10000\exhyphenpenalty=10000\emergencystretch=3em
+L'hypertension artérielle et le diabète de type~2 sont fréquents au Cameroun, et le suivi des patients entre deux consultations est fragmenté. Ce mémoire conçoit un système de télésurveillance pour les patients atteints de l'une ou des deux affections et évalue sa composante prédictive. Le système comprend une application patient et une vue clinicien développées avec Flutter sur Firebase, une règle issue des recommandations qui classe chaque mesure en quatre niveaux, hors connexion, sur le téléphone, un triage à domicile en deux étapes dans lequel une mesure élevée isolée déclenche d'abord des mesures répétées, et un service serveur pour l'escalade, les rappels et les notifications\,; il passe 219 tests automatisés. La composante prédictive prévoit le niveau de risque de la mesure suivante, de sorte que l'étiquette, dérivée de seuils officiels, n'entre jamais dans les variables d'entrée, et la règle appliquée à la dernière mesure (persistance) sert de référence. Huit familles de modèles ont été comparées par validation croisée imbriquée, groupée par hôpital, sur la base de démonstration eICU (4\,182 échantillons hémodynamiques et 1\,356 glycémiques, 174 hôpitaux), puis validées sur 366 mesures de 32 patients hospitalisés dans un hôpital public de Douala. Pour la pression artérielle, cinq familles sur huit prévoient significativement mieux que la persistance\,; le modèle CatBoost retenu abaisse le score de probabilité ordonné (RPS) de 0,1384 à 0,1341 ($p = 0{,}002$), soit un gain d'environ 3\,\%. Pour la glycémie, aucune famille n'y parvient de façon significative (GRU-D 0,1275 contre 0,1329, $p = 0{,}14$). Les modèles temporels profonds n'ont pas surpassé les ensembles d'arbres. Sur les patients de Douala, tous les modèles ont perdu en exactitude et sous-estimé l'alerte\,; la mise à jour de l'intercept a corrigé ce décalage mais pas les pentes, et aucun modèle n'a amélioré les décisions d'alerte par rapport à la règle. Les mesures de l'évolution de l'état du patient discriminent faiblement (AUROC au plus 0,60). Ces résultats confortent une conception dans laquelle la règle fixe le niveau minimal et un modèle ne peut que relever l'alerte, et ils imposent une revalidation sur des données recueillies à domicile avant tout usage clinique.
+
+\medskip
+\textbf{\sffamily\color{cMain}Mots-clés\,:} télésurveillance\,; hypertension artérielle\,; diabète de type~2\,; prédiction du risque\,; validation externe\,; santé mobile\,; Cameroun.\par}
 
 \cleardoublepage
 \phantomsection\addcontentsline{toc}{chapter}{Contents}
@@ -1542,8 +1559,9 @@ The eICU data are de-identified and distributed by PhysioNet under its terms \pa
 %   4.1  scripts/01_douala_audit.py (out/audit_cohort.json), 02_label_rules.py,
 %        04_sample_size.py, 05_eicu_cohort.py, 09_kappa_sample_size.py,
 %        10_sensitivity_flags_slots.py
-%   4.2-4.3  out/runs/<task>_0h_<hash>/ (06_benchmark.py), figures by 08_figures.py
-%   4.4  12_state_comparison.py
+%   4.2-4.3  out/runs/<task>_0h_<hash>/ (06_benchmark.py); tables by 13_results_tables.py and
+%        15_results_details.py (results/), figure data by 15 (figures/data/)
+%   4.4  12_state_comparison.py (out/state_comparison.csv), figure data by 15
 %   4.5  pytest (telemonitor-research), flutter test / flutter analyze (telemonitor)
 \chapter{Results and Discussion}\label{ch:results}
 
@@ -1791,23 +1809,161 @@ Patients needed for 8 parameters ($C = 0.75$) & $\approx 216$ & $\approx 168$ & 
 \end{table}
 
 %--------------------------------------------------------------------------
-% 4.2 BENCHMARK OF THE RISK MODELS -- to be written from the completed runs
-%   (out/runs/haemodynamic_0h_*, glycaemic_0h_*; 15 outer folds each).
-%   Tables: python scripts/13_results_tables.py (refuses incomplete runs) writes
-%   memoire/results/benchmark_<task>.tex, selected_<task>.tex, external_<task>.tex;
-%   insert them here with \input{results/benchmark_haemodynamic} etc.
-%   Contents: table of outer results per candidate and for the selected model
-%   (RPS, Brier, AUROC, calibration intercept/slope, net benefit at 0.1-0.3, with
-%   intervals); margin over persistence and corrected resampled t test (H1);
-%   tabular against deep temporal (H3); selected family per fold; weight
-%   sensitivity of the selection cost; results by sex, age band and hospital;
-%   figures from 08_figures.py: outer RPS, ROC, calibration, decision curves.
-%   H2: only if the 12 h and 36 h embargo runs are made (--leads 12 36).
-% 4.3 EXTERNAL VALIDATION ON THE DOUALA PATIENTS -- same runs, external/external.csv:
-%   performance as is, then after intercept update (H4), patient-bootstrap intervals.
-% 4.4 EVOLUTION OF THE PATIENT'S STATE -- out of 12_state_comparison.py:
-%   AUROC of the eight measures on the primary and secondary outcomes; measure retained.
+% 4.2-4.4: tables in results/ by scripts/13_results_tables.py and 15_results_details.py;
+% figure data in figures/data/ by 15_results_details.py. Runs: haemodynamic_0h_7472a36df1,
+% glycaemic_0h_8cce0579ad (complete, 15 outer folds each); out/state_comparison.csv.
+\section{Benchmark of the Risk Models}\label{sec:results-benchmark}
+
+Both runs are complete: five outer folds grouped by hospital, repeated three times, so 15 outer estimates per candidate, with the search budgets of \cref{app:config}. Each repeat predicts 4\,182 haemodynamic and 1\,356 glycaemic targets of the development data once. \Cref{tab:bench-haemodynamic,tab:bench-glycaemic} give every measure for every candidate, the baselines first; the row \emph{Selected (procedure)} is the outer result of the model chosen in each fold by the inner selection cost, the estimate of the whole procedure. \Cref{fig:delta-rps} shows the quantity on which H1 rests, the difference in RPS with persistence in each outer fold.
+
+\input{results/benchmark_haemodynamic}
+\input{results/benchmark_glycaemic}
+
+\subsection{Learned models against the guideline rule}
+
+\paragraph{Haemodynamic task} Persistence is a strong baseline: the guideline rule on the last reading, with the transition probabilities of the training data, has an RPS of 0.1384, against 0.1504 for the prior. Five families do better, with a difference that the corrected resampled $t$ test finds significant: random forest ($-0.0045$, $p = 0.004$), CatBoost ($-0.0043$, $p = 0.002$), the ridge and CatBoost value forecasts ($-0.0042$ and $-0.0036$) and the masked LSTM ($-0.0046$, $p = 0.049$). The procedure as a whole improves on persistence by 0.0039 ($p = 0.035$). The gain is small, about 3\% of the RPS of persistence, but consistent: CatBoost has a lower RPS than persistence in 36 of the 49 hospitals that contribute at least 30 targets, and the margin is the same for women and men and below and above 65~years (\cref{tab:subgroups-haemodynamic}). The two linear models do not beat persistence; the logistic regression on principal components is significantly worse ($+0.0052$, $p = 0.034$).
+
+\paragraph{Glycaemic task} No family beats persistence significantly. GRU-D has the lowest RPS (0.1275 against 0.1329, $\Delta = -0.0055$, $p = 0.138$) and the best discrimination of the alert (AUROC 0.780 against 0.739), and the procedure improves on persistence by 0.0051 ($p = 0.157$). With only 15 outer estimates of a task that falls short of the sample-size criteria (\cref{tab:sample-size}), a difference of this size cannot be distinguished from the variation between folds. The two value forecasts are worse than persistence ($+0.010$, $p = 0.048$ and $0.049$): they over-predict the alert in the development data, with a calibration intercept of $-0.58$ and $-0.57$, against values close to zero for the classifiers. GRU-D improves on persistence in 5 of the 7 hospitals with at least 30 targets, and in every subgroup (\cref{tab:subgroups-glycaemic}).
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
+  width=0.5\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
+  xticklabels={Ord.\ logistic, Logistic PCA, Forest, CatBoost, Value ridge, Value CatBoost, GRU-D, Masked LSTM},
+  xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
+  ymajorgrids, grid style={cGrey!18}, yticklabel style={/pgf/number format/precision=3},
+  ymin=-0.022, ymax=0.025, title style={font=\small\bfseries, text=cMain}]
+\nextgroupplot[title={Haemodynamic}, ylabel={RPS minus that of persistence}]
+\draw[densely dashed, cText2] (axis cs:0.4,0) -- (axis cs:8.6,0);
+\addplot[only marks, mark=*, mark size=1.1pt, cRef!55] table[x=x, y=delta, col sep=comma] {figures/data/delta_rps_haemodynamic.csv};
+\addplot[only marks, mark=-, mark size=7pt, ultra thick, cAfrica] table[x=x, y=delta, col sep=comma] {figures/data/delta_rps_mean_haemodynamic.csv};
+\nextgroupplot[title={Glycaemic}]
+\draw[densely dashed, cText2] (axis cs:0.4,0) -- (axis cs:8.6,0);
+\addplot[only marks, mark=*, mark size=1.1pt, cRef!55] table[x=x, y=delta, col sep=comma] {figures/data/delta_rps_glycaemic.csv};
+\addplot[only marks, mark=-, mark size=7pt, ultra thick, cAfrica] table[x=x, y=delta, col sep=comma] {figures/data/delta_rps_mean_glycaemic.csv};
+\end{groupplot}
+\end{tikzpicture}
+\caption{Difference in RPS between each candidate and persistence in the 15 outer folds (dots) and its mean (red bar). Below the dashed line, the candidate forecasts better than the guideline rule applied to the last reading.}\label{fig:delta-rps}
+\end{figure}
+
+\input{results/subgroups_haemodynamic}
+\input{results/subgroups_glycaemic}
+
+\subsection{Deep temporal against tabular models}
+
+On the haemodynamic task the deep models bring nothing over the tree ensembles: the masked LSTM and the random forest have the same RPS (difference $0.0000$, $p = 0.99$), and GRU-D is slightly worse than both ensembles ($+0.0009$, $p = 0.58$). On the glycaemic task GRU-D is ahead of the random forest and CatBoost by 0.0027 and 0.0028, but not significantly ($p = 0.41$ and $0.40$); it is significantly better only than the ordinal logistic regression ($-0.0051$, $p = 0.040$). The deep models therefore do not outperform the tabular ones on the evidence of these data, which is what H3 predicted, with the reservation that on glucose the selection procedure prefers them consistently.
+
+\subsection{The deployed model and the stability of the choice}
+
+In each outer fold the inner selection cost chose one family. For the haemodynamic task the choice varied: random forest in 7 folds, ridge value forecast in 5, masked LSTM in 2, CatBoost in 1. For the glycaemic task it was stable: GRU-D in 12 folds, masked LSTM in 3. Applied once more to all development data, the procedure chooses \textbf{CatBoost} for the haemodynamic task (24-hour window, depth~4, 479 trees, balanced class weights) and \textbf{GRU-D} for the glycaemic task; these are the models exported to the risk service. \Cref{tab:weights} tests the dependence of this choice on the provisional equal weights of the selection cost. GRU-D remains first under 86\% of random weightings. CatBoost is first under 52\% and the random forest under 29\%: on blood pressure the choice is between two tree ensembles whose costs differ by 0.02, and either would serve.
+
+\input{results/weights}
+
+\subsection{What the haemodynamic model uses}
+
+Interpretability is reported only for a model shown to beat persistence, so for the haemodynamic CatBoost alone. Permuting the pressure features together raises its RPS by 0.035 on eICU and by 0.050 on the Douala samples; the pulse, age and sex, and glucose each contribute less than a tenth of that (\cref{tab:importance-haemodynamic}). The tree SHAP values say the same at the level of single features: the mean absolute contribution of the last systolic pressure is about six times that of the next feature, the last pulse, followed by the last diastolic pressure and age, while the slopes of systolic pressure and glucose contribute nothing. The model is, in effect, a refined persistence: it reads the last pressure as the rule does, and corrects it with the pulse and the patient's age. This explains why its margin over persistence is real but small.
+
+\input{results/importance_haemodynamic}
+
+\paragraph{Lead time} The benchmark was run for the next reading only. The runs with embargoes of 12 and 36~hours that H2 requires were not made, so H2 is not tested.
+
 %--------------------------------------------------------------------------
+\section{External Validation on the Douala Patients}\label{sec:results-external}
+
+The models refitted on all development data were applied once to the Douala charts: 282 haemodynamic targets of 32 patients and 190 glycaemic targets of 24 patients (\cref{tab:ext-haemodynamic,tab:ext-glycaemic}). With so few patients, the 95\% intervals of the patient bootstrap overlap for every pair of models, and the comparisons below are descriptive.
+
+\input{results/external_haemodynamic}
+\input{results/external_glycaemic}
+
+\paragraph{Accuracy and discrimination} Every model, persistence included, has a higher RPS on Douala than in development (\cref{fig:transfer}), as the differences of prevalence and of glucose levels predicted (\cref{sec:results-data}). The ordering relative to persistence holds: the deployed CatBoost has an RPS of 0.1467 against 0.1531 for persistence, and GRU-D 0.2100 against 0.2282, that is 4\% and 8\% lower, margins at least as large as in development. Discrimination does not fall uniformly. The AUROC of the haemodynamic alert is higher on Douala than in development for every model, persistence included (CatBoost 0.759 against 0.668, persistence 0.772 against 0.648), so the Douala alerts are easier to rank than those of intensive care; the glycaemic AUROC of GRU-D falls from 0.780 to 0.716.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
+  width=0.5\textwidth, height=5.4cm, xmin=-0.6, xmax=8.6, xtick={0,...,8},
+  xticklabels={Persistence, Ord.\ logistic, Logistic PCA, Forest, CatBoost, Value ridge, Value CatBoost, GRU-D, Masked LSTM},
+  xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
+  ymajorgrids, grid style={cGrey!18}, yticklabel style={/pgf/number format/precision=2},
+  title style={font=\small\bfseries, text=cMain}, legend columns=2,
+  legend style={at={(0.5,1.02)}, anchor=south, font=\scriptsize}]
+\nextgroupplot[title={Haemodynamic}, ylabel={RPS}, ymin=0.10, ymax=0.21]
+\addplot[only marks, mark=square*, mark size=1.8pt, cRef] table[x=x, y=development, col sep=comma] {figures/data/transfer_haemodynamic.csv};
+\addplot[only marks, mark=*, mark size=1.8pt, cAfrica, error bars/.cd, y dir=both, y explicit, error bar style={cAfrica!70}]
+  table[x=x, y=douala, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/transfer_haemodynamic.csv};
+\nextgroupplot[title={Glycaemic}, ymin=0.10, ymax=0.30]
+\addplot[only marks, mark=square*, mark size=1.8pt, cRef] table[x=x, y=development, col sep=comma] {figures/data/transfer_glycaemic.csv};
+\addplot[only marks, mark=*, mark size=1.8pt, cAfrica, error bars/.cd, y dir=both, y explicit, error bar style={cAfrica!70}]
+  table[x=x, y=douala, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/transfer_glycaemic.csv};
+\end{groupplot}
+\end{tikzpicture}
+\caption{RPS in development (blue squares: mean of the 15 outer folds) and on the Douala charts (red: estimate and 95\% patient-bootstrap interval). Lower is better.}\label{fig:transfer}
+\end{figure}
+
+\paragraph{Calibration} The calibration intercepts are positive for every classifier, from 0.17 to 0.41 on blood pressure and from 0.71 to 0.89 on glucose: the models under-predict the alert on Douala, as expected from a prevalence of 23\% against 17\%, and 59\% against 29\%. Updating the intercept on the local data removes this offset by construction and lowers the Brier score (CatBoost 0.148 to 0.142, GRU-D 0.237 to 0.221), but it leaves the slopes unchanged, and they are far from one: above one on blood pressure (1.49 for CatBoost, predictions too cautious), 0.3 to 0.5 on glucose (predictions too extreme). One family behaves differently: the value forecasts have intercepts of 0.03 to 0.08 in both tasks, close to zero before any update, and the lowest Douala RPS on blood pressure (0.1385 for the ridge forecast). This is consistent with how the formulation works: a value forecast passes the higher local pressures and glucose levels into its probabilities through the values themselves, whereas a classifier learns the base rate of intensive care. The formulation that was worse in development transfers its calibration best.
+
+\paragraph{Clinical utility} The decision curves (\cref{fig:decision}) do not show the margin in RPS. On blood pressure, the deployed CatBoost does not exceed persistence at any of the thresholds 0.1, 0.2 and 0.3: at 0.2, its net benefit is 0.107 against 0.120 (interval 0.030--0.207 against 0.042--0.220), and 0.088 after the intercept update. On glucose, GRU-D exceeds persistence at 0.2 and 0.3 (0.434 against 0.405, 0.395 against 0.330), but with an alert in 59\% of the targets, raising an alert for every target does better still (0.487 and 0.414). On these few patients, no deployed model would have improved the alert decisions over the rule.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
+  width=0.5\textwidth, height=5.2cm, xmin=0, xmax=0.6, axis lines=left,
+  xlabel={threshold probability}, ymajorgrids, grid style={cGrey!18},
+  xticklabel style={/pgf/number format/precision=1}, yticklabel style={/pgf/number format/precision=2},
+  title style={font=\small\bfseries, text=cMain}]
+\nextgroupplot[title={Haemodynamic (CatBoost)}, ylabel={net benefit}, ymin=-0.05, ymax=0.25,
+  legend style={at={(0.98,0.98)}, anchor=north east, fill=white, fill opacity=0.9, text opacity=1}]
+\addplot[thick, cAfrica] table[x=threshold, y=deployed, col sep=comma] {figures/data/decision_haemodynamic.csv};
+\addplot[thick, cRef, densely dashed] table[x=threshold, y=persistence, col sep=comma] {figures/data/decision_haemodynamic.csv};
+\addplot[thin, cGrey] table[x=threshold, y=treat_all, col sep=comma] {figures/data/decision_haemodynamic.csv};
+\addplot[thin, cText2, domain=0:0.6, samples=2] {0};
+\legend{deployed model, persistence, alert for all, alert for none}
+\nextgroupplot[title={Glycaemic (GRU-D)}, ymin=-0.05, ymax=0.62]
+\addplot[thick, cAfrica] table[x=threshold, y=deployed, col sep=comma] {figures/data/decision_glycaemic.csv};
+\addplot[thick, cRef, densely dashed] table[x=threshold, y=persistence, col sep=comma] {figures/data/decision_glycaemic.csv};
+\addplot[thin, cGrey] table[x=threshold, y=treat_all, col sep=comma] {figures/data/decision_glycaemic.csv};
+\addplot[thin, cText2, domain=0:0.6, samples=2] {0};
+\end{groupplot}
+\end{tikzpicture}
+\caption{Decision curves on the Douala charts, probabilities as is. The net benefit counts true alerts minus false alarms weighted by the odds of the threshold.}\label{fig:decision}
+\end{figure}
+
+%--------------------------------------------------------------------------
+\section{Evolution of the Patient's State}\label{sec:results-state}
+
+The eight measures of \cref{tab:state-measures} were compared on 3\,392 development samples of 551 patients, in half of which the level of the next reading differs from that of the baseline state, and checked on 253 Douala samples of 32 patients (\cref{fig:state}). All the measures are weak. On the primary outcome, the development AUROC ranges from 0.52 for the centred cosine to 0.60 for the Mahalanobis distance; the measures that scale each change by the patient's own variability come within 0.005 of it. By the rule declared in advance---the simplest candidate whose interval contains the best value---the measure retained is the \textbf{raw Euclidean distance} (AUROC 0.576, interval 0.552--0.601). The cosine measures are the weakest, as the analysis of \cref{sec:state-evolution} anticipated: the plain cosine is at chance on Douala for the primary outcome (0.49) and below it for a new alert (0.37). On the Douala check the measures scaled by the patient's variability do best for a new alert (0.58--0.62), but the intervals of 24 patients are too wide to reverse a choice made on the development data, and Douala is not used to choose.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
+  width=0.5\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
+  xticklabels={Cosine, Euclidean raw, Euclidean cohort, Cosine centred, Euclidean patient, Manhattan patient, Chebyshev patient, Mahalanobis},
+  xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
+  ymajorgrids, grid style={cGrey!18}, ymin=0.25, ymax=0.75, yticklabel style={/pgf/number format/precision=2},
+  title style={font=\small\bfseries, text=cMain}]
+\nextgroupplot[title={Change of level (primary)}, ylabel={AUROC},
+  legend style={at={(0.02,0.98)}, anchor=north west, fill=white, fill opacity=0.9, text opacity=1}]
+\draw[densely dashed, cText2] (axis cs:0.4,0.5) -- (axis cs:8.6,0.5);
+\addplot[only marks, mark=square*, mark size=1.6pt, cRef, error bars/.cd, y dir=both, y explicit, error bar style={cRef!70}]
+  table[x expr=\thisrow{x}-0.15, y=auroc, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/state_development_level_change.csv};
+\addplot[only marks, mark=*, mark size=1.6pt, cAfrica, error bars/.cd, y dir=both, y explicit, error bar style={cAfrica!70}]
+  table[x expr=\thisrow{x}+0.15, y=auroc, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/state_douala_level_change.csv};
+\legend{eICU (selection), Douala (check)}
+\nextgroupplot[title={New alert (secondary)}]
+\draw[densely dashed, cText2] (axis cs:0.4,0.5) -- (axis cs:8.6,0.5);
+\addplot[only marks, mark=square*, mark size=1.6pt, cRef, error bars/.cd, y dir=both, y explicit, error bar style={cRef!70}]
+  table[x expr=\thisrow{x}-0.15, y=auroc, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/state_development_new_alert.csv};
+\addplot[only marks, mark=*, mark size=1.6pt, cAfrica, error bars/.cd, y dir=both, y explicit, error bar style={cAfrica!70}]
+  table[x expr=\thisrow{x}+0.15, y=auroc, y error plus=plus, y error minus=minus, col sep=comma] {figures/data/state_douala_new_alert.csv};
+\end{groupplot}
+\end{tikzpicture}
+\caption{AUROC of the measures of state evolution with 95\% patient-level intervals. Dashed: chance. The measure is chosen on eICU only.}\label{fig:state}
+\end{figure}
+
+The distance between the current state and the baseline therefore says little about the level of the next reading. It is kept in the risk card as a description of how far the patient has moved from their own recent values, not as a trigger of alerts.
 
 %--------------------------------------------------------------------------
 \section{System Verification}\label{sec:results-system}
@@ -1839,7 +1995,11 @@ Health assistant & fixed set of 22 adversarial questions against the four guardr
 
 \textbf{RQ1} asked whether the system can be built under the constraints of Cameroonian care. It was built, and each constraint is met by a design element rather than by an assumption. Intermittent connectivity is handled by the offline cache and by computing the home triage on the phone, so that a red reading brings up its warning without a network. Scarce clinician time is protected by the two-stage protocol, in which a yellow reading first asks the patient for a verification profile and only the mean of the profile reaches a clinical decision, and by a queue that puts red before yellow and the oldest first, each event closed in two or three taps. No proprietary device is needed, since any validated cuff or meter can be read by the patient. What remains open is whether patients and clinicians use it as intended, which only a pilot can measure.
 
-% RQ2 (H1, H3), RQ3 (H2), RQ4 (H4): to be answered from 4.2-4.3 once the runs are complete.
+\textbf{RQ2} asked whether learned models forecast the level of the next reading better than the guideline rule, and whether a deep temporal model does better than classical ones. For blood pressure, yes to the first part: five of the eight families, and the selection procedure as a whole, have a significantly lower RPS than persistence, in most hospitals and in every subgroup, so \textbf{H1 is supported for the haemodynamic task}. The gain is about 3\%, and the importance analysis shows why it is no larger: the model reads the last systolic pressure as the rule does and corrects it with little else. For glucose, no family beats persistence significantly, so \textbf{H1 is not supported for the glycaemic task}; the best model, GRU-D, is ahead by a margin of the same size, and the task falls short of the sample-size criteria, so the question is open rather than answered in the negative. On the second part, the deep models equal the tree ensembles on blood pressure and are ahead on glucose without a significant difference: \textbf{H3 is supported}, the deep models do not outperform the tabular ones, although the procedure prefers GRU-D for glucose in 12 of 15 folds and under 86\% of the weightings of the selection cost.
+
+\textbf{RQ3}, on lead times of 24 and 48~hours, is not answered: the benchmark was run for the next reading only, and \textbf{H2 is not tested}.
+
+\textbf{RQ4} asked whether models developed on another health system transfer to Cameroonian patients. Partly. The RPS is higher on Douala for every model, and the calibration intercepts show the expected under-prediction of the alert, so \textbf{H4 is supported as to the loss of performance and the calibration offset}; updating the intercept removes the offset and lowers the Brier score, but leaves the slopes far from one, so it recovers only part of the calibration. Against this, the deployed models keep or widen their margin in RPS over persistence, the haemodynamic alerts are ranked better than in development, and the value forecasts arrive almost calibrated in the large without any update. What does not transfer is clinical utility: on 32 patients, no deployed model improves the alert decisions over the rule. The predictive component should therefore run as the system was designed to run it, on top of the rule floor, and be revalidated on home data before it is allowed to raise any tier.
 
 \subsection{What the data imply for the transfer}
 
@@ -1899,12 +2059,9 @@ Provisional choices & selection-cost weights and tier cut-points are not yet the
 No use by patients & no usability or effectiveness result & verified by tests; prospective pilot as future work \\
 \bottomrule
 \end{tabularx}
-\end{table}
 
-% Key points of the benchmark (H1-H4) and of the state-evolution comparison: to be added
-% to the box below from sections 4.2-4.4 once the runs are complete.
-% a table float, so that it follows the limitations table
-\begin{table}[tbp]
+\bigskip
+% the key points share the float of the limitations table, at the end of the chapter
 \begin{keypoints}[Key points of Chapter 4]
 \begin{itemize}
   \item The Douala pressures were taken with electronic devices and the pulse read from the chart curve; the device tolerance alone can change the level of 27 to 56\% of the readings.
@@ -1912,6 +2069,9 @@ No use by patients & no usability or effectiveness result & verified by tests; p
   \item eICU and Douala share the rhythm of two readings a day but not the content: diastolic pressure, glucose, its frequency and the prevalence of the alert differ.
   \item The level of the next glucose reading equals the current one in only 30\% of the Douala pairs, so the glycaemic forecast is harder there than in the development data.
   \item The Douala charts cannot support model development; the demonstration subset of eICU supports the haemodynamic task, not fully the glycaemic one.
+  \item On blood pressure, five of eight families beat persistence significantly, by about 3\% of the RPS (H1 supported); on glucose, none does (H1 not supported). Deep models do not outperform tree ensembles (H3 supported); H2 was not tested.
+  \item The deployed models are CatBoost for blood pressure and GRU-D for glucose. On Douala their RPS is higher than in development and their alerts are under-predicted (H4); the intercept update corrects the offset, not the slopes, and no model improves the alert decisions over the rule.
+  \item The measures of state evolution are weak (AUROC 0.52 to 0.60); the raw Euclidean distance is retained by the declared rule, as a description for the clinician, not as an alert.
   \item The system passes 219 automated tests, including the parity of the triage on the phone with the Python reference; it has not yet been used by patients.
 \end{itemize}
 \end{keypoints}
@@ -1930,8 +2090,10 @@ This thesis set out to design a telemonitoring system for patients with hyperten
 \section*{Principal Findings}
 
 The data work produced four results. First, the Douala charts were taken with electronic devices for the pressures, while the pulse was read off the chart curve; the readings themselves showed this, since the devices are not named. Second, the device tolerance alone can change the level of a quarter to more than half of the readings, which bounds what any model can achieve against a threshold label. Third, the sourced labelling rule changes the level of 58 of the 366 readings compared with the earlier unsourced rule, chiefly because low pressures now count and the glucose bands follow the official thresholds. Fourth, the 32 local patients are far below the size needed to develop a model, and the development data differ from them in prevalence and in the frequency of critical hyperglycaemia, which predicts a loss of calibration that a local intercept update should partly recover.
-% Findings of the benchmark (H1-H4) and of the state-evolution comparison: to be added
-% from sections 4.2-4.4 once the runs are complete.
+
+The benchmark answered the predictive questions with a mixed result. On blood pressure, learned models forecast the level of the next reading better than the guideline rule applied to the last reading: five of eight families, and the selection procedure as a whole, improve on persistence significantly, in most hospitals and in every subgroup, but by about 3\% of the ranked probability score, and the deployed CatBoost relies mostly on the last systolic pressure. On glucose, no model beats persistence significantly, on a task that the demonstration data cannot fully support. Deep temporal models did not outperform tree ensembles, although GRU-D was the procedure's consistent choice for glucose. Applied to the Douala patients, every model lost accuracy and under-predicted the alert; an intercept update corrected the offset but not the slopes, the value forecasts arrived nearly calibrated without it, and no model improved the alert decisions over the rule. The measures of the evolution of the patient's state carry little information about the next level, and the one retained is shown to the clinician as a description, not used as an alert. The lead times of 24 and 48~hours were not tested.
+
+These results justify the design choice made before any of them was known: the guideline rule is the floor, and a model can only add to it.
 
 The system answers the first research question: a patient application and a clinician dashboard that implement the three-level home protocol offline, a record that cannot be altered, a queue that orders the clinician's attention, and server functions for escalation, reminders and verdicts, verified by 219 automated tests, among them the parity of the triage computed on the phone with the Python reference.
 

@@ -1,6 +1,5 @@
-% Front matter: title page, declaration, contents, acronyms, lists.
-% Acknowledgments, Abstract and Résumé are added when the author sends the acknowledgments
-% and the results are final.
+% Front matter: title page, declaration, abstract, résumé, contents, acronyms, lists.
+% Acknowledgments: added after the Declaration when the author sends them.
 \begin{titlepage}
 % institutional band, bilingual as in Cameroonian university documents (logo space in the middle)
 \begin{tikzpicture}[remember picture,overlay]
@@ -64,6 +63,24 @@ Signed: & \rule{6cm}{0.4pt}\\[0.9cm]
 Date: & \rule{6cm}{0.4pt}\\[0.9cm]
 Place: & \rule{6cm}{0.4pt}
 \end{tabular}
+
+% Abstract and Résumé: every number from chapter 4 (scripts 13 and 15 of telemonitor-research)
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+Hypertension and type~2 diabetes are common in Cameroon, and the follow-up of patients between consultations is fragmented. This thesis designs a telemonitoring system for patients with either or both conditions and evaluates its predictive component. The system comprises a patient application and a clinician view built with Flutter on Firebase, a guideline rule that grades every reading on four levels offline on the phone, a two-stage home triage in which a single elevated reading first prompts repeated measurements, and a server worker for escalation, reminders and notifications; it passes 219 automated tests. The predictive component forecasts the risk level of the next reading, so that the label, derived from official thresholds, never enters the inputs, and the guideline rule applied to the last reading (persistence) is the baseline. Eight model families were compared in a nested cross-validation grouped by hospital on the eICU demonstration database (4\,182 haemodynamic and 1\,356 glycaemic samples, 174 hospitals), and validated externally on 366 readings of 32 inpatients of a public hospital in Douala. On blood pressure, five of the eight families forecast significantly better than persistence; the deployed CatBoost model lowers the ranked probability score from 0.1384 to 0.1341 ($p = 0.002$), a gain of about 3\%. On glucose, no family does so significantly (GRU-D 0.1275 against 0.1329, $p = 0.14$). Deep temporal models did not outperform tree ensembles. On the Douala patients, every model lost accuracy and under-predicted the alert; updating the intercept corrected the offset but not the slopes, and no model improved the alert decisions over the rule. Measures of the change in the patient's state discriminated weakly (AUROC at most 0.60). These results support a design in which the guideline rule is the floor and a model may only raise the alert level, and they call for revalidation on home data before any clinical use.
+
+\medskip
+\textbf{\sffamily\color{cMain}Keywords:} telemonitoring; hypertension; type~2 diabetes; risk prediction; external validation; mobile health; Cameroon.
+
+% French text without the French hyphenation patterns (not installed): no hyphenation,
+% thin spaces before the high punctuation set by hand
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+{\hyphenpenalty=10000\exhyphenpenalty=10000\emergencystretch=3em
+L'hypertension artérielle et le diabète de type~2 sont fréquents au Cameroun, et le suivi des patients entre deux consultations est fragmenté. Ce mémoire conçoit un système de télésurveillance pour les patients atteints de l'une ou des deux affections et évalue sa composante prédictive. Le système comprend une application patient et une vue clinicien développées avec Flutter sur Firebase, une règle issue des recommandations qui classe chaque mesure en quatre niveaux, hors connexion, sur le téléphone, un triage à domicile en deux étapes dans lequel une mesure élevée isolée déclenche d'abord des mesures répétées, et un service serveur pour l'escalade, les rappels et les notifications\,; il passe 219 tests automatisés. La composante prédictive prévoit le niveau de risque de la mesure suivante, de sorte que l'étiquette, dérivée de seuils officiels, n'entre jamais dans les variables d'entrée, et la règle appliquée à la dernière mesure (persistance) sert de référence. Huit familles de modèles ont été comparées par validation croisée imbriquée, groupée par hôpital, sur la base de démonstration eICU (4\,182 échantillons hémodynamiques et 1\,356 glycémiques, 174 hôpitaux), puis validées sur 366 mesures de 32 patients hospitalisés dans un hôpital public de Douala. Pour la pression artérielle, cinq familles sur huit prévoient significativement mieux que la persistance\,; le modèle CatBoost retenu abaisse le score de probabilité ordonné (RPS) de 0,1384 à 0,1341 ($p = 0{,}002$), soit un gain d'environ 3\,\%. Pour la glycémie, aucune famille n'y parvient de façon significative (GRU-D 0,1275 contre 0,1329, $p = 0{,}14$). Les modèles temporels profonds n'ont pas surpassé les ensembles d'arbres. Sur les patients de Douala, tous les modèles ont perdu en exactitude et sous-estimé l'alerte\,; la mise à jour de l'intercept a corrigé ce décalage mais pas les pentes, et aucun modèle n'a amélioré les décisions d'alerte par rapport à la règle. Les mesures de l'évolution de l'état du patient discriminent faiblement (AUROC au plus 0,60). Ces résultats confortent une conception dans laquelle la règle fixe le niveau minimal et un modèle ne peut que relever l'alerte, et ils imposent une revalidation sur des données recueillies à domicile avant tout usage clinique.
+
+\medskip
+\textbf{\sffamily\color{cMain}Mots-clés\,:} télésurveillance\,; hypertension artérielle\,; diabète de type~2\,; prédiction du risque\,; validation externe\,; santé mobile\,; Cameroun.\par}
 
 \cleardoublepage
 \phantomsection\addcontentsline{toc}{chapter}{Contents}

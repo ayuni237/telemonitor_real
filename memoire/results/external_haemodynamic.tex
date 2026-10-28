@@ -1,0 +1,22 @@
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{External validation on the Douala charts, haemodynamic task (282 targets, 32 patients). 95\% intervals by patient bootstrap. Calibration intercept and slope as is, then after the intercept update.}\label{tab:ext-haemodynamic}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+ & & & \multicolumn{2}{c}{\textbf{As is}} & \multicolumn{2}{c}{\textbf{Updated}} \\
+\cmidrule(lr){4-5}\cmidrule(l){6-7}
+\textbf{Model} & \textbf{RPS} & \textbf{AUROC} & \textbf{Int.} & \textbf{Slope} & \textbf{Int.} & \textbf{Slope} \\
+\midrule
+Prior & 0.1786 [0.1351, 0.2306] & 0.500 [0.50, 0.50] & 0.37 & 0.55 & 0.00 & 0.60 \\
+Persistence & 0.1531 [0.1148, 0.1946] & 0.772 [0.70, 0.84] & 0.25 & 1.81 & $-$0.00 & 1.81 \\
+Ordinal logistic & 0.1550 [0.1146, 0.2005] & 0.668 [0.48, 0.83] & 0.41 & 0.97 & 0.00 & 0.97 \\
+Logistic on PCA & 0.1579 [0.1203, 0.2023] & 0.664 [0.48, 0.83] & 0.17 & 0.95 & $-$0.00 & 0.95 \\
+Random forest & 0.1450 [0.1109, 0.1825] & 0.783 [0.68, 0.86] & 0.24 & 1.80 & 0.00 & 1.80 \\
+CatBoost & 0.1467 [0.1104, 0.1874] & 0.759 [0.65, 0.84] & 0.40 & 1.49 & 0.00 & 1.49 \\
+Value forecast (ridge) & 0.1385 [0.1096, 0.1686] & 0.796 [0.70, 0.86] & 0.04 & 1.63 & 0.00 & 1.63 \\
+Value forecast (CatBoost) & 0.1390 [0.1120, 0.1669] & 0.779 [0.67, 0.85] & 0.03 & 1.80 & 0.00 & 1.80 \\
+GRU-D & 0.1402 [0.1042, 0.1799] & 0.766 [0.63, 0.86] & 0.33 & 1.18 & 0.00 & 1.18 \\
+Masked LSTM & 0.1405 [0.1087, 0.1752] & 0.787 [0.69, 0.86] & 0.20 & 1.54 & 0.00 & 1.54 \\
+\bottomrule
+\end{tabular}
+\end{table}

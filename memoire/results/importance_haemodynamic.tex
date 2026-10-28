@@ -1,0 +1,14 @@
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Grouped permutation importance of the deployed model, haemodynamic task (CatBoost): increase in RPS when the features of one group are permuted together, mean (SD) of 20 permutations.}\label{tab:importance-haemodynamic}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Group} & \textbf{eICU} & \textbf{Douala} \\
+\midrule
+Pressure (systolic, diastolic, pulse pressure) & 0.0350 (0.0013) & 0.0499 (0.0054) \\
+Pulse & 0.0045 (0.0003) & 0.0037 (0.0011) \\
+Age and sex & 0.0029 (0.0002) & $-$0.0019 (0.0009) \\
+Glucose & 0.0022 (0.0002) & 0.0007 (0.0014) \\
+\bottomrule
+\end{tabular}
+\end{table}

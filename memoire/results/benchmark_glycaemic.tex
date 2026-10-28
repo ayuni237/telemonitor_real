@@ -1,0 +1,22 @@
+\begin{table}[htbp]
+\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\caption{Outer-fold results, glycaemic task: mean (SD) over 15 outer folds. $\Delta$RPS: difference with persistence (negative is better); $p$: corrected resampled $t$ test. Net benefit averaged over the thresholds 0.1 to 0.3.}\label{tab:bench-glycaemic}
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+\textbf{Model} & \textbf{RPS} & \textbf{$\Delta$RPS} & \textbf{$p$} & \textbf{Brier} & \textbf{AUROC} & \textbf{Int.} & \textbf{Slope} & \textbf{NB} \\
+\midrule
+Prior & 0.1615 (0.0064) & +0.0285 & $<0.001$ & 0.208 & 0.500 (0.00) & $-$0.01 & 0.44 & 0.101 \\
+Persistence & 0.1329 (0.0112) & -- & -- & 0.172 & 0.739 (0.05) & $-$0.03 & 1.03 & 0.161 \\
+\addlinespace
+Ordinal logistic & 0.1326 (0.0092) & $-$0.0004 & 0.908 & 0.173 & 0.755 (0.04) & 0.02 & 0.94 & 0.160 \\
+Logistic on PCA & 0.1375 (0.0089) & +0.0046 & 0.257 & 0.178 & 0.731 (0.05) & 0.02 & 0.98 & 0.152 \\
+Random forest & 0.1301 (0.0098) & $-$0.0028 & 0.199 & 0.169 & 0.760 (0.04) & 0.02 & 1.00 & 0.159 \\
+CatBoost & 0.1303 (0.0109) & $-$0.0027 & 0.245 & 0.169 & 0.762 (0.05) & 0.02 & 1.08 & 0.161 \\
+Value forecast (ridge) & 0.1432 (0.0088) & +0.0103 & 0.048 & 0.186 & 0.756 (0.05) & $-$0.58 & 1.14 & 0.136 \\
+Value forecast (CatBoost) & 0.1435 (0.0092) & +0.0106 & 0.049 & 0.185 & 0.761 (0.05) & $-$0.57 & 1.40 & 0.135 \\
+GRU-D & 0.1275 (0.0102) & $-$0.0055 & 0.138 & 0.166 & 0.780 (0.04) & 0.07 & 1.07 & 0.167 \\
+Masked LSTM & 0.1296 (0.0113) & $-$0.0033 & 0.341 & 0.169 & 0.768 (0.05) & 0.05 & 0.97 & 0.164 \\
+Selected (procedure) & 0.1278 (0.0110) & $-$0.0051 & 0.157 & 0.166 & 0.777 (0.05) & 0.07 & 1.03 & 0.165 \\
+\bottomrule
+\end{tabular}
+\end{table}
