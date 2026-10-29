@@ -315,3 +315,20 @@ memoire/*.toc
 
 # thesis-check downloads (copyrighted article texts)
 memoire/tools/sources/
+
+# French working version of the thesis: kept out of git
+memoire/memoire_fr.*
+memoire/parts_fr/
+memoire/results_fr/
+
+# Thesis versions written before the benchmark results: kept locally, out of git
+memoire/final_memoire.*
+memoire/correction memoir.*
+memoire/parts/archive_125p/
+
+# Old app notes, superseded by the root README
+telemonitor/README.md
+telemonitor/AUTHSERVICE_PATCH.md
+
+# Old copy of the research folder (old pipeline, synthetic results, patient data): never commit
+telemonitor/research/

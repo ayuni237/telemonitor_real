@@ -27,6 +27,11 @@ To reproduce exactly the versions used for the thesis, follow the header of
 | Douala consultations (scenario A) | `data/patient_data_REAL_DO_NOT_MODIFY.csv` | never modify |
 | eICU demo 2.0.1 | `data/external/eicu-demo-2.0.1/` | https://physionet.org/content/eicu-crd-demo/2.0.1/ (open access) |
 
+The two Douala files are confidential patient records, used under the research
+authorisation of the hospital (No. 185/AR/MINSANTE/DHL/CM, 25 September 2026). They are not
+in the repository: place them at the locations above. Without them, the tests that need the
+cohort are skipped and the Douala scripts stop.
+
 For the eICU demo, download at least `patient`, `diagnosis`, `pastHistory`,
 `vitalAperiodic`, `vitalPeriodic`, `lab` (`.csv.gz` files) and `SHA256SUMS.txt` into that
 folder. The code checks the SHA-256 checksums before any use. The folder is excluded from
@@ -53,9 +58,9 @@ downloaded, place it in a folder with the same structure and point `DEMO` in
 | `10_sensitivity_flags_slots.py` | 3–4 | sensitivity to the MAD n₀ (5 / 7 / 9 readings flagged for n₀ = 10 / 20 / 40) and to the eICU slot tolerance (± 1 / 2 / 3 h → 645 / 1 356 / 1 983 glycaemic samples); option `--no-eicu` | ≈ 1 min |
 | `12_state_comparison.py` | 10b | benchmark of the 8 state-comparison measures (cosine, Euclidean, Manhattan, Chebyshev, Mahalanobis; `configs/state_compare.yaml`): AUROC for a change of level and for a new alert, eICU development, Douala external check → `out/state_comparison.csv/.json`, scales → `artifacts/state_scales.json`. Then record the chosen measure in `configs/state_compare.yaml` (`status: selected`, `selected: <measure>`) | ≈ 1 min |
 | `11_export_model.py` | 11 | exports the chosen model (the family with the lowest selection cost in the final search on all of eICU) from a **full** run to `artifacts\<task>\`, read by the service and the worker; refuses a run labelled with other thresholds | seconds |
-| `13_results_tables.py` | — | LaTeX tables of the results chapter from the saved outputs of the runs (RPS, Brier, AUROC, calibration, net benefit per candidate, difference from persistence with the corrected resampled t test; external validation on Douala) → `..\memoire\results\`; refuses an incomplete run (`--partial` for a look only, never for the thesis) | seconds |
+| `13_results_tables.py` | — | LaTeX tables of the results chapter from the saved outputs of the runs (RPS, Brier, AUROC, calibration, net benefit per candidate, difference from persistence with the corrected resampled t test; external validation on Douala) → `..\memoire\results\`; the main tables use the runs at lead 0, and `leads.tex` (hypothesis H2) compares the leads once runs at 12 and 36 h exist; refuses an incomplete run (`--partial` for a look only, never for the thesis) | seconds |
 | `14_thesis_data_figures.py` | 2–5 | data behind the descriptive figures of the thesis (value distributions, level transitions, Riley curves, Douala timeline) → `..\memoire\figures\data\`; the per-reading Douala file it writes is ignored by git | ≈ 1 min |
-| `15_results_details.py` | 8–9 | secondary results from the saved outputs: outer results by sex, age band and hospital for persistence and the deployed family; stability of the family choice under 1 000 random weightings of the selection cost; grouped permutation importance and tree SHAP for a deployed model that beats persistence; data of the results figures → `..\memoireesults\`, `..\memoireigures\data\`. Run after `11_export_model.py` | ≈ 2 min |
+| `15_results_details.py` | 8–9 | secondary results from the saved outputs: outer results by sex, age band and hospital for persistence and the deployed family; stability of the family choice under 1 000 random weightings of the selection cost; grouped permutation importance and tree SHAP for a deployed model that beats persistence; data of the results figures → `..\memoire\results\`, `..\memoire\figures\data\`. Run after `11_export_model.py` | ≈ 2 min |
 
 Examples (from `C:\Projects\telemonitor-research`):
 
@@ -103,6 +108,18 @@ powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchma
 The log `out\runs\<run>\run.log` gives, for each fold and each candidate, the duration and
 the external RPS. Closing a window stops the run; the same command resumes it.
 
+**Lead time (hypothesis H2).** The runs above forecast the next reading. For targets 24 and
+48 h ahead (embargoes of 12 and 36 h), each window runs the two leads one after the other;
+the lead-0 runs took about 18 h with both windows in parallel, so count about a day and a
+half:
+
+```
+powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchmarks.ps1 -Leads "12 36"
+python scripts\13_results_tables.py          (then: ..\memoire\results\leads.tex)
+```
+
+The runs at lead 0 are left untouched: each lead has its own folder.
+
 ## 4. Where to change a choice
 
 | Choice | File | Note |
@@ -118,10 +135,11 @@ the external RPS. Closing a window stops the run; the same command resumes it.
 ## 5. Old pipeline (for the record)
 
 `train.py`, `features.py`, `TeleMonitor_model_REAL.ipynb` and the `experiment*.py` /
-`verify_*.py` scripts at the root are the old pipeline. They are kept only to reproduce
-earlier figures (for example: forecast at 0.425 against 0.452 for persistence with
-`python train.py`). The figures in `CALIBRATION.md`, `FINDINGS.md` and `EXPERIMENTS.md`
-come from **synthetic data** and must not be presented as results. The files
+`verify_*.py` scripts at the root are the old pipeline, written before the `telemonitor`
+package. Since 29 October 2026 they are kept on the author's machine only, out of the
+repository (`.gitignore`): no current script, test or chapter uses them. The figures in
+`CALIBRATION.md`, `FINDINGS.md` and `EXPERIMENTS.md` come from **synthetic data** and must
+not be presented as results. The files
 `out\benchmark_*.csv` from the first attempt (19–20 October) contain neither the trials nor
 the predictions: they cannot be used to redraw the figures.
 

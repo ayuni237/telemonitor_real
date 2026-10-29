@@ -140,7 +140,7 @@
 % ---------------------------------------------------------------- links (load last)
 \usepackage[colorlinks=true,linkcolor=cMain,citecolor=cAccent,urlcolor=cAccent]{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
-\hypersetup{pdftitle={Design of a Telemonitoring System for Patients with Hypertension and Diabetes},
+\hypersetup{pdftitle={Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors},
   pdfauthor={Nsame Ayuni Rodrick}}
 
 
@@ -173,8 +173,7 @@
 
 \vspace{1.9cm}
 {\small\bfseries\color{cAccent} MASTER'S THESIS}\\[0.45cm]
-{\fontsize{26}{31}\selectfont\bfseries\color{cMain} Design of a Telemonitoring System\\ for Patients with Hypertension\\ and Diabetes}\\[0.5cm]
-{\rmfamily\itshape\Large\color{cText2} Consultation data, home measurements and risk prediction}\\[0.5cm]
+{\fontsize{20}{25}\selectfont\bfseries\color{cMain} Design of a Telemonitoring System\\ for Patients with Chronic Diseases\\ (Hypertension, Diabetes) Using\\ Consultation Data, Home Measurements\\ and Possibly Mobile Sensors\par}\vspace{0.5cm}
 {\color{cAccent}\rule{3.2cm}{1.8pt}}
 
 \vspace{1.5cm}
@@ -199,7 +198,7 @@
 
 \chapter*{Declaration}
 \addcontentsline{toc}{chapter}{Declaration}
-I, \textbf{Nsame Ayuni Rodrick}, declare that this Master's thesis entitled \emph{``Design of a Telemonitoring System for Patients with Hypertension and Diabetes''} is the result of my own research, carried out under the supervision of Dr.\ Malong Yannick and Dr.\ Noulapeu Ngaffo at the National Higher Polytechnic School of Douala (NHPSD), University of Douala, Cameroon.
+I, \textbf{Nsame Ayuni Rodrick}, declare that this Master's thesis entitled \emph{``Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors''} is the result of my own research, carried out under the supervision of Dr.\ Malong Yannick and Dr.\ Noulapeu Ngaffo at the National Higher Polytechnic School of Douala (NHPSD), University of Douala, Cameroon.
 
 I declare that, to the best of my knowledge, this work has not been submitted, in whole or in part, for any other degree, diploma or certification at any other institution.
 
@@ -1082,7 +1081,7 @@ The research is applied and follows a design-science logic: requirements are der
 
 \subsection{The three sources}
 
-Three sources are used, each for a single purpose (\cref{tab:datasets}). The research was carried out at the Laboratory of Computer Engineering, Data Science and Artificial Intelligence of the NHPSD, with a partner physician of a public hospital in Douala who facilitated access to the records.
+Three sources are used, each for a single purpose (\cref{tab:datasets}). The research was carried out at the Laboratory of Computer Engineering, Data Science and Artificial Intelligence of the NHPSD and, for the Douala records, at the Laquintinie Hospital of Douala, a public hospital, under the supervision of an endocrinologist of the hospital (\cref{sec:ethics}).
 
 \begin{table}[htbp]
 \centering\footnotesize
@@ -1539,7 +1538,7 @@ Record and notifications & Cloud Firestore; Firebase Cloud Messaging plugins & 6
 %--------------------------------------------------------------------------
 \section{Ethical Considerations}\label{sec:ethics-considerations}\label{sec:ethics}\label{sec:legal}
 
-The eICU data are de-identified and distributed by PhysioNet under its terms \parencite{pollard2018,goldberger2000}. The Douala charts are a secondary use of routine records transcribed without names, which requires the opinion of an ethics committee and the written authorisation of the hospital. Removing names is not enough to anonymise a small cohort: before any analysis file is shared, ages are grouped in five-year bands and calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses. Personal data in Cameroon are governed by Law No.~2024/017 on the protection of personal data \parencite{cameroon2024data}, which makes any transfer abroad conditional on the authorisation of a supervisory authority, and the security of electronic communications by Law No.~2010/012 \parencite{cameroon2010cyber}; the region of the database is therefore chosen before the first write. The health assistant sends conditions, medications and readings to a provider outside Cameroon, which requires the patient's informed consent.
+The eICU data are de-identified and distributed by PhysioNet under its terms \parencite{pollard2018,goldberger2000}. The Douala charts are a secondary use of routine records, transcribed without names under the research authorisation of the Laquintinie Hospital of Douala (No.~185/AR/MINSANTE/DHL/CM of 25 September 2026, for the period from 28 September to 4 November 2026). The authorisation places the work under the supervision of an endocrinologist of the hospital and under the hospital's code of ethics and professional conduct, and requires that any publication preserve the interests of the hospital and of its staff and that a copy be deposited at its documentation centre. A prospective study with home measurements, which involves patients directly, would in addition require the opinion of a research ethics committee. Removing names is not enough to anonymise a small cohort: before any analysis file is shared, ages are grouped in five-year bands and calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses. Personal data in Cameroon are governed by Law No.~2024/017 on the protection of personal data \parencite{cameroon2024data}, which makes any transfer abroad conditional on the authorisation of a supervisory authority, and the security of electronic communications by Law No.~2010/012 \parencite{cameroon2010cyber}; the region of the database is therefore chosen before the first write. The health assistant sends conditions, medications and readings to a provider outside Cameroon, which requires the patient's informed consent.
 
 \begin{keypoints}[Key points of Chapter 3]
 \begin{itemize}
@@ -1903,7 +1902,7 @@ The models refitted on all development data were applied once to the Douala char
 
 \paragraph{Calibration} The calibration intercepts are positive for every classifier, from 0.17 to 0.41 on blood pressure and from 0.71 to 0.89 on glucose: the models under-predict the alert on Douala, as expected from a prevalence of 23\% against 17\%, and 59\% against 29\%. Updating the intercept on the local data removes this offset by construction and lowers the Brier score (CatBoost 0.148 to 0.142, GRU-D 0.237 to 0.221), but it leaves the slopes unchanged, and they are far from one: above one on blood pressure (1.49 for CatBoost, predictions too cautious), 0.3 to 0.5 on glucose (predictions too extreme). One family behaves differently: the value forecasts have intercepts of 0.03 to 0.08 in both tasks, close to zero before any update, and the lowest Douala RPS on blood pressure (0.1385 for the ridge forecast). This is consistent with how the formulation works: a value forecast passes the higher local pressures and glucose levels into its probabilities through the values themselves, whereas a classifier learns the base rate of intensive care. The formulation that was worse in development transfers its calibration best.
 
-\paragraph{Clinical utility} The decision curves (\cref{fig:decision}) do not show the margin in RPS. On blood pressure, the deployed CatBoost does not exceed persistence at any of the thresholds 0.1, 0.2 and 0.3: at 0.2, its net benefit is 0.107 against 0.120 (interval 0.030--0.207 against 0.042--0.220), and 0.088 after the intercept update. On glucose, GRU-D exceeds persistence at 0.2 and 0.3 (0.434 against 0.405, 0.395 against 0.330), but with an alert in 59\% of the targets, raising an alert for every target does better still (0.487 and 0.414). On these few patients, no deployed model would have improved the alert decisions over the rule.
+\paragraph{Clinical utility} The decision curves (\cref{fig:decision-curves}) do not show the margin in RPS. On blood pressure, the deployed CatBoost does not exceed persistence at any of the thresholds 0.1, 0.2 and 0.3: at 0.2, its net benefit is 0.107 against 0.120 (interval 0.030--0.207 against 0.042--0.220), and 0.088 after the intercept update. On glucose, GRU-D exceeds persistence at 0.2 and 0.3 (0.434 against 0.405, 0.395 against 0.330), but with an alert in 59\% of the targets, raising an alert for every target does better still (0.487 and 0.414). On these few patients, no deployed model would have improved the alert decisions over the rule.
 
 \begin{figure}[htbp]
 \centering
@@ -1927,7 +1926,7 @@ The models refitted on all development data were applied once to the Douala char
 \addplot[thin, cText2, domain=0:0.6, samples=2] {0};
 \end{groupplot}
 \end{tikzpicture}
-\caption{Decision curves on the Douala charts, probabilities as is. The net benefit counts true alerts minus false alarms weighted by the odds of the threshold.}\label{fig:decision}
+\caption{Decision curves on the Douala charts, probabilities as is. The net benefit counts true alerts minus false alarms weighted by the odds of the threshold.}\label{fig:decision-curves}
 \end{figure}
 
 %--------------------------------------------------------------------------
@@ -2324,13 +2323,13 @@ The modelling study is reported according to TRIPOD+AI \parencite{collins2024}; 
 6a--b & Setting, eligibility & \cref{sec:data-collection,sec:harmonisation}; \cref{app:data} \\
 6c & Treatments & not recorded in either dataset \\
 7 & Data preparation & \cref{sec:preprocessing} \\
-8a--c & Outcome, assessment, blinding & \cref{sec:labelling}; blinded relabelling by the partner physician \\
+8a--c & Outcome, assessment, blinding & \cref{sec:labelling}; blinded relabelling by the partner physician planned (100--150 readings), not yet done \\
 9a--c & Predictors & \cref{sec:features}; instruments in \cref{sec:instruments-obtained} \\
 10 & Sample size & \cref{sec:sampling,sec:results-sample-size} \\
 11 & Missing data & \cref{sec:missingness} \\
 12a--g & Partitioning, handling, model type, clusters, measures, updating, computation & \cref{sec:evaluation,sec:metrics,sec:ml,sec:tools}; outer folds by hospital; intercept update; \cref{app:config} \\
 13 & Class imbalance & class weights and their correction (\cref{sec:evaluation}) \\
-14 & Fairness & results by sex and age band (\cref{sec:metrics}) \\
+14 & Fairness & results by sex, age band and hospital (\cref{sec:results-benchmark}) \\
 15 & Output, thresholds & \cref{sec:tiers} \\
 16 & Development against evaluation data & \cref{sec:results-data} \\
 17 & Ethical approval & \cref{sec:ethics-considerations} \\

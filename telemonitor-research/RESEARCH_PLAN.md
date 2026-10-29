@@ -8,7 +8,7 @@ is wrong, the thesis is corrected first, then the code.
 | # | Decision | Consequence |
 |---|---|---|
 | D1 | Every model and technology choice comes from a benchmark: an official/published one, or one run in this study | No model is fixed in advance; only the candidate pool and the protocol are |
-| D2 | Research code = Python modules (PyTorch for neural models). Notebooks are only for exploration and tests | `TeleMonitor_model_REAL.ipynb` is superseded once the package reproduces it |
+| D2 | Research code = Python modules (PyTorch for neural models). Notebooks are only for exploration and tests | `TeleMonitor_model_REAL.ipynb` is superseded once the package reproduces it (old pipeline out of the repository since 2026-10-29) |
 | D3 | Metrics are not fixed a priori: admissible metrics are selected by explicit criteria, and their weights in a cost function are calibrated during the search | Weights are tuned in the inner loop only; the outer test folds report every admissible metric unweighted (see §3) |
 | D4 | Hyperparameter search over structural hyperparameters (architecture, depth, hidden size, window length…) and training hyperparameters (learning rate, regularisation, class weights…) | Nested, patient-grouped; search space and budget declared before running |
 | D5 | Serving API: FastAPI | Local development only |
@@ -28,11 +28,11 @@ is wrong, the thesis is corrected first, then the code.
 5. **Features** — done: ch3 §feature families, §budget, §missing data; `features.py` (primary 8, extended 16, descriptors16)
 6. **Validation** — done: ch3 §Training protocol (outer by hospital, inner by patient, corrected t test, cluster bootstrap); `validation.py`
 7. **Metrics and cost** — done: ch3 §Metrics (admissible measures, selection cost, provisional weights); `metrics.py`, `objective.py`, configs/cost.yaml
-8. **Candidates and search** — done: ch3 §Baselines, §Candidate families, §Hyperparameter search; `models/` (tabular, sequence GRU-D/LSTM, levels), `search.py`, configs/benchmark.yaml. **Run pending the eICU demo download**
+8. **Candidates and search** — done: ch3 §Baselines, §Candidate families, §Hyperparameter search; `models/` (tabular, sequence GRU-D/LSTM, levels), `search.py`, configs/benchmark.yaml. Runs complete 2026-10-28 (`haemodynamic_0h_7472a36df1`, `glycaemic_0h_8cce0579ad`, 15 outer folds each); runs at 12 and 36 h (H2) to launch by the user, table `leads.tex` from script 13
 9. **Calibration and thresholds** — done: ch3 §Risk score (band integration, exact weight correction, no recalibration in development, intercept update in external validation), §Thresholds; `metrics.update_intercept`, `calibration_curve`
 10. **Interpretability** — done: ch3 §Interpretability (grouped permutation importance, CatBoost SHAP); `explain.py`
-10b. **State evolution** — theory done (ch3 §Tracking the evolution, tab:state-measures, 8 verified references); code `state.py`, `scripts/12_state_comparison.py`, `configs/state_compare.yaml`, service `evolution` block, app EvolutionCard; **benchmark to run by the user**, then set `selected`
-11. Deployment — offline engine (rule floor, parity fixture) and online engine (FastAPI) built; model export `scripts/11_export_model.py` built; local worker for the server functions built (§6c). **The deployed model waits for a complete benchmark run**
+10b. **State evolution** — theory done (ch3 §Tracking the evolution, tab:state-measures, 8 verified references); code `state.py`, `scripts/12_state_comparison.py`, `configs/state_compare.yaml`, service `evolution` block, app EvolutionCard; run 2026-10-28, `selected: euclidean_raw` (simplest measure within the interval of the best)
+11. Deployment — offline engine (rule floor, parity fixture) and online engine (FastAPI) built; model export `scripts/11_export_model.py` built; local worker for the server functions built (§6c). Models exported 2026-10-28: CatBoost (haemodynamic), GRU-D (glycaemic), in `artifacts/` (not in git)
 12. **Reporting** — done for the methods: Appendix A (TRIPOD+AI checklist mapped to sections); items 20–27 with the results; fairness by sex/age and heterogeneity across hospitals added to §Metrics; ethics paragraph on the datasets actually used
 
 ## 3. Guardrail on the cost function (D3)
@@ -48,8 +48,9 @@ weighting will always favour a given model. Therefore:
 
 ## 3b. Thesis organisation and outputs
 
-The thesis has three parts; part 3 (results and discussion) is **not written yet**. Numbers enter
-the methodology only where it needs them (data description, sample size). Every analysis is a
+Since 2026-10-27 the thesis follows the school's structure (unnumbered Introduction and
+Conclusion, four chapters, 90 pages at most; `memoire/RESTRUCTURE_90.md`). The results chapter
+(ch.4) is written from scripts 13 and 15; no number is typed by hand. Every analysis is a
 rerunnable script in `scripts/` (guide: `BENCHMARKS.md`). Chapter 3 carries TikZ figures for the
 study design, harmonisation, label construction, search and selection, and value-to-level
 probabilities.
@@ -106,7 +107,7 @@ telemonitor-research/
 | I25 | ch3 §metrics, §prereg | Headline metric "recall on the critical class" (improper, threshold-dependent); primary comparison fixed on gradient boosting | **Fixed**: admissible measures, selection cost, no model favoured |
 | I26 | eICU demo page | Page says 20 hospitals; the data hold 186 | **Fixed** in thesis (data value) |
 | I27 | ch3 §Anonymity vs data | Thesis prescribes age bands and a random date shift; the Douala file holds exact ages and dates | Apply before any sharing of the analysis file (user decision: analysis uses relative times; age is a feature) |
-| I28 | ch3 §Ethics | Ethics committee reference and hospital authorisation for the Douala charts not known | **User to provide** |
+| I28 | ch3 §Ethics | Ethics committee reference and hospital authorisation for the Douala charts not known | **Fixed** (2026-10-29): hospital authorisation cited (U1) |
 | I29 | Appendix A item 18a–b | Funding and conflicts statement not in the front matter | **User to provide** |
 | I30 | eICU demo | vitalPeriodic.csv.gz download repeatedly interrupted (PhysioNet rate) | **Fixed**: complete, SHA-256 verified (2026-10-20) |
 | I31 | ch1–ch2 vs data | Title, question and objective 2 promised home data and models developed on own data | **Fixed** (2026-10-20): ch1 §Scope and data actually used; objective 2 rewritten |
@@ -123,32 +124,32 @@ telemonitor-research/
 | I42 | app, health assistant | Gemini assistant absent from the thesis; sends name, conditions, medications and readings to Google (transfer abroad, Law 2024/017); prompt says risk from "last seven readings" (card uses 96 h) | Thesis: **Fixed** (ch4 §The health assistant, guardrails and limits). App: **fixed** (2026-10-20, §6c); adversarial set to run by the user |
 | I43 | appendix A | Items 2 (abstract) and 18a–b (funding) pointed to absent front matter | **Fixed**: rows removed (I29 closed) |
 
-## 6. Remaining work (2026-10-20)
+## 6. Remaining work (opened 2026-10-20, statuses on 2026-10-28)
 
-Nothing below is done yet. Statuses are updated here as each item is closed.
+Statuses are updated here as each item is closed.
 
 ### 6a. Depends on the user (no text can be written without it)
 
 | # | Missing | Where it is required | Register |
 |---|---|---|---|
-| U1 | Ethics committee reference and written hospital authorisation for the Douala charts | ch3 §Ethics; Appendix A item 17 | I28 |
+| U1 | Ethics committee reference and written hospital authorisation for the Douala charts | **Closed** 2026-10-29: research authorisation of the Laquintinie Hospital, No. 185/AR/MINSANTE/DHL/CM of 25 September 2026 (28 Sept to 4 Nov 2026, supervision by an endocrinologist of the hospital), cited in ch.3 §Ethics. No ethics committee opinion was provided | I28 |
 | U2 | Blind relabelling by the physician of ≈ 100–150 readings (rule not shown) | ch3 §Labelling (secondary criterion); size from script 09 | I38 |
 | U3 | Error costs stated by the physician: final risk-tier thresholds (now 0.1 / 0.3, provisional) and selection-cost weights (now equal) | ch3 §Metrics, §Thresholds; configs/cost.yaml, serve.yaml | D10 |
 | U4 | Admission diagnoses of the 32 Douala patients, to confirm hypertension or diabetes | ch3 limitation no. 6 | I21 |
-| U5 | Four confirmations: name of the "framing document"; whether the ESP32 prototype was built; physician's role ("facilitated access to records"); authors of Moore 2017 | ch3, ch4 | I33 |
+| U5 | Physician's role ("facilitated access to the records", ch.3 §Data collection). Closed: "framing document" and Moore 2017 removed from the thesis; ESP32 not built (prospect) | ch3 | I33 |
 
 ### 6b. Data and analyses
 
 | # | Missing | Note |
 |---|---|---|
 | A1 | Full eICU database (PhysioNet credentialed account, CITI training, signed DUA) | Otherwise the thesis must state that the benchmark uses the demo subset only |
-| A2 | Final results of the full benchmark (`06_benchmark.py`, ≈ 12 h per task) and of the Douala external validation | Run by the user |
-| A3 | Performance by sex and by age band (< 65 / ≥ 65) | Promised in ch3 §Metrics; not in the code |
-| A4 | Benchmark rerun with the variant capping severe hyperglycaemia at "high" | Variant exists in `02_label_rules.py`, not in the benchmark |
-| A5 | Benchmark rerun with slot tolerances ± 1 h and ± 3 h | Script 10 only counts samples |
-| A6 | Descriptive statistics of dataset A (consultations) recomputed with impossible dates flagged (e.g. 31/09/2026) | I20 |
-| A7 | Anonymisation of the Douala file before any sharing (age bands, dates replaced by elapsed time) | I27 |
-| A8 | Cost per patient per month at the scale of 1,000 patients | Promised in ch4 |
+| A2 | Final results of the full benchmark (`06_benchmark.py`, ≈ 12 h per task) and of the Douala external validation | **Done** 2026-10-28 (lead 0 h); ch.4 §4.2–4.3 |
+| A3 | Performance by sex and by age band (< 65 / ≥ 65) | **Done**: `15_results_details.py`, tables `subgroups_*` |
+| A4 | Benchmark rerun with the variant capping severe hyperglycaemia at "high" | Optional; not promised in the thesis. Variant exists in `02_label_rules.py`, not in the benchmark |
+| A5 | Benchmark rerun with slot tolerances ± 1 h and ± 3 h | Optional; the thesis reports the effect on sample counts only (script 10) |
+| A6 | Descriptive statistics of dataset A (consultations) recomputed with impossible dates flagged (e.g. 31/09/2026) | The thesis uses counts only (58 patients, 81 readings, 49 with one reading; rechecked 2026-10-28, dates not used); no script writes them yet |
+| A7 | Anonymisation of the Douala file before any sharing (age bands, dates replaced by elapsed time) | I27. The two Douala files and the old pipeline were tracked in the public repository from 2026-10-08; removed from it on 2026-10-29 (`.gitignore`), still present in the earlier commits |
+| A8 | Cost per patient per month at the scale of 1,000 patients | Closed: removed from the thesis in the 90-page restructure |
 
 Already present (no action): weight sensitivity analysis (Dirichlet draws in `objective.py`).
 
@@ -163,7 +164,7 @@ the user); rules not tested in the emulator (no Java on this machine).
 | P1 | Record not append-only | **Built**: rules refuse update/delete of readings and validate each write (ranges, pressure pair, unit, measurement time ≤ 30 days back, server record time); a correction is a new reading with `supersedes`, the old one stays and is shown to the clinician as replaced |
 | P2 | Risk card shows the probability to the patient | **Built**: patient sees tier, reason and the permitted instruction (yellow: contact the health centre; red: seek care today); calibrated probability and model shown to the clinician only |
 | P3 | Assistant receives the name; "7 readings" | **Built**: name and identifiers removed from the instruction; readings = the risk card's four-day window (corrections applied, at most 20) |
-| P4 | No adversarial test of the guardrails | **Built**: fixed set of 24 questions FR/EN (`integration_test/adversarial_set.dart`), automatic flags (`guardrail_check.dart`), device runner with JSON report (`integration_test/README.md`). **To run by the user** on a device; breaches confirmed by reading |
+| P4 | No adversarial test of the guardrails | **Built**: fixed set of 22 questions FR/EN (`integration_test/adversarial_set.dart`), automatic flags (`guardrail_check.dart`), device runner with JSON report (`integration_test/README.md`). **To run by the user** on a device; breaches confirmed by reading |
 | P5 | Protocol pair, back-dating, priority queue, verdicts and event log, non-transmission alarm | **Built**: two BP readings (second retained, first kept for audit); measurement time up to 7 days back; event record `users/{id}/events` (rule and model escalation from the phone, non-transmission sweep from the clinician app, verdict closes once); queue tab ordered red > yellow then oldest, rows with source, triggering value, 14-day trend, days since review, pseudonym and age band, versions; checkup period per patient (default 3 days, provisional) |
 
 Update 2026-10-21 (user decision: local Python worker, no Cloud Functions):
@@ -173,7 +174,7 @@ Update 2026-10-21 (user decision: local Python worker, no Cloud Functions):
 | P6 | Server functions of tab:triggers | **Built**: `serve/worker.py` + `configs/worker.yaml` (measurement check with quality flags, rule and model escalation with the apps' event ids, notification by level and recipient, non-transmission sweep, queue-age escalation to a named alternate, verdict notice to the patient); 11 tests with an in-memory store. Needs a Firebase service-account key (user) |
 | P7 | Push notifications | **Built**: `firebase_messaging`, device tokens on the profile, removed at sign-out; sent by the worker |
 | P8 | Alternate clinician | **Built**: set from a colleague's enrolment code; escalated events readable and closable by the alternate only (rules + collection-group index) |
-| P9 | Deployed model | **Built**: `scripts/11_export_model.py` (lowest selection cost in the final search on all eICU; refuses another threshold version); **waits for a complete benchmark run** |
+| P9 | Deployed model | **Built**: `scripts/11_export_model.py` (lowest selection cost in the final search on all eICU; refuses another threshold version); **done** 2026-10-28 (CatBoost, GRU-D) |
 | P10 | Design review | **Done**: one colour per level everywhere (critical red, high amber), level vocabulary of the thesis in the history, no empty SpO2 card, no duplicate add button, neutral trend series, target band in green, axis labels, plain field labels, muted text at AA contrast, dark-mode fixes; captures in `telemonitor/test_screens` |
 | — | Read receipts of messages | **Fixed**: the rules refused them silently |
 

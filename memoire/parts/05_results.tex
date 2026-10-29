@@ -349,7 +349,7 @@ The models refitted on all development data were applied once to the Douala char
 
 \paragraph{Calibration} The calibration intercepts are positive for every classifier, from 0.17 to 0.41 on blood pressure and from 0.71 to 0.89 on glucose: the models under-predict the alert on Douala, as expected from a prevalence of 23\% against 17\%, and 59\% against 29\%. Updating the intercept on the local data removes this offset by construction and lowers the Brier score (CatBoost 0.148 to 0.142, GRU-D 0.237 to 0.221), but it leaves the slopes unchanged, and they are far from one: above one on blood pressure (1.49 for CatBoost, predictions too cautious), 0.3 to 0.5 on glucose (predictions too extreme). One family behaves differently: the value forecasts have intercepts of 0.03 to 0.08 in both tasks, close to zero before any update, and the lowest Douala RPS on blood pressure (0.1385 for the ridge forecast). This is consistent with how the formulation works: a value forecast passes the higher local pressures and glucose levels into its probabilities through the values themselves, whereas a classifier learns the base rate of intensive care. The formulation that was worse in development transfers its calibration best.
 
-\paragraph{Clinical utility} The decision curves (\cref{fig:decision}) do not show the margin in RPS. On blood pressure, the deployed CatBoost does not exceed persistence at any of the thresholds 0.1, 0.2 and 0.3: at 0.2, its net benefit is 0.107 against 0.120 (interval 0.030--0.207 against 0.042--0.220), and 0.088 after the intercept update. On glucose, GRU-D exceeds persistence at 0.2 and 0.3 (0.434 against 0.405, 0.395 against 0.330), but with an alert in 59\% of the targets, raising an alert for every target does better still (0.487 and 0.414). On these few patients, no deployed model would have improved the alert decisions over the rule.
+\paragraph{Clinical utility} The decision curves (\cref{fig:decision-curves}) do not show the margin in RPS. On blood pressure, the deployed CatBoost does not exceed persistence at any of the thresholds 0.1, 0.2 and 0.3: at 0.2, its net benefit is 0.107 against 0.120 (interval 0.030--0.207 against 0.042--0.220), and 0.088 after the intercept update. On glucose, GRU-D exceeds persistence at 0.2 and 0.3 (0.434 against 0.405, 0.395 against 0.330), but with an alert in 59\% of the targets, raising an alert for every target does better still (0.487 and 0.414). On these few patients, no deployed model would have improved the alert decisions over the rule.
 
 \begin{figure}[htbp]
 \centering
@@ -373,7 +373,7 @@ The models refitted on all development data were applied once to the Douala char
 \addplot[thin, cText2, domain=0:0.6, samples=2] {0};
 \end{groupplot}
 \end{tikzpicture}
-\caption{Decision curves on the Douala charts, probabilities as is. The net benefit counts true alerts minus false alarms weighted by the odds of the threshold.}\label{fig:decision}
+\caption{Decision curves on the Douala charts, probabilities as is. The net benefit counts true alerts minus false alarms weighted by the odds of the threshold.}\label{fig:decision-curves}
 \end{figure}
 
 %--------------------------------------------------------------------------

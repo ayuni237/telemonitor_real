@@ -2,10 +2,10 @@
 
 TeleMonitor is a telemonitoring system for patients living with **hypertension and/or type 2 diabetes** in Cameroon. Patients record their blood pressure, pulse and blood glucose in a mobile app. A guideline-based rule and a machine-learning model turn the recent readings into a risk level (green, yellow, red), and the patient's clinician follows them from the same app.
 
-The project is the subject of a Master's thesis in Data Science and Artificial Intelligence at the **National Advanced School of Engineering of Douala (ENSPD), University of Douala**:
+The project is the subject of a Master's thesis in Data Science and Artificial Intelligence at the **National Higher Polytechnic School of Douala (NHPSD), University of Douala**:
 
 > *Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors*
-> Nsame Ayuni Rodrick — supervised by Dr. Malong and Dr. Noulapeu
+> Nsame Ayuni Rodrick — supervised by Dr. Malong Yannick and Dr. Noulapeu Ngaffo
 
 The project is a work in progress: this page describes it as it stands and will be updated as the work advances.
 
@@ -92,7 +92,7 @@ python parts/build.py
 pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_restructure.tex; pdflatex memoire_restructure.tex
 ```
 
-The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` and `scripts/15_results_details.py` from completed benchmark runs only.
+The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` and `scripts/15_results_details.py` from completed benchmark runs only. The figures that read the Douala data need the confidential files described under [Data](#data).
 
 ## Status
 
@@ -104,12 +104,13 @@ The thesis follows the structure required by the school (unnumbered Introduction
 | Local risk service sharing the research code | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
 | Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
-| Thesis (82 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2) |
+| Thesis (83 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
 
 ## Data
 
 - **eICU demo 2.0.1** is open access on [PhysioNet](https://physionet.org/content/eicu-crd-demo/2.0.1/); download it into `telemonitor-research/data/external/` as described in `BENCHMARKS.md`. The full database requires PhysioNet credentialing and a data use agreement.
-- **Douala data** are confidential patient records, used for research only with the agreement of the partner hospital. They must not be redistributed.
+- **Douala data** are confidential patient records, used for this research only, under the written research authorisation of the partner hospital (25 September 2026). They are **not in this repository** and must not be redistributed; without them, the tests that need them are skipped.
+- The old pipeline written before the `telemonitor` package, whose notes report results on synthetic data, and the earlier versions of the thesis are no longer in the repository.
 
 ## Key documents
 
@@ -122,6 +123,6 @@ The thesis follows the structure required by the school (unnumbered Introduction
 
 ## Author
 
-**Nsame Ayuni Rodrick** — M2 Data Science and Artificial Intelligence, ENSPD, University of Douala.
+**Nsame Ayuni Rodrick** — M2 Data Science and Artificial Intelligence, NHPSD, University of Douala.
 
 No license has been chosen yet: all rights are reserved until one is added.

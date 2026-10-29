@@ -18,10 +18,14 @@ Decisions of 27 October 2026:
 8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
    unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
 
-## 0. Status on 28 October 2026
+## 0. Status on 29 October 2026
 
-Written and compiling without errors or undefined references: `memoire_restructure.pdf`,
-**82 pages** (`python parts/build.py`, then `pdflatex`, `biber`, `pdflatex` ×2). The benchmark
+Written and compiling without errors, undefined references or duplicate labels:
+`memoire_restructure.pdf`, **83 pages** (`python parts/build.py`, then `pdflatex`, `biber`,
+`pdflatex` ×2). The title is the registered one, as in the hospital's research authorisation
+(*Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension,
+Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors*), and the
+authorisation (No. 185/AR/MINSANTE/DHL/CM, 25 September 2026) is cited in §Ethics. The benchmark
 runs are complete (`haemodynamic_0h_7472a36df1`, `glycaemic_0h_8cce0579ad`, 15 outer folds
 each) and sections 4.2–4.4, the answers to RQ2–RQ4, the key points, the conclusion, the
 Abstract and the Résumé are written from them.
@@ -31,6 +35,7 @@ Every number of chapter 4 comes from a script of `telemonitor-research`:
 | Output | Script | Where |
 |---|---|---|
 | benchmark, selected family per fold, external validation | `13_results_tables.py` | `results/benchmark_*`, `selected_*`, `external_*` |
+| lead time (H2), after the runs at 12 and 36 h | `13_results_tables.py` | `results/leads.tex` |
 | subgroups, weight stability, importance, figure data | `15_results_details.py` | `results/subgroups_*`, `weights`, `importance_*`; `figures/data/` |
 | deployed models | `11_export_model.py` | `artifacts/<task>/` (CatBoost, GRU-D) |
 | state-evolution measures | `12_state_comparison.py` | `out/state_comparison.csv`; `configs/state_compare.yaml` |
@@ -42,16 +47,18 @@ Every number of chapter 4 comes from a script of `telemonitor-research`:
 | Introduction | `01_introduction.tex` | 4 | 4 |
 | Ch.1 Literature review | `02_review.tex` | 11 | 14 |
 | Ch.2 Risk-tiering framework | `03_framework.tex` | 6 | 5 |
-| Ch.3 Methodology and system | `04_methodology.tex` | 14 | 18 |
-| Ch.4 Results and discussion | `05_results.tex` | 17 | 17 |
+| Ch.3 Methodology and system | `04_methodology.tex` | 15 | 18 |
+| Ch.4 Results and discussion | `05_results.tex` | 16 | 17 |
 | Conclusion | `06_conclusion.tex` | 3 | 3 |
 | References | (biblatex) | 5 | 7 |
-| Appendices A–E | `07_appendices.tex` | 9 | 10 |
+| Appendices A–E | `07_appendices.tex` | 10 | 10 |
 
 Still missing: the acknowledgments (after the Declaration) and, if you want them, the logos.
-H2 (24 and 48 hours ahead) is reported as not tested.
+H2 (24 and 48 hours ahead) is reported as not tested until the runs at 12 and 36 h are made.
 
-The old 125-page chapters are kept in `parts/archive_125p/` (not built). The preamble loads the
+The old 125-page chapters (`parts/archive_125p/`) and the earlier versions `final_memoire` and
+`correction memoir` are kept on the author's machine only, out of git; so is the French
+working version (`memoire_fr`, `parts_fr/`, `results_fr/`). The preamble loads the
 XCharter, Fira and newtx font maps itself, because MiKTeX had not registered them.
 
 ## 1. Structure and page budget
@@ -106,11 +113,11 @@ sample's, which alone saves about a fifth of the pages.
 | Section | Content | Source | Ready? |
 |---|---|---|---|
 | 4.1 Data collection and treatment | Douala cohort; quality controls; terminal digits; label distribution and uncertainty; old against sourced rule; eICU eligibility and harmonisation; samples per task; sample size against Riley; sensitivity analyses | scripts 01, 02, 04, 05, 09, 10 | yes |
-| 4.2 Risk models | nested benchmark by hospital; comparison with persistence; selected family; calibration and decision curves | `06_benchmark.py`, `08_figures.py` | **runs stopped at 7/15 and 4/15 folds** |
-| 4.3 External validation on Douala | before and after intercept update | same | **after the runs** |
-| 4.4 State evolution | eight measures, AUROC with intervals | `12_state_comparison.py` | **one minute to run** |
-| 4.5 System verification | parity tests, rules, offline behaviour, worker; assistant adversarial set | test suites; `integration_test/` | tests yes; assistant **on a phone** |
-| 4.6 Discussion | research questions, literature, implications, limitations | — | after 4.2–4.4 |
+| 4.2 Risk models | nested benchmark by hospital; comparison with persistence; selected family; subgroups; weight stability; importance | `06_benchmark.py`, `13_results_tables.py`, `15_results_details.py` | yes (15/15 folds per task) |
+| 4.3 External validation on Douala | before and after intercept update | same | yes |
+| 4.4 State evolution | eight measures, AUROC with intervals | `12_state_comparison.py` | yes |
+| 4.5 System verification | parity tests, rules, offline behaviour, worker; assistant adversarial set | test suites; `integration_test/` | tests yes (171 Python, 48 Flutter); rules deployment and assistant **on a phone** pending |
+| 4.6 Discussion | research questions, literature, implications, limitations | — | yes; H2 not tested |
 
 Each results table will be produced by a script from the saved outputs (no number typed by
 hand), as for the figures.
@@ -119,8 +126,9 @@ hand), as for the figures.
 
 1. Read the thesis and tell me what to cut or change.
 2. Send the acknowledgments, and the logos of the University of Douala and of NHPSD (PNG)
-   if you want them on the title page; confirm the academic year (2025–2026 assumed).
-3. Optional, for H2: `powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windowserun_benchmarks.ps1 -Leads "12 36"`
-   (otherwise H2 stays reported as not tested).
-4. If the risk service or the worker is running, restart it: it now loads the exported
-   models and the selected state measure.
+   if you want them on the title page (academic year 2025–2026 confirmed).
+3. For H2 and RQ3: `powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchmarks.ps1 -Leads "12 36"`
+   (about a day and a half), then `python scripts\13_results_tables.py`, which writes
+   `results/leads.tex`; the lead-time paragraph, RQ3 and the key points are then written from it.
+4. On a phone and in Firebase: deploy the Firestore rules, run the 22-question assistant set
+   (§4.5 reports both as pending).

@@ -9,3 +9,34 @@ __pycache__/
 # Firebase service-account keys for the worker: never commit
 secrets/
 *service-account*.json
+# Douala patient records (confidential, used under the hospital's authorisation): never commit
+/cohortB_complete.csv
+/data/patient_data_REAL_DO_NOT_MODIFY.csv
+/data/cohort_stats.txt
+# Old pipeline, before the package (results on synthetic data): kept locally, out of git
+/CALIBRATION.md
+/EXPERIMENTS.md
+/FINDINGS.md
+/TeleMonitor_Model_Methodology.tex
+/TeleMonitor_model_REAL.ipynb
+/ablation.py
+/binary_and_nested.py
+/confound.py
+/experiment.py
+/experiment2.py
+/experiment3.py
+/export_onnx.py
+/features.py
+/final.py
+/final_and_shap.py
+/gen.py
+/paired.py
+/run_shap.py
+/train.py
+/tune.py
+/verify_12.py
+/verify_large.py
+/verify_meanonly.py
+/fig_shap_*.png
+/shap_*.csv
+/telemonitor_risk_model.*
