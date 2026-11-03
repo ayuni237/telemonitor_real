@@ -1,0 +1,9 @@
+# The image needs only requirements-lock.txt, pyproject.toml, src/ and configs/.
+# Patient data, outputs, model artifacts and keys never enter the image.
+*
+!requirements-lock.txt
+!pyproject.toml
+!src/
+!configs/
+**/__pycache__/
+**/*.egg-info/

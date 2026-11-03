@@ -79,6 +79,27 @@ flutter run -d chrome --web-port 5000 --dart-define=RISK_API_URL=http://localhos
 
 On an Android emulator, use `--dart-define=RISK_API_URL=http://10.0.2.2:8000` instead. Without `RISK_API_URL` the app runs with the guideline rule only.
 
+### With Docker (risk service, worker, tests)
+
+Docker Desktop runs the risk service, the server worker and the tests in a container that holds the exact library versions of the thesis (`requirements-lock.txt`), without a local Python environment. From `C:\Projects`:
+
+```powershell
+docker compose build                 # once, and when requirements-lock.txt changes
+docker compose up -d api             # risk service on http://localhost:8000, restarted with Docker Desktop
+docker compose run --rm tests        # research test suite
+```
+
+The app connects to it exactly as above (`http://localhost:8000` from Chrome, `http://10.0.2.2:8000` from the emulator). A physical Android phone connected by USB reaches it through `adb`, with no network or firewall involved:
+
+```powershell
+adb reverse tcp:8000 tcp:8000        # again after each reconnection of the phone
+flutter run --dart-define=RISK_API_URL=http://localhost:8000
+```
+
+Over Wi-Fi instead, publish the service on the network (`$env:RISK_API_BIND = "0.0.0.0"; docker compose up -d api`) and use `http://<computer IP>:8000` (`ipconfig`). On a network set to Public, Windows Firewall blocks Docker's incoming connections: the phone gets through only on a trusted network set to Private, with Docker Desktop allowed when Windows asks.
+
+After a change of code, configs or exported model, `docker compose restart api` is enough. The service container reads code, configs and models only, read-only: patient data, outputs and keys never enter the image. All commands, including the worker, are listed at the top of [`docker-compose.yml`](docker-compose.yml).
+
 ### Server worker (escalation, reminders, notifications)
 
 Requires a Firebase service-account key in `telemonitor-research/secrets/service-account.json` (excluded from git, never share it). See section 7 of [`BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md).
@@ -92,7 +113,7 @@ python parts/build.py
 pdflatex memoire_restructure.tex; biber memoire_restructure; pdflatex memoire_restructure.tex; pdflatex memoire_restructure.tex
 ```
 
-The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, at most 90 pages); [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` and `scripts/15_results_details.py` from completed benchmark runs only. The figures that read the Douala data need the confidential files described under [Data](#data).
+The thesis follows the structure required by the school (unnumbered Introduction and Conclusion, four chapters, appendices) in a standard LaTeX layout; [`memoire/RESTRUCTURE_90.md`](memoire/RESTRUCTURE_90.md) gives the plan and its status. The results tables are written by `scripts/13_results_tables.py` and `scripts/15_results_details.py` from completed benchmark runs only. The figures that read the Douala data need the confidential files described under [Data](#data).
 
 ## Status
 
@@ -104,7 +125,7 @@ The thesis follows the structure required by the school (unnumbered Introduction
 | Local risk service sharing the research code | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
 | Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
-| Thesis (83 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
+| Thesis (112 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
 
 ## Data
 

@@ -1,0 +1,72 @@
+# TeleMonitor with Docker — run from C:\Projects (README, "Getting started").
+#
+#   docker compose build                           build the image (once, and when requirements-lock.txt changes)
+#   docker compose up -d api                       risk service on http://localhost:8000 (documentation: /docs)
+#   docker compose restart api                     after a change of code, configs or exported model
+#   docker compose logs -f api                     follow the service
+#   docker compose run --rm tests                  research test suite
+#   docker compose run --rm research python scripts/<script>.py
+#   docker compose --profile worker up -d worker   server worker (key in telemonitor-research/secrets/)
+#   docker compose down                            stop everything
+#
+# The risk service listens on this machine only (browser, Android emulator through 10.0.2.2).
+# For a phone on the same Wi-Fi:  $env:RISK_API_BIND = "0.0.0.0"; docker compose up -d api
+name: telemonitor
+
+x-image: &image
+  build: ./telemonitor-research
+  image: telemonitor-research:0.2
+  init: true   # a real process 1: Ctrl+C and "docker compose stop" end Python cleanly
+
+services:
+  # Read-only access to code, configs and exported models: no patient data, no keys.
+  api:
+    <<: *image
+    environment:
+      TELEMONITOR_CORS: ${TELEMONITOR_CORS:-http://localhost:5000}   # Flutter web build
+    volumes:
+      - ./telemonitor-research/src:/work/src:ro
+      - ./telemonitor-research/configs:/work/configs:ro
+      - ./telemonitor-research/artifacts:/work/artifacts:ro
+    ports:
+      - "${RISK_API_BIND:-127.0.0.1}:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+    restart: unless-stopped
+
+  # Server functions (thesis ch.3): escalation, reminders, push notifications.
+  worker:
+    <<: *image
+    profiles: ["worker"]
+    command: ["python", "-m", "telemonitor.serve.worker", "--credentials", "/work/secrets/service-account.json"]
+    volumes:
+      - ./telemonitor-research/src:/work/src:ro
+      - ./telemonitor-research/configs:/work/configs:ro
+      - ./telemonitor-research/artifacts:/work/artifacts:ro
+      - ./telemonitor-research/secrets:/work/secrets:ro
+    restart: unless-stopped
+
+  # The whole research folder is mounted: data are read and outputs written on Windows.
+  # ../memoire as the code expects it: bibliography (tests), results tables and figure data (scripts 13-15).
+  tests:
+    <<: *image
+    profiles: ["tools"]
+    environment:
+      TELEMONITOR_PROGRESS: "0"
+    volumes:
+      - ./telemonitor-research:/work
+      - ./memoire:/memoire:ro
+    command: ["python", "-m", "pytest", "-q"]
+
+  research:
+    <<: *image
+    profiles: ["tools"]
+    volumes:
+      - ./telemonitor-research:/work
+      - ./memoire:/memoire
+    command: ["bash"]
+    stdin_open: true
+    tty: true
