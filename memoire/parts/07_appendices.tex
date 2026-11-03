@@ -1,6 +1,55 @@
 %==========================================================================
 % APPENDICES
 %==========================================================================
+\chapter{The Nineteen Sources of the Review}\label{app:sources}
+
+\Cref{tab:sources} summarises the nineteen core sources of \cref{ch:review}, in the order of its themes: design and data, main findings, limits, and what this thesis takes from each.
+
+{\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.1cm} >{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{2.6cm}@{}}
+\caption{The nineteen core sources of the literature review.}\label{tab:sources}\\
+\toprule
+\textbf{Source} & \textbf{Design and data} & \textbf{Main findings} & \textbf{Limits} & \textbf{Use in this thesis} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Source} & \textbf{Design and data} & \textbf{Main findings} & \textbf{Limits} & \textbf{Use in this thesis} \\
+\midrule
+\endhead
+\multicolumn{5}{@{}l}{\textit{Burden of disease}} \\
+\textcite{hinneh2023} & meta-analysis of 41 cross-sectional studies, 144\,433 participants, Africa & 58.1\% of people with diabetes are hypertensive; Central Africa highest, 77.6\% (53.0--91.4) & extreme heterogeneity; Central Africa rests on two hospital series; English only & case for joint monitoring (\cref{sec:comorbidity}) \\
+\textcite{who2023hypertension} & institutional global report & 1.3 billion hypertensive adults; 72\% of the diagnosed not controlled in the African Region; validated cuffs only; telemonitoring endorsed & modelled estimates; no patient-level technology & framing, thresholds, device position (\cref{sec:burden,sec:metrology}) \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Care and digital health in sub-Saharan Africa}} \\
+\textcite{bediang2021} & controlled study, two equipped and two control district hospitals, 171 patients, Cameroon & ECG with expertise 98.9\% against 33.3\%; local diagnosis changed in 46.2\%; expert opinion after 10.3 days & not randomised; differential attrition & feasibility in Cameroon; scarcity of expert time (\cref{sec:telemedcam}) \\
+\textcite{dodoo2022} & review of 66 empirical studies and reports & six dimensions of barriers; projects stop when external funding ends & francophone countries under-represented & barriers, sustainability (\cref{sec:digital-barriers}) \\
+\textcite{gafane2024} & narrative review, 2017--2023 & high burden, poor control; Cameroon 20.8\% prevalence, 11.2\% controlled; task shifting inconsistent on blood pressure & narrative; heterogeneous surveys & regional profile (\cref{sec:lr-regional}) \\
+\textcite{agbeyangi2025} & systematic review of 53 studies, 2014--2024, South Africa, Kenya, Nigeria & adoption led by South Africa; persistent regulatory, literacy and infrastructure barriers & Central Africa absent & regional landscape, blind spot \\
+\textcite{segun2025} & perspective on cardiovascular digital health & over 80\% mobile subscription; 550 million without reliable electricity and internet; AI largely unvalidated in Africa & no declared search strategy & orders of magnitude; transfer of AI (\cref{sec:lit-gaps}) \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Mobile health and clinical evidence}} \\
+\textcite{alessa2019} & content analysis of 186 hypertension applications, 30 in depth & 58.1\% offer one function; none of 30 evaluated; median of nine behaviour change techniques; 14 of 20 privacy policies declare sharing & market snapshot of English applications & features and privacy of applications (\cref{sec:apps}) \\
+\textcite{mao2020} & meta-analysis of 51 randomised trials, 13\,054 participants & SBP $-2.99$~mmHg, HbA1c $-0.39$; $-6.17$~mmHg with professional management; no SBP effect in developing countries & moderate to high heterogeneity; one trial in sub-Saharan Africa & effect conditional on a clinician (\cref{sec:efficacy}) \\
+\textcite{zhou2024} & meta-analysis of 20 randomised trials, 16 pooled, 4\,168 participants & SBP $-5.78$~mmHg; larger with eleven or more techniques and several risk factors & low certainty; 15 of 20 trials at high risk of bias & behaviour change techniques \\
+\textcite{bandeira2024} & updated meta-analysis of randomised trials & significant blood pressure reductions; telemonitoring with clinician feedback most effective & heterogeneity; short follow-up; few data from low-income settings & clinician in the loop \\
+\textcite{mihevc2025} & multicentre open-label trial, 128 patients aged 65 or more with both conditions, Slovenia & SBP $-6.9$~mmHg and HbA1c $-0.5$ at twelve months; 10.9\% withdrew in the first month & high-income setting; older adults; not blinded & three-level home protocol adopted (\cref{sec:triage}) \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Sensors and IoT}} \\
+\textcite{alhaddad2022} & review of non-invasive glucose sensing and machine learning & promise for trends and hypoglycaemia, not for clinical-grade values & small samples; inter-individual variation & glucose from a glucometer (\cref{sec:cuffless}) \\
+\textcite{tai2024} & deep learning technique in a three-phase architecture & accurate and interpretable predictions in their evaluation & controlled conditions; connectivity not addressed & layered architecture \\
+\textcite{efendi2025} & IoT system (ESP32, MQTT, Firebase), six volunteers & mean absolute percentage error 0.90\%; XGBoost accuracy 0.973 & label a function of the inputs; no blood pressure or glucose; data stored abroad & offline-first storage; example of leakage (\cref{sec:lr-ml}) \\
+\textcite{liu2025review} & survey of IoT sensing and machine learning & device categories; seven-layer platform; accuracies of 95--100\%; defects of electronic records & no protocol or flow diagram & record quality; layers \\
+\textcite{liu2025ppg} & smartphone camera photoplethysmography for blood pressure, 127 participants & strong correlation with reference devices; SHAP explanations & single site; below cuff accuracy & smartphone sensing kept exploratory \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Machine learning}} \\
+\textcite{mendoza2025} & cross-sectional prediction, 1\,308 hypertensive adults, Mexican national survey & random forest AUC 0.75, XGBoost 0.54; sensitivity of the best model 0.51 & cross-sectional; demographic predictors; reporting errors & genuine prediction; choice of metrics (\cref{sec:lr-ml,sec:metrics}) \\
+\addlinespace
+\multicolumn{5}{@{}l}{\textit{Privacy and ethics}} \\
+\textcite{alhammad2024} & systematic review of 33 studies of patient perspectives & data concerns hinder adoption; encryption, authentication and transparency build trust & mostly high-income countries; self-reported perceptions & data protection as a design constraint (\cref{sec:lr-privacy}) \\
+\bottomrule
+\end{longtable}}
+
 \chapter{Data Dictionary}\label{app:data}
 
 \paragraph{Douala charts} One row per reading, transcribed by hand from the ward observation charts without names (\cref{tab:dict-douala}). The file is not published.

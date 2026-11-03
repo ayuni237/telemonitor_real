@@ -11,7 +11,11 @@
 %   4.5  pytest (telemonitor-research), flutter test / flutter analyze (telemonitor)
 \chapter{Results and Discussion}\label{ch:results}
 
-This chapter reports what the data, the benchmark and the system produced, in the order of \cref{ch:methodology}: the collected data and their treatment, the benchmark of the risk models and their external validation, the comparison of the measures of state evolution, and the verification of the system. It then answers the research questions, compares the results with the literature and states the limitations.
+\section{Introduction}\label{sec:results-intro}
+
+This chapter presents what the data, the benchmark and the system produced, and interprets it against the hypotheses, the literature and the objectives. Recall the four hypotheses: at least one learned model forecasts the level of the next reading with a lower ranked probability score than persistence (H1); the advantage persists 24 and 48~hours ahead (H2); deep temporal models do not outperform tabular ones (H3); and performance is lower on the Douala patients, with part of the calibration recovered by a local intercept update (H4). RQ1, a design question, is answered by the system and its verification.
+
+The results follow the order of \cref{ch:methodology}: the collected data and their treatment (\cref{sec:results-data}), the benchmark of the risk models (\cref{sec:results-benchmark}) and their external validation (\cref{sec:results-external}), the comparison of the measures of state evolution (\cref{sec:results-state}) and the verification of the system (\cref{sec:results-system}). The discussion (\cref{sec:discussion}) then answers the research questions, compares the results with the literature, states their strengths, their limitations and the precautions they call for, and a synthesis closes the chapter.
 
 %--------------------------------------------------------------------------
 \section{Data Collection and Treatment}\label{sec:results-data}
@@ -275,7 +279,7 @@ Both runs are complete: five outer folds grouped by hospital, repeated three tim
 \centering
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
-  width=0.5\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
+  width=0.48\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
   xticklabels={Ord.\ logistic, Logistic PCA, Forest, CatBoost, Value ridge, Value CatBoost, GRU-D, Masked LSTM},
   xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
   ymajorgrids, grid style={cGrey!18}, yticklabel style={/pgf/number format/precision=3},
@@ -328,7 +332,7 @@ The models refitted on all development data were applied once to the Douala char
 \centering
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
-  width=0.5\textwidth, height=5.4cm, xmin=-0.6, xmax=8.6, xtick={0,...,8},
+  width=0.48\textwidth, height=5.4cm, xmin=-0.6, xmax=8.6, xtick={0,...,8},
   xticklabels={Persistence, Ord.\ logistic, Logistic PCA, Forest, CatBoost, Value ridge, Value CatBoost, GRU-D, Masked LSTM},
   xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
   ymajorgrids, grid style={cGrey!18}, yticklabel style={/pgf/number format/precision=2},
@@ -355,7 +359,7 @@ The models refitted on all development data were applied once to the Douala char
 \centering
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
-  width=0.5\textwidth, height=5.2cm, xmin=0, xmax=0.6, axis lines=left,
+  width=0.48\textwidth, height=5.2cm, xmin=0, xmax=0.6, axis lines=left,
   xlabel={threshold probability}, ymajorgrids, grid style={cGrey!18},
   xticklabel style={/pgf/number format/precision=1}, yticklabel style={/pgf/number format/precision=2},
   title style={font=\small\bfseries, text=cMain}]
@@ -385,7 +389,7 @@ The eight measures of \cref{tab:state-measures} were compared on 3\,392 developm
 \centering
 \begin{tikzpicture}
 \begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.5cm},
-  width=0.5\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
+  width=0.48\textwidth, height=5.4cm, xmin=0.4, xmax=8.6, xtick={1,...,8},
   xticklabels={Cosine, Euclidean raw, Euclidean cohort, Cosine centred, Euclidean patient, Manhattan patient, Chebyshev patient, Mahalanobis},
   xticklabel style={rotate=50, anchor=east, font=\scriptsize}, axis lines=left,
   ymajorgrids, grid style={cGrey!18}, ymin=0.25, ymax=0.75, yticklabel style={/pgf/number format/precision=2},
@@ -453,13 +457,54 @@ The harmonisation made the two datasets alike in rhythm, not in content. Three d
 
 \subsection{Comparison with the literature}
 
-The study closest to this work reports an accuracy of 0.973 for XGBoost on blood pressure and glucose readings \parencite{efendi2025}; on similar data, \textcite{mendoza2025} find the same algorithm no better than chance. The difference is explained by the task, not by the algorithm: when the label is a threshold rule applied to the reading the model sees, the model recovers the rule (\cref{sec:task-not-algo}). The present work avoids this by forecasting the next reading, so the guideline rule applied to the last reading---persistence---is the reference any model must beat, and accuracy is not reported because it rewards the majority level. Its results are therefore not comparable with those figures, and are not meant to be. The reviewed telemonitoring protocol \parencite{mihevc2025} reports clinical effect, not predictive performance; the present system implements it as the rule floor, so a model can only add to it.
+\paragraph{Predictive performance.} The IoT system of \textcite{efendi2025} reports an accuracy of 0.973 for XGBoost on readings of heart rate, oxygen saturation and temperature; on survey data of hypertensive adults, \textcite{mendoza2025} find the same algorithm no better than chance. The difference is explained by the task, not by the algorithm: when the label is a threshold rule applied to the reading the model sees, the model recovers the rule (\cref{sec:task-not-algo}). The present work avoids this by forecasting the next reading, so the guideline rule applied to the last reading---persistence---is the reference any model must beat, and accuracy is not reported because it rewards the majority level. Its results are therefore not comparable with those figures, and are not meant to be. They are closer in spirit to the only genuine clinical prediction reported by \textcite{liu2025review}, a recurrent network predicting the readmission of lupus patients with an AUC of 0.70, and to the random forest of \textcite{mendoza2025} (AUC 0.75): the AUROC of the alert of the deployed models, 0.67 to 0.78 depending on the task and the dataset, is of the same order, far from the 95 to 100\% accuracies of tasks whose label is encoded in the inputs.
 
-\paragraph{The arithmetic of alert volume} Whatever the benchmark shows, the prevalence of the alert at home will be far lower than in the inpatient data. With $\pi$ the share of readings that need attention, a classifier of sensitivity Se and specificity Sp has a precision
+\paragraph{Choice of algorithm.} Two expectations of the literature hold. Tree ensembles were plausible candidates \parencite{mendoza2025,liu2025review}: on blood pressure the random forest and CatBoost have the lowest RPS with the masked LSTM, the random forest is the family chosen most often in the outer folds, and CatBoost is the deployed model. And on tabular inputs, deep networks were not expected to outperform tree ensembles \parencite{grinsztajn2022}: they equal them. One expectation is qualified. Across clinical prediction studies, machine learning shows no systematic benefit over logistic regression \parencite{christodoulou2019}; here, the proportional-odds model does no better than persistence on blood pressure ($+0.0007$, $p = 0.73$), whereas the tree ensembles do, by a margin of about 0.005 in RPS. What the benchmark adds to the literature is the comparison with the guideline rule, which none of the reviewed studies made: against persistence, the margin of the best model is about 3\% of the RPS.
+
+\paragraph{Transfer to African patients.} The loss of performance and the calibration offset observed on the Douala patients are what the literature on early-warning scores predicted: scores derived elsewhere lose discrimination in African wards and require local validation and recalibration \parencite{moore2017uva,tomas2026ews}, and artificial intelligence trained elsewhere is largely unvalidated on African populations \parencite{segun2025}. This work measures such a transfer for a learned model for the first time in the region, on few patients, and finds that the intercept update corrects the offset but not the slopes.
+
+\paragraph{The telemonitoring design.} The reviewed telemonitoring protocol \parencite{mihevc2025} reports clinical effect, not predictive performance; the present system implements it as the rule floor, so a model can only add to it. The clinical evidence attributes the effect of telemonitoring to a clinician acting on the data \parencite{mao2020,bandeira2024,mihevc2025}, and the Cameroonian studies show that systematic expert review does not scale \parencite{kingue2013,bediang2021}: the queue that puts red before yellow, the verification profile that absorbs isolated yellow readings, and the escalation of unreviewed events answer these two findings together. The system also responds to the barriers of the region \parencite{dodoo2022,agbeyangi2025}: it works offline, needs no proprietary device, and stores no identifier outside the record. On the patient side, it delivers the techniques that the content analyses found most common---self-monitoring, feedback, prompts \parencite{alessa2019}---through the structure of the system rather than through advice, as the clinical effect of \textcite{mihevc2025} came from treatment adjustment rather than behaviour change. And it keeps glucose and blood pressure from validated instruments, as the WHO requires and the sensor literature supports \parencite{who2023hypertension,alhaddad2022,liu2025ppg}, leaving smartphone sensing for later evaluation.
+
+\paragraph{The arithmetic of alert volume} Whatever the benchmark shows, the prevalence of the alert at home will be far lower than in the inpatient data, and no reviewed telemonitoring source makes the following calculation. Consider $N$ patients sending $m$ readings a week, a share $\pi$ of which genuinely need attention, and a classifier of sensitivity Se and specificity Sp. The number of alerts per week and the share of them that are genuine (the precision, or positive predictive value) are
 \begin{equation}
+  A = N m \bigl[\pi\,\mathrm{Se} + (1-\pi)(1-\mathrm{Sp})\bigr], \qquad
   \mathrm{PPV} = \frac{\pi\,\mathrm{Se}}{\pi\,\mathrm{Se} + (1-\pi)(1-\mathrm{Sp})}.
 \end{equation}
-These formulas reproduce the precisions reported by \textcite{mendoza2025} at their prevalence of 0.303 (0.92 against 0.94 for the random forest). At a planning prevalence of 0.02, a sensitivity of 0.90 and a specificity of 0.98 give a precision of 0.48 and 19.6 false alerts per 1\,000 readings; a precision of 80\% requires a specificity above 0.995. The two-stage home protocol answers this arithmetic: a single yellow reading is queued behind the red ones and leads first to more measurements, so the clinician's decision rests on the mean of a profile rather than on one value, and only red readings call for immediate review. \Cref{fig:ppv-prevalence} shows how far the inpatient data used here are from that regime: the same classifier that is precise at the prevalence of the wards loses most of its precision at home.
+The false-alert term $(1-\pi)(1-\mathrm{Sp})$ does not depend on sensitivity: it is the large volume of normal readings multiplied by the false-positive rate. This formula reproduces the precisions reported by \textcite{mendoza2025} at their prevalence of 0.303 (0.92 against 0.94 for the random forest). At a planning prevalence of 0.02, a sensitivity of 0.90 and a specificity of 0.98 give a precision of 0.48 and 19.6 false alerts per 1\,000 readings; a precision of 80\% requires a specificity above 0.995 (\cref{tab:ppv}), whereas the best model of the reviewed literature reaches 0.98 at a prevalence fifteen times higher.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Precision and false alerts at a prevalence of 2\%.}\label{tab:ppv}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Se} & \textbf{Sp} & \textbf{PPV} & \textbf{False alerts per 1\,000 readings} \\
+\midrule
+0.51 & 0.98 & 0.34 & 19.6 \\
+0.90 & 0.98 & 0.48 & 19.6 \\
+0.90 & 0.99 & 0.65 & 9.8 \\
+0.90 & 0.995 & 0.79 & 4.9 \\
+0.90 & 0.999 & 0.95 & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The multiplier $Nm$ depends on the sampling frequency, which varies by orders of magnitude between designs (\cref{tab:alert-designs}). Thirty patients on the protocol of \textcite{mihevc2025} generate about two false alerts a week, which is manageable; the same specificity applied to a sensor stream at one reading per second, as in \textcite{efendi2025}, generates more than eleven thousand false alerts per patient and per week, whatever the quality of the model. High-frequency data can be summarised into features, but they cannot be alerted on reading by reading.
+
+\begin{table}[htbp]
+\centering\small
+\caption{False alerts by acquisition design, at $\mathrm{Sp} = 0.98$ and $\pi = 0.02$.}\label{tab:alert-designs}
+\begin{tabularx}{\textwidth}{@{}X c c@{}}
+\toprule
+\textbf{Design} & \textbf{Readings per patient and week} & \textbf{False alerts per patient and week} \\
+\midrule
+Protocol of \textcite{mihevc2025}: 2 BP + 1 glucose & 3 & 0.06 \\
+Manual entry, daily & 7 & 0.14 \\
+Continuous sensor at 1~Hz \parencite{efendi2025} & 604\,800 & 11\,854 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The two-stage home protocol answers this arithmetic: a single yellow reading is queued behind the red ones and leads first to more measurements, so the clinician's decision rests on the mean of a profile rather than on one value, and only red readings call for immediate review. \Cref{fig:ppv-prevalence} shows how far the inpatient data used here are from that regime: the same classifier that is precise at the prevalence of the wards loses most of its precision at home.
 
 \begin{figure}[htbp]
 \centering
@@ -483,6 +528,14 @@ These formulas reproduce the precisions reported by \textcite{mendoza2025} at th
 \caption{Precision against the share of readings that need attention, at a sensitivity of 0.90. The dashed line marks a precision of 80\%. Dotted lines: the planning prevalence of 0.02 for a home deployment, and the prevalence of the haemodynamic alert at the targets of eICU (0.17) and Douala (0.23).}\label{fig:ppv-prevalence}
 \end{figure}
 
+\subsection{Strengths of the results}\label{sec:strengths}
+
+Four features make the results stronger than the figures usually reported in the field. They are \emph{free of label leakage}: the label lies outside the input window by construction, and every model is compared with the guideline rule applied to the last reading, so the margins measure what a model adds to the rule. They are \emph{honest about selection}: the hyperparameters, the window and the family are chosen on inner folds only, with budgets declared before any run, and the outer estimate is that of the whole procedure. They \emph{generalise across sites}: the outer folds hold out whole hospitals, so the development estimates already measure transfer between 174 hospitals before the Douala validation. And they are \emph{reproducible}: every number of this chapter is printed by a script from saved outputs, with the configuration and the code of each run. The results are also original in two respects: no previous study forecast the level of the next reading of blood pressure and glucose from a patient's series, and none validated a learned model on Cameroonian patients.
+
+\subsection{Precautions of interpretation}\label{sec:precautions}
+
+What can be concluded is limited by where the data come from. It can be concluded that, on harmonised intensive-care data, learned models forecast the level of the next blood pressure reading slightly better than the guideline rule; that deep temporal models do not outperform tree ensembles on these data; that models developed in United States intensive care lose calibration on Cameroonian inpatients in the direction their prevalences predict; and that the system can apply the home triage offline and order the clinician's attention. It cannot be concluded that the models would forecast home readings as well, since no home data were used; that the glycaemic forecast is useless, since the task falls short of the sample-size criteria; that the deployed models would improve decisions in Douala, since on 32 patients they did not; or that the system improves blood pressure control, which only a prospective study can measure. The Douala comparisons in particular are descriptive: their intervals overlap for every pair of models.
+
 \subsection{Limitations}\label{sec:limitations}
 
 \Cref{tab:limitations} states each limitation with its consequence and with what this work does about it.
@@ -505,20 +558,37 @@ Provisional choices & selection-cost weights and tier cut-points are not yet the
 No use by patients & no usability or effectiveness result & verified by tests; prospective pilot as future work \\
 \bottomrule
 \end{tabularx}
+\end{table}
 
-\bigskip
-% the key points share the float of the limitations table, at the end of the chapter
-\begin{keypoints}[Key points of Chapter 4]
+Each limitation also opens a direction of research, taken up in the Conclusion: the full eICU database for the glycaemic task, home data for the transfer, the physician's relabelling and verdicts for labels that do not derive from the thresholds, and a pilot for the use of the system.
+
+%--------------------------------------------------------------------------
+\section{Synthesis}\label{sec:results-synthesis}
+
+\Cref{tab:hypotheses} gathers the answers to the hypotheses, and the key results of the chapter are the following.
 \begin{itemize}
   \item The Douala pressures were taken with electronic devices and the pulse read from the chart curve; the device tolerance alone can change the level of 27 to 56\% of the readings.
   \item The sourced labelling rule changes the level of 58 of the 366 readings compared with the earlier rule, mostly through low values and the glucose bands.
-  \item eICU and Douala share the rhythm of two readings a day but not the content: diastolic pressure, glucose, its frequency and the prevalence of the alert differ.
-  \item The level of the next glucose reading equals the current one in only 30\% of the Douala pairs, so the glycaemic forecast is harder there than in the development data.
+  \item eICU and Douala share the rhythm of two readings a day but not the content: diastolic pressure, glucose, its frequency and the prevalence of the alert differ, and the level of the next glucose reading equals the current one in only 30\% of the Douala pairs.
   \item The Douala charts cannot support model development; the demonstration subset of eICU supports the haemodynamic task, not fully the glycaemic one.
-  \item On blood pressure, five of eight families beat persistence significantly, by about 3\% of the RPS (H1 supported); on glucose, none does (H1 not supported). Deep models do not outperform tree ensembles (H3 supported); H2 was not tested.
-  \item The deployed models are CatBoost for blood pressure and GRU-D for glucose. On Douala their RPS is higher than in development and their alerts are under-predicted (H4); the intercept update corrects the offset, not the slopes, and no model improves the alert decisions over the rule.
+  \item The deployed models are CatBoost for blood pressure and GRU-D for glucose. On Douala their RPS is higher than in development and their alerts are under-predicted; the intercept update corrects the offset, not the slopes, and no model improves the alert decisions over the rule.
   \item The measures of state evolution are weak (AUROC 0.52 to 0.60); the raw Euclidean distance is retained by the declared rule, as a description for the clinician, not as an alert.
   \item The system passes 219 automated tests, including the parity of the triage on the phone with the Python reference; it has not yet been used by patients.
 \end{itemize}
-\end{keypoints}
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{The hypotheses and their outcome.}\label{tab:hypotheses}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{4.2cm} >{\raggedright\arraybackslash}p{2.6cm} X@{}}
+\toprule
+\textbf{Hypothesis} & \textbf{Outcome} & \textbf{Evidence} \\
+\midrule
+H1: a learned model beats persistence & supported for blood pressure; not for glucose & haemodynamic: five of eight families, $\Delta$RPS $-0.0036$ to $-0.0046$, $p < 0.05$; glycaemic: best $\Delta$RPS $-0.0055$, $p = 0.14$ \\
+H2: the advantage persists 24 and 48~h ahead & not tested & runs with embargoes of 12 and 36~h not made \\
+H3: deep models do not outperform tabular ones & supported & masked LSTM equal to the random forest; GRU-D ahead on glucose, not significantly \\
+H4: lower performance on Douala; intercept update recovers part of the calibration & supported, partly & higher RPS and positive intercepts for every model; offset corrected, slopes unchanged \\
+\bottomrule
+\end{tabularx}
 \end{table}
+
+Against the state of the art, the contribution is twofold: a forecast free of label leakage, compared with the guideline rule, which shows a small but real margin on blood pressure; and the first external validation of learned models on Cameroonian patients, which shows that the ordering of the deployed models relative to the rule is kept on the Douala patients, without a significant difference, while calibration and clinical utility do not transfer. These results justify the design in which the rule is the floor and the model can only raise the alert, and they lead to the general conclusion.

@@ -18,10 +18,41 @@ Decisions of 27 October 2026:
 8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
    unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
 
-## 0. Status on 29 October 2026
+## 0. Status on 3 November 2026
 
-Written and compiling without errors, undefined references or duplicate labels:
-`memoire_restructure.pdf`, **83 pages** (`python parts/build.py`, then `pdflatex`, `biber`,
+**Revision of 3 November 2026, at the author's request.** The 90-page cap is lifted: the thesis
+is brought to at least 100 pages by restoring the most useful material cut on 27 October, and
+the modern page design is replaced by a standard LaTeX report (Latin Modern 11 pt, 1.5 line
+spacing, default chapter headings, black links, a plain bilingual title page; the "Key points"
+boxes became a "Synthesis" section at the end of each chapter). What came back:
+
+- Ch.1 follows the school plan in full (introduction to the review; conceptual framework;
+  previous work; critical comparison; limits; link with the present research, with a table from
+  the limits to RQ1–RQ4; synthesis) and gives each of the nineteen core sources its method,
+  results and limits again (WHO report, Gafane, Kingue and Bediang, Dodoo, Segun, Alessa, Mao,
+  Zhou with its subgroups, Mihevc, Efendi, Liu, Mendoza, Alhammad); new Appendix A summarises the
+  nineteen sources.
+- Ch.2: the justification of each labelling threshold and the label-construction figure; label
+  recovery against forecasting (figure, four anti-leakage rules); lead time and sampling frequency
+  (the reasoning behind H2); families of decision support; the full home protocol.
+- Ch.3 follows the school plan in full (introduction; type of research; setting and population,
+  with eligibility and collection scenarios; validity and reliability; sampling plan; limitations
+  of the methodology; synthesis and transition) and adds the requirements and traceability table
+  that RQ1 relies on, the health assistant and its guardrails, the boundary of automation, the
+  failure modes and the security segments of the built system.
+- Ch.4: an introduction recalling the hypotheses; a wider comparison with the literature; the
+  alert-volume tables; strengths of the results; precautions of interpretation; a table of the
+  hypotheses and their outcome.
+
+Errors corrected in the same revision: the comparison with the literature said that Efendi et al.
+worked on blood pressure and glucose (they measured heart rate, oxygen saturation and
+temperature); the review counted its sources as "nineteen peer-reviewed" (eighteen studies and
+the WHO report, plus two further studies); the Introduction promised a traceability of the system
+to requirements that no table gave; "family" was used both for the eight candidates and for their
+five groups (now "families" and "types"); the relabelling by the physician was written as done.
+
+Written and compiling without errors, overfull boxes, undefined references or duplicate labels:
+`memoire_restructure.pdf`, **112 pages** (`python parts/build.py`, then `pdflatex`, `biber`,
 `pdflatex` ×2). The title is the registered one, as in the hospital's research authorisation
 (*Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension,
 Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors*), and the
@@ -41,25 +72,25 @@ Every number of chapter 4 comes from a script of `telemonitor-research`:
 | state-evolution measures | `12_state_comparison.py` | `out/state_comparison.csv`; `configs/state_compare.yaml` |
 | descriptive figures | `14_thesis_data_figures.py` | `figures/data/` (the per-reading Douala file is ignored by git) |
 
-| Part | File | Pages now | Budget |
-|---|---|---|---|
-| Front matter (title, declaration, abstract, résumé, contents, acronyms, lists) | `00_front.tex` | 13 | 12 |
-| Introduction | `01_introduction.tex` | 4 | 4 |
-| Ch.1 Literature review | `02_review.tex` | 11 | 14 |
-| Ch.2 Risk-tiering framework | `03_framework.tex` | 6 | 5 |
-| Ch.3 Methodology and system | `04_methodology.tex` | 15 | 18 |
-| Ch.4 Results and discussion | `05_results.tex` | 16 | 17 |
-| Conclusion | `06_conclusion.tex` | 3 | 3 |
-| References | (biblatex) | 5 | 7 |
-| Appendices A–E | `07_appendices.tex` | 10 | 10 |
+| Part | File | Pages (3 Nov) |
+|---|---|---|
+| Front matter (title, declaration, abstract, résumé, contents, acronyms, lists) | `00_front.tex` | 13 |
+| Introduction | `01_introduction.tex` | 4 |
+| Ch.1 Literature review | `02_review.tex` | 22 |
+| Ch.2 Risk-tiering framework | `03_framework.tex` | 10 |
+| Ch.3 Methodology and system | `04_methodology.tex` | 24 |
+| Ch.4 Results and discussion | `05_results.tex` | 19 |
+| Conclusion | `06_conclusion.tex` | 2 |
+| References | (biblatex) | 7 |
+| Appendices A–F | `07_appendices.tex` | 11 |
 
 Still missing: the acknowledgments (after the Declaration) and, if you want them, the logos.
 H2 (24 and 48 hours ahead) is reported as not tested until the runs at 12 and 36 h are made.
 
 The old 125-page chapters (`parts/archive_125p/`) and the earlier versions `final_memoire` and
 `correction memoir` are kept on the author's machine only, out of git; so is the French
-working version (`memoire_fr`, `parts_fr/`, `results_fr/`). The preamble loads the
-XCharter, Fira and newtx font maps itself, because MiKTeX had not registered them.
+working version (`memoire_fr`, `parts_fr/`, `results_fr/`), which does not receive the
+revision of 3 November by itself.
 
 ## 1. Structure and page budget
 

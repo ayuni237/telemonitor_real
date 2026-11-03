@@ -34,7 +34,16 @@ where $L$ is the window length and $\varepsilon \geq 0$ an embargo that sets the
 
 \section{A Label from Official Thresholds}\label{sec:labelling}\label{sec:label-rules}
 
-The label states how much clinical attention a reading calls for, on four ordered levels: 0 stable, 1 moderate, 2 high, 3 critical. Every threshold comes from an official source, low values count as well as high ones, and a missing channel never counts as normal (\cref{tab:label-thresholds}). Three choices need a justification. The ESH grades classify a patient's usual pressure, not one reading; they are used here as severity bands of a single reading, the repetition being carried by the window. For pressure and pulse, the National Early Warning Score~2 (NEWS2) is used only through its ``red score'', the single-parameter value that calls on its own for urgent review \parencite{rcp2017news2}: its intermediate bands have meaning only inside the aggregate score. And no accepted cut-off exists for severe hyperglycaemia; the 300~mg/dL of the official hospital-harm measure \parencite{cms871} is a convention, so a sensitivity analysis caps hyperglycaemia at the high level. Boundaries are stored in the unit of their source and converted at comparison, so that no rounding moves a reading across a level; the table is versioned, and every result records the version it was produced with.
+The label states how much clinical attention a reading calls for, on four ordered levels: 0 stable, 1 moderate, 2 high, 3 critical. It must satisfy six requirements: every threshold comes from an official source; low values count as well as high ones; it applies to a single reading; a missing channel does not bias it; thresholds are versioned; and its agreement with clinical judgement can be measured. The thresholds of \cref{tab:label-thresholds} are those of in-hospital monitoring, the setting of the data actually collected; a home deployment substitutes the out-of-office thresholds of \cref{sec:triage}.
+
+The ESH grades classify a patient's usual pressure from repeated measurements \parencite{mancia2023}; they are not defined for one reading. They are used here as severity bands of a single reading, and the repetition that diagnosis requires is carried by the input window. The other thresholds keep their own function: 135/85~mmHg governs the home triage, and 140/90~mmHg the epidemiological comparisons of \cref{ch:review}. Four further choices need a justification.
+\begin{itemize}
+  \item \textbf{Low pressure and pulse.} The National Early Warning Score~2 (NEWS2) adds the scores of six physiological parameters; only a score of~3 in a single parameter, the ``red score'', calls on its own for urgent review by a clinician \parencite{rcp2017news2}. Only that threshold is used for the two NEWS2 parameters recorded here, systolic pressure and pulse; the intermediate bands have meaning only inside the aggregate score. No official source sets a lower threshold for diastolic pressure, so none is used.
+  \item \textbf{Pulse.} Tachycardia and hypotension accompany the hypovolaemia of hyperglycaemic crises \parencite{umpierrez2024}, so the pulse belongs in the label of these patients, at the red-score threshold only.
+  \item \textbf{Hypoglycaemia.} Level~1 ($<$ 3.9~mmol/L) is an alert value and level~2 ($<$ 3.0~mmol/L) is clinically significant \parencite{ihsg2017}; they map to high and critical. Level~3 is defined by a clinical event, not a glucose value, and cannot be observed in the records.
+  \item \textbf{Severe hyperglycaemia.} The diagnostic criteria of ketoacidosis and of the hyperosmolar state require ketones, pH or osmolality, which the charts do not record \parencite{umpierrez2024}. No accepted cut-off exists for severe hyperglycaemia; the 300~mg/dL of the official hospital-harm measure \parencite{cms871} is used as a convention, and a sensitivity analysis caps hyperglycaemia at the high level, so that a conclusion that changes between the two versions is reported as depending on it.
+\end{itemize}
+Boundaries are stored in the unit of their source and converted at comparison, so that no rounding moves a reading across a level; the table is versioned, and every result records the version it was produced with.
 
 \begin{table}[htbp]
 \centering\footnotesize
@@ -59,11 +68,40 @@ Within a condition the worst channel governs, and one label is computed per cond
   y_t = \max\bigl(y^{\mathrm{H}}_t, y^{\mathrm{G}}_t\bigr),
 \end{gathered}
 \end{equation}
-where $s$ is the level of a channel and the maximum runs over the labels that exist. A single label would read a missing glucose as a normal one; since glucose is ordered for some patients and not for others, the error would be systematic. The \emph{alert} of a condition is a level of high or critical. \Cref{fig:bands} draws the bands of the two channels that carry most of the alerts; both are U-shaped, with a critical level at each end.
+where $s$ is the level of a channel and the maximum runs over the labels that exist. Within a condition the worst channel governs because an additive score is validated only on the complete NEWS2 parameter set, not on two or three of its parameters. A single label for both conditions would read a missing glucose as a normal one; since glucose is ordered for some patients and not for others, the error would be systematic, so the glycaemic label exists only where glucose is measured (\cref{fig:label-construction}). The \emph{alert} of a condition is a level of high or critical. \Cref{fig:bands} draws the bands of the two channels that carry most of the alerts; both are U-shaped, with a critical level at each end.
 
 \begin{figure}[htbp]
 \centering
-\begin{tikzpicture}[font=\scriptsize, x=1cm, y=1cm]
+\begin{tikzpicture}[font=\scriptsize,
+  ch/.style={draw, rounded corners=2pt, align=center, text width=1.9cm, minimum height=8mm, fill=cGrey!12},
+  rule/.style={draw, rounded corners=2pt, align=center, text width=2.6cm, minimum height=8mm, fill=white},
+  cond/.style={draw, rounded corners=2pt, align=center, text width=2.4cm, minimum height=9mm},
+  arr/.style={-{Stealth[length=2mm]}, thick}]
+  \node[ch] (sbp) at (0, 0)    {SBP};
+  \node[ch] (dbp) at (0,-1.1)  {DBP};
+  \node[ch] (hr)  at (0,-2.2)  {pulse};
+  \node[ch] (glu) at (0,-3.6)  {capillary\\ glucose};
+  \node[rule] (rs) at (3.3, 0)   {ESH grades;\\ NEWS2 red: $\leq 90$};
+  \node[rule] (rd) at (3.3,-1.1) {ESH grades\\ (no lower threshold)};
+  \node[rule] (rh) at (3.3,-2.2) {NEWS2 red:\\ $\leq 40$ or $\geq 131$};
+  \node[rule] (rg) at (3.3,-3.6) {IHSG hypoglycaemia;\\ ADA, CMS hyperglycaemia};
+  \node[cond, fill=cRef!12] (yh) at (7.0,-1.1) {$y^{\mathrm{H}}$ haemodynamic:\\ worst of three channels};
+  \node[cond, fill=cRef!12] (yg) at (7.0,-3.6) {$y^{\mathrm{G}}$ glycaemic:\\ only if measured};
+  \node[cond, fill=cAfrica!12, text width=2.2cm] (y) at (10.3,-2.35) {alert $y$:\\ worst available};
+  \foreach \a/\b in {sbp/rs, dbp/rd, hr/rh, glu/rg} \draw[arr] (\a) -- (\b);
+  \foreach \a in {rs, rd, rh} \draw[arr] (\a.east) -- (yh.west);
+  \draw[arr] (rg) -- (yg);
+  \draw[arr] (yh.east) -- (y.west);
+  \draw[arr] (yg.east) -- (y.west);
+  \node[font=\tiny, text=cAfrica, align=left, anchor=north west] at (5.2,-4.25) {glucose not measured:\\ no glycaemic label, never ``stable''};
+  \node[font=\tiny, align=center] at (3.3, 0.75) {level of the reading: 0 stable, 1 moderate, 2 high, 3 critical};
+\end{tikzpicture}
+\caption{Construction of the label at a target reading. Each channel is graded by its sourced thresholds (\cref{tab:label-thresholds}); the worst channel governs within a condition; the alert is the worst of the condition labels that exist.}\label{fig:label-construction}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\scriptsize, x=0.93cm, y=1cm]
   \tikzset{lv0/.style={fill=cGrey!22}, lv1/.style={fill=cRef!40}, lv2/.style={fill=cAfrica!45}, lv3/.style={fill=cAfrica}}
   % systolic pressure, 60 to 260 mmHg, 0.07 cm per mmHg
   \node[anchor=east, font=\footnotesize\bfseries, text=cMain] at (-0.2,1.55) {SBP};
@@ -86,11 +124,50 @@ where $s$ is the level of a channel and the maximum runs over the labels that ex
 
 \section{The Forecasting Task}\label{sec:principle}\label{sec:task-not-algo}\label{sec:formulation}\label{sec:dual-task}
 
-If the label is a rule applied to the current reading, $y_t = h(x_t)$, a model that sees $x_t$ only recovers the rule---the circularity of \cref{sec:lr-ml}. The legitimate task forecasts a future state from a past window,
+\subsection{From label recovery to forecasting}
+
+The same algorithm, XGBoost, is reported as the best model by \textcite{efendi2025} and as no better than chance by \textcite{mendoza2025}. The difference does not come from the algorithm: the first study measures the recovery of a rule already encoded in the features, the second a genuine prediction from weak predictors (\cref{sec:lr-ml}). For this work the consequence is direct. If the label is a rule applied to the current reading, $y_t = h(x_t)$, a model that sees $x_t$ only recovers the rule. The legitimate task forecasts a future state from a past window,
 \begin{equation}
   \hat{y}_{t'} = g\bigl(\{x_{i,s}\}_{t-L < s \leq t}\bigr), \qquad t' > t + \varepsilon,
 \end{equation}
-in which the label lies outside the input by construction. Its performance is lower, and that lower figure is the honest one. The comparison that matters is with \emph{persistence}, the guideline rule applied to the last reading of each channel: physiological series are strongly autocorrelated, so carrying the current level forward is a strong baseline, and the contribution of a model is its margin over it.
+in which the label lies outside the input by construction (\cref{fig:leak-vs-forecast}). Its performance is lower, and that lower figure is the honest one: the forecasting formulation is not an extra ambition but the condition for the result to mean anything.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[font=\footnotesize]
+  \draw[thick,-{Stealth[length=2mm]}] (0,1.6) -- (8.6,1.6);
+  \fill[cAfrica!25] (3.6,1.35) rectangle (4.4,1.85);
+  \node[anchor=south,font=\scriptsize] at (4.0,1.9) {$x_t$};
+  \node[circle,fill=cAfrica,inner sep=2pt] at (4.0,1.6) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (4.0,1.3) {$y_t = h(x_t)$};
+  \node[anchor=west,font=\footnotesize\bfseries] at (8.7,1.6) {leaks};
+  \node[anchor=east] at (-0.15,1.6) {(a)};
+  \draw[thick,-{Stealth[length=2mm]}] (0,0) -- (8.6,0);
+  \fill[cRef!22] (1.2,-0.25) rectangle (4.4,0.25);
+  \node[anchor=south,font=\scriptsize] at (2.8,0.3) {input window};
+  \foreach \x in {1.4,2.0,2.6,3.2,3.8,4.3} \node[circle,fill=cRef,inner sep=1.5pt] at (\x,0) {};
+  \draw[dashed,cGrey] (4.4,-0.45) -- (4.4,0.45);
+  \node[circle,fill=cAfrica,inner sep=2pt] at (6.6,0) {};
+  \node[anchor=north,font=\scriptsize,text=cAfrica] at (6.6,-0.15) {$y_{t'}$};
+  \draw[{Stealth[length=2mm]}-{Stealth[length=2mm]},cGrey] (4.4,0.55) -- (6.6,0.55)
+    node[midway,above,font=\scriptsize,text=cGrey]{lead time};
+  \node[anchor=west,font=\footnotesize\bfseries] at (8.7,0) {does not};
+  \node[anchor=east] at (-0.15,0) {(b)};
+\end{tikzpicture}
+\caption{(a) Classifying the current state when the label is a rule applied to the same reading. (b) Forecasting a state outside the input window.}\label{fig:leak-vs-forecast}
+\end{figure}
+
+Four rules keep the label out of the inputs:
+\begin{enumerate}
+  \item the label is computed on the target reading and the features on readings of the input window, with no overlap;
+  \item no feature measuring the distance to a threshold is computed at the label instant;
+  \item the guideline rule applied to the last observed value is a mandatory baseline, and the contribution of a model is its margin over that rule;
+  \item performance is also reported against labels that do not derive from the thresholds: the physician's relabelling of a sample of readings, and, once the system is used, the clinicians' verdicts.
+\end{enumerate}
+
+The comparison that matters is with \emph{persistence}, the guideline rule applied to the last reading of each channel, turned into probabilities by the matrix of transitions between levels observed in the training data. Physiological series are strongly autocorrelated, so carrying the current level forward is a strong baseline, and the contribution of a model is its margin over it. If that margin is small, the honest conclusion is that, at this sampling density and sample size, the models add little to the guideline rule---a result in itself, and more useful to a clinician than an inflated accuracy.
+
+\subsection{Two formulations of the forecast}
 
 Two formulations reach the same output, the probability $P(y_{t'} = k)$ of each level $k$, and neither is assumed better. The \textbf{direct ordinal classification} predicts the level of each condition, with a loss that respects the order of the levels. The \textbf{value forecast} predicts the value $\hat{x}^{(c)}$ of each channel at the target; with $\hat\sigma_c$ the root mean squared error of out-of-fold forecasts, the level probabilities follow by integrating the forecast distribution over the intervals of \cref{tab:label-thresholds},
 \begin{equation}
@@ -126,15 +203,61 @@ the product assuming that the channel errors are independent given the inputs (\
 \caption{From a value forecast to level probabilities, for one channel. The forecast distribution is cut by the thresholds of \cref{tab:label-thresholds}; each area is the probability of a level. Within a condition, the channels are then combined by their worst level.}\label{fig:value-to-levels}
 \end{figure}
 
+The four levels are ordered, so a standard multi-class loss, which treats predicting ``critical'' for a stable patient as no worse than predicting ``moderate'', is not appropriate: the value forecast carries the order naturally, and the classification uses an ordinal model.
+
+\subsection{Lead time and sampling frequency}\label{sec:horizon}\label{sec:forecasting}
+
+How far ahead a forecast can look depends on how often the patient is measured. With routine readings at a rate $\lambda$, the expected number of readings inside a horizon of length $\Delta$ is
+\begin{equation}
+  \mathbb{E}[N_\Delta] = \lambda\Delta .
+\end{equation}
+Under the routine home protocol of \textcite{mihevc2025}, about two blood pressure sessions a week, $\lambda = 2/168$ per hour gives 0.29 readings within 24 hours and 0.57 within 48 hours (\cref{fig:sampling-horizon}): most forecasts of the next day would have nothing to forecast. The horizon must therefore match the regime of the patient. In the \emph{routine} regime the useful target is the next scheduled reading, a few days ahead. In the \emph{verification} regime, when the protocol prescribes two readings a day, a horizon of 24 to 48 hours contains about four readings, and it is also the moment when a clinical decision is pending, so a short-horizon forecast could change an action.
+
+The ward charts and the harmonised intensive-care data follow the verification regime, a reading every 12 hours. The lead time is then set by the embargo $\varepsilon$ of the sample definition: with $\varepsilon = 0$ the target is the next reading, 12~hours ahead; with $\varepsilon = 12$~h, the reading 24~hours ahead; with $\varepsilon = 36$~h, the one 48~hours ahead. The primary task uses the next reading, and hypothesis H2 is tested by how the margin over persistence changes with the lead time, always against persistence at the same lead time: a forecast that only matches the rule applied to the last reading anticipates nothing.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.72\textwidth,height=4.8cm,
+  xlabel={forecast horizon $\Delta$ (hours)},
+  ylabel={expected readings},
+  xmin=0,xmax=180,ymin=0,ymax=5.2,
+  grid=major,grid style={gray!20},legend pos=north west,legend style={font=\scriptsize}]
+\addplot[thick,cAfrica,domain=0:180,samples=2]{2*x/168};
+\addplot[thick,cRef,domain=0:180,samples=2]{14*x/168};
+\addplot[dashed,cGrey,domain=0:180,samples=2]{1};
+\draw[dotted,thick,cGrey] (axis cs:48,0) -- (axis cs:48,5.2);
+\legend{routine: 2 readings a week, verification: 2 readings a day, one reading}
+\end{axis}
+\end{tikzpicture}
+\caption{Expected number of readings inside the forecast horizon, by sampling regime. The dotted line marks 48~hours.}\label{fig:sampling-horizon}
+\end{figure}
+
 \section{The Decision Layer}\label{sec:tiers}\label{sec:rule-floor}\label{sec:risk-score}
 
 \subsection{Three tiers and the rule floor}
+
+Three families of clinical decision support exist (\cref{tab:cdss-families}). The system of this work is \emph{hybrid}: the guideline rule provides a floor, and a learned model may refine it. If the model is uncertain or fails, the system falls back to guideline conformity rather than to nothing. \Textcite{yazdani2018} add a second argument for keeping the rules explicit: most decision-support systems are built for one disease and must be rebuilt for another, and separating the platform from a configurable rule set per condition avoids this, which a system covering two conditions with different guideline sources needs.
+
+\begin{table}[htbp]
+\centering\footnotesize
+\caption{Families of clinical decision support.}\label{tab:cdss-families}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Family} & \textbf{Basis} & \textbf{Strength} & \textbf{Weakness} \\
+\midrule
+Rule-based & guideline thresholds & transparent, needs no training data & no personalisation, no trend \\
+Model-based & learned from data & personalisation, trend detection & opaque, needs data, may not transfer \\
+Hybrid & rules as floor, model as refinement & guideline conformity plus personalisation & two components to validate \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 The clinician needs a decision, not a probability: green (record), yellow (more measurements), red (review now). The model's alert probability is mapped to a tier by two cut-points $p_{\text{yellow}} < p_{\text{red}}$. Each cut-point is a decision threshold: alerting at $p_t$ means accepting $(1-p_t)/p_t$ false alarms per true alert. The yellow tier costs the patient extra readings and the clinician nothing, so its threshold is low; the red tier costs clinician time. Until the partner physician states the costs of errors, $p_{\text{yellow}} = 0.1$ and $p_{\text{red}} = 0.3$ are used, which accept nine and about two false alarms per true alert. The model may raise the tier set by the guideline rule, but never lower it:
 \begin{equation}
   \text{tier}_{\text{final}} = \max\Bigl(\text{tier}_{\text{rule}}(x_{\text{last}}),\ \text{tier}_{\text{model}}(p)\Bigr), \qquad \text{green} \prec \text{yellow} \prec \text{red}.
 \end{equation}
-A patient at 185/110~mmHg is red whatever the model says, and if the model fails the system falls back to the standard of care rather than to nothing (\cref{fig:decision}).
+A patient at 185/110~mmHg is red whatever the model says; the best model of the reviewed literature misses half of the positive cases \parencite{mendoza2025}; and if the model fails entirely, the system falls back to the standard of care rather than to nothing (\cref{fig:decision}).
 
 \begin{figure}[htbp]
 \centering
@@ -163,7 +286,13 @@ A patient at 185/110~mmHg is red whatever the model says, and if the model fails
 
 \subsection{The home triage}\label{sec:triage}\label{sec:protocols}
 
-The label of \cref{tab:label-thresholds} uses in-hospital thresholds, those of the data actually collected. A home deployment substitutes the out-of-office thresholds of the only validated protocol for patients with both conditions \parencite{mihevc2025} (\cref{tab:thresholds}). The protocol is \emph{two-stage}: a yellow reading leads to a verification profile---seven days of blood pressure, two readings morning and evening with the second retained, or a one-day profile of six glucose readings---and only the mean of the profile reaches a clinical decision. Noise is thus separated from trend by increasing the number of readings rather than by lowering the threshold. The source leaves five points open, which this work decides: the more severe level applies when systolic and diastolic pressures disagree; a glucose of unknown meal status is held to the after-meal targets; the pulse keeps the NEWS2 red score; a seven-day profile is concluded only with at least six retained readings on three days, the minimum of the ESH practice guidelines \parencite{stergiou2021}, and is otherwise reported as incomplete, never as on target; and a glucose profile is done within two days of the trigger. \Cref{fig:triage-flow} shows the resulting path of a reading.
+The label of \cref{tab:label-thresholds} uses in-hospital thresholds, those of the data actually collected. A home deployment substitutes the out-of-office thresholds of the only validated protocol for patients with both conditions \parencite{mihevc2025} (\cref{tab:thresholds}), which this work adopts as its reference.
+
+\paragraph{Measurement protocol.} For blood pressure, two readings in the morning and two in the evening, after five minutes of seated rest; the device enforces a one-minute interval between the two readings and the second is retained. The reference value is the mean of the retained morning and evening readings over seven days: with fourteen readings, the standard error of the usual pressure is divided by $\sqrt{14} \approx 3.7$ compared with a single reading (\cref{sec:variability}). The home target is 135/85~mmHg, five points below the office threshold, because there is no white-coat effect at home. For glucose, routinely one fasting measurement and one 90~minutes after lunch, and, after an abnormal value, a one-day profile of six measurements (before and 90~minutes after each meal); the targets are a fasting glucose below 7~mmol/L (about 1.26~g/L) and a post-prandial glucose below 10~mmol/L (about 1.80~g/L). Routinely, blood pressure is measured twice a week and glucose once a week: a low routine frequency keeps the burden on the patient acceptable, and a high frequency is triggered only when a signal justifies it.
+
+\paragraph{Two-stage triage.} A yellow reading leads to a verification profile---seven days of blood pressure, or the one-day profile of six glucose readings---and only the mean of the profile reaches a clinical decision. The protocol has three properties that the system adopts. It is \emph{bidirectional}: low values trigger as well as high ones (hypoglycaemia, hypotension in older treated patients). It is \emph{two-stage}: noise is separated from trend by increasing the number of readings rather than by lowering the threshold. And it is \emph{economical in clinician time}: only the red level, and a profile off target, mobilise a clinician, which matters where professionals already perceive telemedicine as extra work \parencite{dodoo2022}. It also has three limits, which define the room for a learned model: its thresholds are fixed and identical for all patients, it reacts to the level of a reading rather than to its trend, and it uses no learned model.
+
+\paragraph{Decisions left open by the source.} The source leaves five points open, which this work decides: the more severe level applies when systolic and diastolic pressures disagree; a glucose of unknown meal status is held to the after-meal targets; the pulse keeps the NEWS2 red score; a seven-day profile is concluded only with at least six retained readings on three days, the minimum of the ESH practice guidelines \parencite{stergiou2021}, and is otherwise reported as incomplete, never as on target; and a glucose profile is done within two days of the trigger. \Cref{fig:triage-flow} shows the resulting path of a reading.
 
 \begin{figure}[htbp]
 \centering
@@ -249,12 +378,14 @@ Mahalanobis & $\sqrt{(\mathbf{c} - \mathbf{b})^{\top}\Sigma^{-1}(\mathbf{c} - \m
 \end{tabularx}
 \end{table}
 
-\begin{keypoints}[Key points of Chapter 2]
+\section{Synthesis}\label{sec:framework-synthesis}
+
+The framework turns the gaps of \cref{ch:review} into five formal choices:
 \begin{itemize}
-  \item One label per condition, on four ordered levels; every threshold comes from an official source, and a missing channel never counts as normal.
-  \item The task forecasts the level of the next reading from a past window, so the label cannot leak into the inputs; persistence is the baseline to beat.
-  \item Ordinal classification and value forecasting give the same output and are compared, not chosen in advance.
-  \item The model may raise the tier of the guideline rule, never lower it; at home, a yellow reading leads to a verification profile.
-  \item Eight measures of state evolution are candidates; the benchmark of \cref{ch:methodology} selects one.
+  \item one label per condition, on four ordered levels; every threshold comes from an official source, and a missing channel never counts as normal;
+  \item a task that forecasts the level of the next reading from a past window, so that the label cannot leak into the inputs, with persistence as the baseline to beat;
+  \item two formulations, ordinal classification and value forecasting, which give the same output and are compared rather than chosen in advance;
+  \item a decision layer in which the model may raise the tier of the guideline rule but never lower it, and in which, at home, a yellow reading first leads to a verification profile;
+  \item eight candidate measures of the evolution of the patient's state, among which a benchmark selects one.
 \end{itemize}
-\end{keypoints}
+None of these choices depends on the data. \Cref{ch:methodology} describes the data to which they are applied, how the candidates are compared, and the system built around them.
