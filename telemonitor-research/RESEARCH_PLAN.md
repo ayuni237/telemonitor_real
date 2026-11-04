@@ -3,6 +3,30 @@
 The thesis (`memoire/`) is the reference. Code follows the thesis; where the thesis
 is wrong, the thesis is corrected first, then the code.
 
+## 0. Working rules (2026-11-04)
+
+Kept from a working method shared in the class, adapted to this project. The registers stay
+the ones below, in English: decisions §1, incoherences §5, open items §6, rigour audit §7;
+thesis status and jury preparation in `memoire/RESTRUCTURE_90.md`.
+
+1. **Every number comes from a file.** Thesis numbers are written by a script from saved
+   outputs (scripts 12, 13, 15); a result not obtained is stated as not done, never estimated.
+2. **Correction or change of method.** Bringing the text in line with the code and outputs is
+   a correction, applied directly. Anything that changes a result (data, sample,
+   hyperparameters, search budget, threshold, decision rule, evaluation formula) is a decision
+   of the author, recorded in §1 or §6e before it is applied.
+3. **Rules are declared before the run** (`configs/`). A change made after seeing the results
+   is an amendment: recorded with its reason, and both results reported.
+4. **What the thesis promises and the work lacks is decided**, not dropped silently: do it,
+   reduce it or remove it, with its cost and its consequence for the hypotheses (§6).
+5. **A difference that is not significant is "not shown"**, never "equal", unless a margin of
+   equivalence was declared in advance.
+6. **Anything fitted on data is scored on other data** (recalibration, thresholds, scales).
+7. **Attribution.** A choice that follows a cited source is not a limitation of this work;
+   the results of other studies appear in the discussion only.
+8. **Safety.** Backups through git, never copies of files holding patient data; no key in a
+   tracked file; commits and pushes on request only.
+
 ## 1. Standing decisions (2026-10-19)
 
 | # | Decision | Consequence |
@@ -11,7 +35,7 @@ is wrong, the thesis is corrected first, then the code.
 | D2 | Research code = Python modules (PyTorch for neural models). Notebooks are only for exploration and tests | `TeleMonitor_model_REAL.ipynb` is superseded once the package reproduces it (old pipeline out of the repository since 2026-10-29) |
 | D3 | Metrics are not fixed a priori: admissible metrics are selected by explicit criteria, and their weights in a cost function are calibrated during the search | Weights are tuned in the inner loop only; the outer test folds report every admissible metric unweighted (see §3) |
 | D4 | Hyperparameter search over structural hyperparameters (architecture, depth, hidden size, window length…) and training hyperparameters (learning rate, regularisation, class weights…) | Nested, patient-grouped; search space and budget declared before running |
-| D5 | Serving API: FastAPI | Local development only |
+| D5 | Serving API: FastAPI | Local: in Docker since 2026-11-03 (`docker-compose.yml`, service `api`) or in the virtual environment |
 | D6 | Online hosting is out of scope for this thesis | No hosting section in the thesis |
 | D7 | H1 is tested: "a deep temporal model" (the thesis does not name one) enters the benchmark | Which architectures, and which libraries for every family, are decided in step 8 from official benchmarks — nothing is presupposed, including XGBoost or LSTM |
 | D8 | Bibliography style: IEEE (school plan) | Done: `build.py` uses style=ieee, sorting=none |
@@ -49,7 +73,7 @@ weighting will always favour a given model. Therefore:
 ## 3b. Thesis organisation and outputs
 
 Since 2026-10-27 the thesis follows the school's structure (unnumbered Introduction and
-Conclusion, four chapters, 90 pages at most; `memoire/RESTRUCTURE_90.md`). The results chapter
+Conclusion, four chapters; the 90-page cap was lifted on 2026-11-03, `memoire/RESTRUCTURE_90.md`). The results chapter
 (ch.4) is written from scripts 13 and 15; no number is typed by hand. Every analysis is a
 rerunnable script in `scripts/` (guide: `BENCHMARKS.md`). Chapter 3 carries TikZ figures for the
 study design, harmonisation, label construction, search and selection, and value-to-level
@@ -124,6 +148,15 @@ telemonitor-research/
 | I42 | app, health assistant | Gemini assistant absent from the thesis; sends name, conditions, medications and readings to Google (transfer abroad, Law 2024/017); prompt says risk from "last seven readings" (card uses 96 h) | Thesis: **Fixed** (ch4 §The health assistant, guardrails and limits). App: **fixed** (2026-10-20, §6c); adversarial set to run by the user |
 | I43 | appendix A | Items 2 (abstract) and 18a–b (funding) pointed to absent front matter | **Fixed**: rows removed (I29 closed) |
 
+I44–I47: §6d. I48–I51 come from the rigour audit of 2026-11-04 (§7).
+
+| # | Where | Incoherence | Resolution |
+|---|---|---|---|
+| I48 | ch4 §External validation (Calibration, Clinical utility); `run.py` | The Brier score and net benefit after the intercept update were computed with the intercept fitted on the same Douala patients they score (CatBoost 0.148 → 0.142, GRU-D 0.237 → 0.221, net benefit 0.088) | **Fixed**: `metrics.update_intercept_cross_fitted` (each patient's intercept fitted on the other patients, test added); script 13 writes it to `summary.json`; thesis now gives 0.146, 0.223 and 0.084, with the in-sample values in brackets, and ch3 states the method. The conclusion holds: the update still lowers the Brier score of both deployed models |
+| I49 | ch4 §Deep against tabular, RQ2 answer, hypotheses table, precautions; conclusion; abstract and résumé | H3 "supported" from differences that are not significant: absence of evidence read as equivalence, while the same chapter reads the non-significant glycaemic H1 as "open rather than answered" | **Fixed**: H3 "not rejected; equivalence not shown", with the reasons (no margin declared, smaller budgets for the deep models) |
+| I50 | `configs/benchmark.yaml`, ch3 §Training protocol | Search budgets of 15 to 25 configurations per family, no stated rule for the allocation; the kept configuration came after trial 15 in 75 % of the blood-pressure searches of CatBoost, GRU-D and the CatBoost value forecast (`summary.json`, `search_kept_after_15`): the searches had not levelled off, and the families with the larger budgets may be favoured | **Stated** in tab:limitations and in the H3 reading. Rerun with equal budgets: decision M1 (§6e) |
+| I51 | ch4 §Evolution of the patient's state | The retained distance (raw Euclidean, selected by the declared rule) adds mmHg and mmol/L, so it follows the pressures and barely registers glucose; the cohort-scaled distance, inside the same interval (0.598), would weigh glucose about seven times more (spreads 21.0 mmHg against 3.0 mmol/L, `out/state_comparison.json`) | **Stated** in ch4 and tab:limitations. Amendment of the rule: decision M2 (§6e) |
+
 ## 6. Remaining work (opened 2026-10-20, statuses on 2026-10-28)
 
 Statuses are updated here as each item is closed.
@@ -156,8 +189,8 @@ Already present (no action): weight sensitivity analysis (Dirichlet draws in `ob
 ### 6c. Application (gaps with ch4)
 
 Status 2026-10-20: built in the app (35 Flutter tests pass, `flutter analyze` clean). Not yet
-run on a device; Firestore rules not deployed (`firebase deploy --only firestore:rules`, by
-the user); rules not tested in the emulator (no Java on this machine).
+run on a device; Firestore rules deployed on 2026-11-04 (`firebase deploy --only firestore`; until then the live rules dated from 2026-09-24 and had no `events` collection, so every yellow or red reading was refused with its event); rules not yet tested in the emulator (Java is now available
+through Android Studio).
 
 | # | Gap | Status |
 |---|---|---|
@@ -180,7 +213,7 @@ Update 2026-10-21 (user decision: local Python worker, no Cloud Functions):
 
 Still not built: SMS fallback, nurse worklist, interval enforced by a Bluetooth device, online
 hosting (out of scope). Android build not verified here (artifact download failed on this
-network); Firestore rules and index not deployed (user).
+network); Firestore rules and index deployed on 2026-11-04.
 
 Thesis aligned on 2026-10-22 (conformity check, below).
 
@@ -190,6 +223,8 @@ User request: check the solution against the thesis, remove Docker, review the U
 
 **Docker removed** (user decision): compose file, Dockerfiles, `.dockerignore`, WSL/Docker
 installers, `INFRA.md`; pinned versions kept as `requirements-lock.txt` (no Docker).
+Brought back on 2026-11-03, once Docker could run on the machine, for the risk service, the
+worker and the tests only (`docker-compose.yml`, README).
 
 **Code brought to the thesis**
 
@@ -227,5 +262,39 @@ glucose; pulse field readable at 130 % text; values scaled down instead of cut i
 history; context moved out of the truncated header; profile card wording; smallest captions
 raised to 11; captures at 130 % text without overflow (`test_screens`, 28 captures).
 
-**Tests**: Python 171, Flutter 48 (+ 28 captures). Not run on a device; rules and index not
+**Tests**: Python 172, Flutter 48 (+ 28 captures). Not run on a device; rules and index deployed on 2026-11-04, not
 deployed (user).
+
+### 6e. Decisions open after the audit of 2026-11-04 (the author's)
+
+Each changes a result or a rule, so none is applied without your choice (rule 2, §0). The
+thesis currently states each one as a limitation, which is the default if you decide nothing.
+
+| # | Question | Options, with cost and consequence | Recommendation |
+|---|---|---|---|
+| M1 | Equal search budgets (I50) | (a) keep, limitation stated; nothing to run. (b) rerun both tasks with 25 configurations for every family: the current runs took 16.7 h and 13.0 h of fold time (`folds.csv`), so about a day with both tasks in parallel; may change the deployed families and every table of §4.2–4.3 | (a) for the defence; (b) only with a day and a half free, together with the H2 runs |
+| M2 | State distance that ignores glucose (I51) | (a) keep `euclidean_raw`, limitation stated. (b) amendment: exclude raw-unit measures, on the argument already in ch2; the same rule then retains `euclidean_cohort_z`; script 12 (a minute), service restart, one paragraph; reported as an amendment with the first result | (b) if the clinician view matters for the defence demonstration; otherwise (a) |
+| M3 | Hospital access: the authorisation runs from 28 September to 4 November 2026 | U2 (physician's relabelling) and U4 (admission diagnoses) need the records. (a) ask the hospital for an extension; (b) keep both as stated future work (the thesis already says so) | **Decided 2026-11-04: (a)**, extension requested to 31 December 2026 for U2 and U4 |
+
+## 7. Rigour audit (2026-11-04)
+
+The checklist of the class method, run against the code, the run folders and the thesis.
+Each line gives its evidence; the computations that are not in a script are given so that they
+can be redone.
+
+| Check | Evidence | Result |
+|---|---|---|
+| Label identical in text, code and app | parity tests `labels.py` / `clinical_levels.dart`, boundary tests (I1–I4, I18) | Pass |
+| Same preprocessing in training and in service | the service imports the research code (`serve/app.py`); parity fixture of the home triage (script 07); the service in Docker and the native one return identical answers (2026-11-03) | Pass |
+| Numbers in the text from the final runs | ch4 Douala paragraph (intercepts, prevalences, slopes, RPS 0.1385, net benefit 0.107/0.120) against `external.csv`; H1 differences against `results/benchmark_*.tex`; abstract "about 3 %" | Pass |
+| Lead time of the runs | `folds.csv` `lead_h` = 12 is the time to the next reading; the run manifests declare an embargo of 0 h | Pass |
+| External data used once, never to choose | ch3 §external validation; Douala outside every selection (benchmark, state measures) | Pass |
+| Several seeds; tests that respect the folds | three repeats, corrected resampled t test, patient bootstrap | Pass |
+| Composite selection cost dominated by one term | `trials.csv` of both runs: share of the cost's variance carried by each term, 0.08 to 0.41 against a nominal 0.25 (the RPS carries the most on blood pressure, the calibration error on glucose) (computed with `objective.standardise` on each search, then on each family choice) | Pass |
+| Recalibration scored on the data it was fitted to | `run.py` external report | I48, fixed |
+| Non-significance read as equality | H3 | I49, fixed |
+| Equal budgets; search levelled off | `benchmark.yaml`; `summary.json` `search_kept_after_15` | I50, stated; M1 |
+| Score dominated by one channel | state distance in raw units | I51, stated; M2 |
+| Experiments described but not run | H2 runs, physician relabelling (U2), assistant set (P4), Firestore rules, full eICU (A1): the thesis states each as not done or planned | Pass; open items in §6 |
+| Same configuration, same result | would need one fold rerun | Not verified |
+

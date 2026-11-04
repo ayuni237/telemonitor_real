@@ -57,6 +57,17 @@ def test_intercept_update_fixes_calibration_in_the_large():
     assert a_before > 0.3 and abs(a_after) < 0.02
 
 
+def test_cross_fitted_intercept_update_never_uses_the_group_it_scores():
+    rng = np.random.default_rng(4)
+    p = rng.uniform(0.05, 0.6, 400)
+    e = (rng.random(len(p)) < np.clip(p + 0.15, 0, 1)).astype(int)
+    g = np.repeat(np.arange(20), 20)
+    cv = M.update_intercept_cross_fitted(p, e, g)
+    a_rest, _ = M.calibration_intercept_slope(p[g != 0], e[g != 0])
+    expected = 1 / (1 + np.exp(-(np.log(p[g == 0] / (1 - p[g == 0])) + a_rest)))
+    assert np.allclose(cv[g == 0], expected)
+
+
 def test_calibration_curve_bins_and_intervals():
     rng = np.random.default_rng(4)
     p = rng.uniform(0, 1, 5000)

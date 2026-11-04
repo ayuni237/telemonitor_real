@@ -11,7 +11,11 @@ From the saved results only (no refit), for each task:
   leads.tex              hypothesis H2, once a task has runs at several leads: difference
                          in RPS with persistence and its test, for the next reading and for
                          targets 24 and 48 h ahead (embargoes of 12 and 36 h)
-  summary.json           the same numbers, for the text
+  summary.json           the same numbers, for the text, plus two checks read from the saved
+                         outputs: the Brier score and net benefit after the intercept update
+                         fitted on the other Douala patients (the update in external.csv is
+                         fitted and scored on the same patients), and, per family, the share
+                         of searches whose kept configuration came after the 15th trial
 
 The tables above leads.tex use the runs at lead 0 only. A run that is not complete is
 refused, so that partial numbers do not reach the thesis; --partial writes them anyway,
@@ -30,7 +34,7 @@ import numpy as np
 import pandas as pd
 
 import _common
-from telemonitor import validation as V
+from telemonitor import metrics as M, validation as V
 
 ORDER = ["prior", "persistence", "ordinal_logistic", "pca_logistic", "forest", "catboost",
          "value_ridge", "value_catboost", "grud", "lstm", "selected"]
@@ -121,6 +125,28 @@ def external_table(task: str, ext: pd.DataFrame) -> str:
         r"\cmidrule(lr){4-5}\cmidrule(l){6-7}",
         r"\textbf{Model} & \textbf{RPS} & \textbf{AUROC} & \textbf{Int.} & \textbf{Slope} & \textbf{Int.} & \textbf{Slope} \\",
         r"\midrule", *rows, r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
+
+
+def update_cross_fitted(run: Path) -> dict:
+    """Douala, per candidate: Brier score and net benefit after the intercept
+    update fitted on the other patients (metrics.update_intercept_cross_fitted)."""
+    out = {}
+    for f in sorted((run / "external").glob("*.npz")):
+        d = np.load(f)
+        pa = M.alert_probability(d["proba"])
+        ev = (d["y"] >= M.ALERT_LEVEL).astype(int)
+        upd = M.update_intercept_cross_fitted(pa, ev, d["patient"])
+        out[f.stem] = {"brier": M.brier(upd, ev),
+                       **{f"net_benefit_{t:g}": M.net_benefit(upd, ev, t) for t in (0.1, 0.2, 0.3)}}
+    return out
+
+
+def kept_late(run: Path, after: int = 15) -> dict:
+    """Per family, share of the searches (outer folds and final search) whose kept
+    configuration came after trial `after`, the smallest budget of configs/benchmark.yaml."""
+    tr = pd.read_csv(run / "trials.csv")
+    kept = tr[tr.kept.astype(bool)]
+    return {c: float((g.trial >= after).mean()) for c, g in kept.groupby("candidate")}
 
 
 def p_cell(p) -> str:
@@ -218,6 +244,8 @@ if __name__ == "__main__":
             ext = pd.read_csv(ext_csv)
             (a.out / f"external_{task}.tex").write_text(external_table(task, ext), encoding="utf8")
             summary[task]["external"] = ext.to_dict("records")
+            summary[task]["external_update_cross_fitted"] = update_cross_fitted(run)
+        summary[task]["search_kept_after_15"] = kept_late(run)
         print(f"{run.name}: tables written to {a.out}")
     if any(len(by_lead) > 1 for by_lead in leads.values()):
         tex, summary["leads"] = leads_table({t: v for t, v in leads.items() if len(v) > 1})

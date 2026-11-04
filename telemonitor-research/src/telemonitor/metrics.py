@@ -122,6 +122,21 @@ def update_intercept(p_alert: np.ndarray, event: np.ndarray, eps: float = 1e-6) 
     return 1 / (1 + np.exp(-(np.log(p / (1 - p)) + a)))
 
 
+def update_intercept_cross_fitted(p_alert: np.ndarray, event: np.ndarray, groups: np.ndarray,
+                                  eps: float = 1e-6) -> np.ndarray:
+    """The intercept update scored honestly: each group's probabilities are
+    shifted by the intercept fitted on the other groups (leave one patient out),
+    so the update is never judged on the outcomes it was fitted to."""
+    p = np.clip(np.asarray(p_alert, float), eps, 1 - eps)
+    e, g = np.asarray(event), np.asarray(groups)
+    out = np.empty_like(p)
+    for k in np.unique(g):
+        m = g == k
+        a, _ = calibration_intercept_slope(p[~m], e[~m], eps)
+        out[m] = 1 / (1 + np.exp(-(np.log(p[m] / (1 - p[m])) + a)))
+    return out
+
+
 def calibration_curve(p_alert: np.ndarray, event: np.ndarray, bins: int = 5) -> pd.DataFrame:
     """Observed against predicted risk in quantile bins, with Wilson 95% intervals."""
     p, e = np.asarray(p_alert, float), np.asarray(event, float)

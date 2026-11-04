@@ -552,7 +552,79 @@
     "updated_net_benefit_0.2": 0.1054964539007092,
     "updated_net_benefit_0.3": 0.0749746707193515
    }
-  ]
+  ],
+  "external_update_cross_fitted": {
+   "catboost": {
+    "brier": 0.14557222641312853,
+    "net_benefit_0.1": 0.1457840819542947,
+    "net_benefit_0.2": 0.08421985815602837,
+    "net_benefit_0.3": 0.07852077001013172
+   },
+   "forest": {
+    "brier": 0.14737959177570945,
+    "net_benefit_0.1": 0.14144996059889675,
+    "net_benefit_0.2": 0.11081560283687944,
+    "net_benefit_0.3": 0.0668693009118541
+   },
+   "grud": {
+    "brier": 0.1408281033754959,
+    "net_benefit_0.1": 0.13750985027580775,
+    "net_benefit_0.2": 0.09131205673758866,
+    "net_benefit_0.3": 0.06585612968591692
+   },
+   "lstm": {
+    "brier": 0.14265624314825148,
+    "net_benefit_0.1": 0.14578408195429474,
+    "net_benefit_0.2": 0.09840425531914893,
+    "net_benefit_0.3": 0.06534954407294832
+   },
+   "ordinal_logistic": {
+    "brier": 0.15452709848316626,
+    "net_benefit_0.1": 0.10874704491725767,
+    "net_benefit_0.2": 0.06294326241134751,
+    "net_benefit_0.3": 0.07497467071935157
+   },
+   "pca_logistic": {
+    "brier": 0.1612581655112265,
+    "net_benefit_0.1": 0.10323089046493303,
+    "net_benefit_0.2": 0.060283687943262415,
+    "net_benefit_0.3": 0.06180344478216818
+   },
+   "persistence": {
+    "brier": 0.15113175553053335,
+    "net_benefit_0.1": 0.14105594956658785,
+    "net_benefit_0.2": 0.11968085106382978,
+    "net_benefit_0.3": 0.08409321175278622
+   },
+   "prior": {
+    "brier": 0.18028151906545176,
+    "net_benefit_0.1": 0.14105594956658785,
+    "net_benefit_0.2": 0.03368794326241134,
+    "net_benefit_0.3": 0.0
+   },
+   "value_catboost": {
+    "brier": 0.14322920792020583,
+    "net_benefit_0.1": 0.1347517730496454,
+    "net_benefit_0.2": 0.11170212765957448,
+    "net_benefit_0.3": 0.08865248226950354
+   },
+   "value_ridge": {
+    "brier": 0.13962431292352992,
+    "net_benefit_0.1": 0.13317572892040977,
+    "net_benefit_0.2": 0.11524822695035461,
+    "net_benefit_0.3": 0.09523809523809523
+   }
+  },
+  "search_kept_after_15": {
+   "catboost": 0.75,
+   "forest": 0.5625,
+   "grud": 0.75,
+   "lstm": 0.4375,
+   "ordinal_logistic": 0.0,
+   "pca_logistic": 0.0,
+   "value_catboost": 0.75,
+   "value_ridge": 0.0
+  }
  },
  "glycaemic": {
   "run": "glycaemic_0h_8cce0579ad",
@@ -1105,6 +1177,78 @@
     "updated_net_benefit_0.2": 0.4447368421052631,
     "updated_net_benefit_0.3": 0.3924812030075188
    }
-  ]
+  ],
+  "external_update_cross_fitted": {
+   "catboost": {
+    "brier": 0.25811357028380566,
+    "net_benefit_0.1": 0.5385964912280702,
+    "net_benefit_0.2": 0.47368421052631576,
+    "net_benefit_0.3": 0.35864661654135344
+   },
+   "forest": {
+    "brier": 0.26644542976225183,
+    "net_benefit_0.1": 0.5356725146198831,
+    "net_benefit_0.2": 0.45263157894736844,
+    "net_benefit_0.3": 0.3443609022556391
+   },
+   "grud": {
+    "brier": 0.22247716172639748,
+    "net_benefit_0.1": 0.5327485380116959,
+    "net_benefit_0.2": 0.4421052631578947,
+    "net_benefit_0.3": 0.39398496240601505
+   },
+   "lstm": {
+    "brier": 0.22168204716380033,
+    "net_benefit_0.1": 0.5099415204678364,
+    "net_benefit_0.2": 0.43684210526315786,
+    "net_benefit_0.3": 0.3924812030075188
+   },
+   "ordinal_logistic": {
+    "brier": 0.2647186403030919,
+    "net_benefit_0.1": 0.5385964912280702,
+    "net_benefit_0.2": 0.4486842105263158,
+    "net_benefit_0.3": 0.3458646616541353
+   },
+   "pca_logistic": {
+    "brier": 0.26898989265721096,
+    "net_benefit_0.1": 0.5175438596491228,
+    "net_benefit_0.2": 0.43421052631578944,
+    "net_benefit_0.3": 0.3338345864661654
+   },
+   "persistence": {
+    "brier": 0.24906689234480411,
+    "net_benefit_0.1": 0.5438596491228069,
+    "net_benefit_0.2": 0.48684210526315785,
+    "net_benefit_0.3": 0.356390977443609
+   },
+   "prior": {
+    "brier": 0.25070910087501,
+    "net_benefit_0.1": 0.5438596491228069,
+    "net_benefit_0.2": 0.48684210526315785,
+    "net_benefit_0.3": 0.4135338345864661
+   },
+   "value_catboost": {
+    "brier": 0.23862979263524545,
+    "net_benefit_0.1": 0.5438596491228069,
+    "net_benefit_0.2": 0.48684210526315785,
+    "net_benefit_0.3": 0.3766917293233083
+   },
+   "value_ridge": {
+    "brier": 0.2331765982780239,
+    "net_benefit_0.1": 0.5438596491228069,
+    "net_benefit_0.2": 0.48684210526315785,
+    "net_benefit_0.3": 0.39699248120300745
+   }
+  },
+  "search_kept_after_15": {
+   "catboost": 0.5,
+   "forest": 0.375,
+   "grud": 0.5625,
+   "lstm": 0.375,
+   "ordinal_logistic": 0.0,
+   "pca_logistic": 0.0,
+   "value_catboost": 0.625,
+   "value_ridge": 0.0
+  }
  }
 }
