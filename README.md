@@ -1,20 +1,22 @@
-# TeleMonitor — telemonitoring for hypertension and diabetes
+# Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors
 
-TeleMonitor is a telemonitoring system for patients living with **hypertension and/or type 2 diabetes** in Cameroon. Patients record their blood pressure, pulse and blood glucose in a mobile app. A guideline-based rule and a machine-learning model turn the recent readings into a risk level (green, yellow, red), and the patient's clinician follows them from the same app.
+Master's thesis in Data Science and Artificial Intelligence, **National Higher Polytechnic School of Douala (NHPSD), University of Douala**, academic year 2025–2026.
+**Nsame Ayuni Rodrick** — supervised by Dr. Malong Yannick and Dr. Noulapeu Ngaffo.
 
-The project is the subject of a Master's thesis in Data Science and Artificial Intelligence at the **National Higher Polytechnic School of Douala (NHPSD), University of Douala**:
+**TeleMonitor** is the system designed in this thesis, for patients living with **hypertension and/or type 2 diabetes** in Cameroon. It has two parts:
 
-> *Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors*
-> Nsame Ayuni Rodrick — supervised by Dr. Malong Yannick and Dr. Noulapeu Ngaffo
+- a **mobile app** (Flutter), where patients record their blood pressure, pulse and blood glucose, and where their clinician follows them;
+- a **risk service** that holds the models selected by the benchmark (CatBoost for blood pressure, GRU-D for glucose). It runs in a **Docker container**; the app sends it the recent readings and receives a risk level (green, yellow, red). When the service cannot be reached, the app falls back on a guideline-based rule that runs on the phone.
 
 The project is a work in progress: this page describes it as it stands and will be updated as the work advances.
 
 ## What is in this repository
 
-| Folder | Content |
+| Folder or file | Content |
 |---|---|
 | [`telemonitor/`](telemonitor/) | The application (Flutter): patient and clinician views, Firebase back end |
-| [`telemonitor-research/`](telemonitor-research/) | The research code (Python): labelling rule, data quality, features, benchmark of risk models, local risk service and server worker |
+| [`telemonitor-research/`](telemonitor-research/) | The research code (Python): labelling rule, data quality, features, benchmark of risk models, risk service and server worker |
+| [`docker-compose.yml`](docker-compose.yml) | Runs the risk service (the models used by the app), the server worker and the tests in Docker |
 | [`memoire/`](memoire/) | The thesis (LaTeX): parts `00_front` to `07_appendices` in `parts/`, data-driven figures in `figures/`, bibliography, compiled PDF |
 | [`infra/windows/`](infra/windows/) | PowerShell scripts that launch the long benchmark runs on Windows |
 
@@ -23,7 +25,7 @@ The project is a work in progress: this page describes it as it stands and will 
 ```mermaid
 flowchart LR
     P[Patient app<br/>manual entry] -->|readings| F[(Firebase<br/>Auth + Firestore)]
-    P -->|last 4 days, no identifier| R[Risk service<br/>FastAPI]
+    P -->|last 4 days, no identifier| R[Risk service<br/>FastAPI in Docker]
     R -->|level probabilities<br/>+ final tier| P
     W[Server worker] -->|escalation, reminders,<br/>push notifications| F
     F --> C[Clinician view]
@@ -58,7 +60,19 @@ python -m pytest
 
 The guide [`BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md) lists every script in the order of the methodology, the data each one needs and how long it runs.
 
-### Risk service (local)
+### Risk service with Docker (the models the app uses)
+
+Docker Desktop runs the risk service, the server worker and the tests in a container that holds the exact library versions of the thesis (`requirements-lock.txt`), without a local Python environment. From `C:\Projects`:
+
+```powershell
+docker compose build                 # once, and when requirements-lock.txt changes
+docker compose up -d api             # risk service on http://localhost:8000, restarted with Docker Desktop
+docker compose run --rm tests        # research test suite
+```
+
+The service answers on <http://localhost:8000/health> (status and loaded models) and documents itself on <http://localhost:8000/docs>. After a change of code, configs or exported model, `docker compose restart api` is enough. The service container reads code, configs and models only, read-only: patient data, outputs and keys never enter the image. All commands, including the worker, are listed at the top of [`docker-compose.yml`](docker-compose.yml).
+
+### Risk service without Docker
 
 ```powershell
 cd telemonitor-research
@@ -67,7 +81,7 @@ $env:TELEMONITOR_CORS = "http://localhost:5000"     # only needed for the web ve
 uvicorn telemonitor.serve.app:app --app-dir src --host 127.0.0.1 --port 8000
 ```
 
-Interactive documentation: <http://127.0.0.1:8000/docs>. Without exported model artifacts the service applies the guideline rule only.
+Without exported model artifacts the service applies the guideline rule only.
 
 ### Application (Flutter)
 
@@ -79,17 +93,7 @@ flutter run -d chrome --web-port 5000 --dart-define=RISK_API_URL=http://localhos
 
 On an Android emulator, use `--dart-define=RISK_API_URL=http://10.0.2.2:8000` instead. Without `RISK_API_URL` the app runs with the guideline rule only.
 
-### With Docker (risk service, worker, tests)
-
-Docker Desktop runs the risk service, the server worker and the tests in a container that holds the exact library versions of the thesis (`requirements-lock.txt`), without a local Python environment. From `C:\Projects`:
-
-```powershell
-docker compose build                 # once, and when requirements-lock.txt changes
-docker compose up -d api             # risk service on http://localhost:8000, restarted with Docker Desktop
-docker compose run --rm tests        # research test suite
-```
-
-The app connects to it exactly as above (`http://localhost:8000` from Chrome, `http://10.0.2.2:8000` from the emulator). A physical Android phone connected by USB reaches it through `adb`, with no network or firewall involved:
+A physical Android phone connected by USB reaches the service through `adb`, with no network or firewall involved:
 
 ```powershell
 adb reverse tcp:8000 tcp:8000        # again after each reconnection of the phone
@@ -97,8 +101,6 @@ flutter run --dart-define=RISK_API_URL=http://localhost:8000
 ```
 
 Over Wi-Fi instead, publish the service on the network (`$env:RISK_API_BIND = "0.0.0.0"; docker compose up -d api`) and use `http://<computer IP>:8000` (`ipconfig`). On a network set to Public, Windows Firewall blocks Docker's incoming connections: the phone gets through only on a trusted network set to Private, with Docker Desktop allowed when Windows asks.
-
-After a change of code, configs or exported model, `docker compose restart api` is enough. The service container reads code, configs and models only, read-only: patient data, outputs and keys never enter the image. All commands, including the worker, are listed at the top of [`docker-compose.yml`](docker-compose.yml).
 
 ### Server worker (escalation, reminders, notifications)
 
@@ -122,7 +124,7 @@ The thesis follows the structure required by the school (unnumbered Introduction
 | Patient app: manual entry, history, trends, risk card, messaging, health assistant, nearby-care search | Bluetooth acquisition from validated devices |
 | Clinician view of assigned patients; review queue (red before yellow) with verdict and action capture | Clinical pilot analysing the captured verdicts |
 | Offline guideline rule on the phone | Sensor prototype (ESP32) and MQTT transport |
-| Local risk service sharing the research code | Online hosting of the risk service |
+| Risk service holding the deployed models, run in Docker on the computer and reached by the app | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
 | Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
 | Thesis (112 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
