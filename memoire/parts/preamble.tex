@@ -80,11 +80,16 @@
 \newcommand{\unnumberedchapter}[1]{\chapter*{#1}\addcontentsline{toc}{chapter}{#1}\markboth{#1}{}}
 
 % ---------------------------------------------------------------- bibliography (IEEE)
-\usepackage[backend=biber,style=ieee,sorting=none,maxnames=3,minnames=1]{biblatex}
+% backref: each entry ends with the pages that cite it, as links back to the text
+\usepackage[backend=biber,style=ieee,sorting=none,maxnames=3,minnames=1,backref=true]{biblatex}
 \addbibresource{references.bib}
 
 % ---------------------------------------------------------------- links (load last)
-\usepackage[hidelinks]{hyperref}
+% Citation numbers [n], DOIs and web addresses in blue: a click opens the entry in the
+% References, or the source online. Cross-references and the contents are links in black.
+\definecolor{cLink}{RGB}{0,72,150}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=cLink,urlcolor=cLink,bookmarksnumbered=true]{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
+\AtBeginBibliography{\hypersetup{linkcolor=cLink}}   % the "cit. on pp." page links
 \hypersetup{pdftitle={Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors},
   pdfauthor={Nsame Ayuni Rodrick}}

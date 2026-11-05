@@ -208,9 +208,9 @@ SBP 140--159 or DBP 90--99~mmHg & confirm at another visit, one to four weeks la
 
 The reason is the variability of blood pressure. A reading of patient $i$ at time $t$ can be written $b_{i,t} = \mu_i + \varepsilon_{i,t}$, where $\mu_i$ is the patient's usual pressure, the clinically relevant quantity, and $\varepsilon_{i,t}$ gathers circadian variation, activity, stress, the measurement setting and instrument error. With $n$ readings far enough apart for their errors to be independent,
 \begin{equation}
-  \operatorname{Var}(\hat\mu_i) = \sigma_\varepsilon^2 / n .
+  \operatorname{Var}(\hat\mu_i) = \sigma_\varepsilon^2 / n ,
 \end{equation}
-A consultation provides two to four readings a year; home follow-up provides several dozen (\cref{fig:variability}), which estimate $\mu_i$ far more precisely and also estimate the patient's own variability $\sigma_\varepsilon$. This is the central argument for home measurement.
+where $\hat\mu_i$ is the mean of the $n$ readings, which estimates the usual pressure $\mu_i$, and $\sigma_\varepsilon^2$ is the variance of the deviations $\varepsilon_{i,t}$. A consultation provides two to four readings a year; home follow-up provides several dozen (\cref{fig:variability}), which estimate $\mu_i$ far more precisely and also estimate the patient's own variability $\sigma_\varepsilon$. This is the central argument for home measurement.
 
 \begin{figure}[htbp]
 \centering
@@ -232,7 +232,7 @@ Follow-up must moreover be frequent. Recommendation~7 of the WHO guideline on th
 \begin{equation}
   \bar n = 0.56 \times 12 + 0.44 \times n_c \approx 7.6 \text{ to } 8.5, \qquad n_c \in [2,4],
 \end{equation}
-where $n_c$ is the number of yearly contacts of a controlled patient. An episodic model that delivers one or two contacts a year delivers between an eighth and a quarter of what the guideline requires. This cumulative gap, more than the length of each consultation, is the structural deficit that telemonitoring must fill. It also explains therapeutic inertia: intensifying treatment requires a history showing that the target is persistently missed, and that history does not exist.
+where $\bar n$ is the mean number of contacts required per patient and per year, 0.56 and 0.44 are the shares of uncontrolled and controlled patients among those treated, 12 is the number of yearly contacts of an uncontrolled patient (one a month), and $n_c$ is the number of yearly contacts of a controlled patient (one every three to six months). An episodic model that delivers one or two contacts a year delivers between an eighth and a quarter of what the guideline requires. This cumulative gap, more than the length of each consultation, is the structural deficit that telemonitoring must fill. It also explains therapeutic inertia: intensifying treatment requires a history showing that the target is persistently missed, and that history does not exist.
 
 %--------------------------------------------------------------------------
 \section{Hypertension Care and Digital Health in Sub-Saharan Africa}\label{sec:lr-regional}\label{sec:diagnosis}
@@ -480,7 +480,7 @@ The classifier comparison of \textcite{efendi2025} shows why such figures must b
 \begin{equation}
   y = 1 \iff (x_1 = 1) \wedge (x_2 = 1) \wedge (x_3 = 1),
 \end{equation}
-and the perfectly balanced classes (2\,250 against 2\,250) show that the dataset was constructed rather than observed. The models recover a rule instead of predicting a state. Some reported metrics are also mutually inconsistent, and the training configuration described (epochs, sigmoid activation, Adam optimiser) does not apply to tree-based models. The result does not show that XGBoost outperforms other algorithms.
+where $y = 1$ is the label \emph{stable}; $x_1$, $x_2$ and $x_3$ are the recoded heart rate, oxygen saturation and temperature, each equal to 1 when the reading lies in its normal range; and $\wedge$ is the logical \emph{and}. The perfectly balanced classes (2\,250 against 2\,250) also show that the dataset was constructed rather than observed. The models recover a rule instead of predicting a state. Some reported metrics are also mutually inconsistent, and the training configuration described (epochs, sigmoid activation, Adam optimiser) does not apply to tree-based models. The result does not show that XGBoost outperforms other algorithms.
 
 \Textcite{mendoza2025} provide the counter-example of a genuine prediction task. Using 1\,308 hypertensive adults from the nationally representative Mexican survey ENSANUT~2022, they predicted uncontrolled blood pressure (130/80~mmHg threshold, prevalence 30.3\%) from seven predictors selected by LASSO: sex, age, socio-economic status, years since diagnosis, history of diabetes, source of medical care and adherence to a nutritional plan. Random forest reached an AUC of 0.75 (0.72--0.77), logistic regression 0.61 and XGBoost 0.54 (0.49--0.60), the last being indistinguishable from chance. Variable importance and SHAP values ranked age and years since diagnosis first, and the data and code are public. The best model nevertheless detects only 51\% of uncontrolled cases (specificity 0.98); the logistic regression row is computed with a different positive class from the other two, and the discussion attributes to random forest a sensitivity that is in fact its specificity. The design is cross-sectional, and the predictors are demographic and administrative rather than physiological.
 

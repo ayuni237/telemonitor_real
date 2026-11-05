@@ -127,7 +127,7 @@ The thesis follows the structure required by the school (unnumbered Introduction
 | Risk service holding the deployed models, run in Docker on the computer and reached by the app | Online hosting of the risk service |
 | Server worker with push notifications | SMS fallback |
 | Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
-| Thesis (113 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
+| Thesis (115 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
 
 ## Data
 

@@ -20,7 +20,30 @@ Decisions of 27 October 2026:
 8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
    unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
 
-## 0. Status on 4 November 2026
+## 0. Status on 5 November 2026
+
+**Revision of 5 November 2026, at the author's request: symbols and links.** No change of method
+or result:
+
+- Every displayed formula is followed by a "where …" sentence that names each of its symbols
+  (16 formulas). The main measures, which had no formula, now have one: RPS, Brier score and net
+  benefit, and the logistic recalibration that defines the calibration intercept and slope
+  (ch.3 §Evaluation Metrics). The GRU-D decay is written as the code computes it (a decay learned
+  from the gaps of all channels, `models/sequence.py`), not as a single rate per channel.
+- One description corrected: ch.2 said that the classification uses an ordinal loss. That holds
+  for the proportional-odds model and the deep temporal models; CatBoost and the random forest are
+  fitted with the standard multi-class loss, and the order of the levels reaches them through the
+  RPS that drives their search and the choice among families.
+- Links: the citation numbers [n], the DOIs and the web addresses are blue and clickable; each
+  reference ends with the pages that cite it ("cit. on pp."), as links back to the text.
+  Cross-references and the contents stay black but are links too.
+- Bibliography: DOI or address added for the WHO 2021 guideline, the HEARTS package, Kingue et al.
+  (with its full author list), Van Calster et al., the two ISO standards and Bergstra et al., and
+  the reprint of Mahalanobis (1936); each checked against Crossref or the publisher's page. Still
+  without a link: the two Cameroonian laws (no official online text found) and the books of
+  Iglewicz and Kish.
+
+Compiles without errors, undefined references or overfull boxes: **115 pages**.
 
 **Revision of 4 November 2026: rigour audit** (checklist in `telemonitor-research/RESEARCH_PLAN.md`
 §7, decisions left to you in §6e). Four corrections, no change of method:
@@ -36,7 +59,7 @@ Decisions of 27 October 2026:
   glucose (I51, also in ch.4 §Evolution of the patient's state).
 - Test counts: 172 in the research package, 220 in all (one test added for the cross-fitted update).
 
-Compiles without errors, undefined references or overfull boxes: **113 pages**. Questions the
+Compiled without errors, undefined references or overfull boxes: 113 pages. Questions the
 jury is likely to ask, with the answers the work supports: §5 below.
 
 **Revision of 3 November 2026, at the author's request.** The 90-page cap is lifted: the thesis
