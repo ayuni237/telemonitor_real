@@ -16,7 +16,10 @@ Decisions of 27 October 2026:
 5. The results chapter reports **only our own results**; other studies' figures appear in
    the discussion only.
 6. The ESP32 prototype was **not built**: it becomes a prospect.
-7. Supervisor **Dr. Malong Yannick**, co-supervisor **Dr. Noulapeu Ngaffo**.
+7. Supervisors **Dr. Malong Yannick** and **Dr. Noulapeu Ngaffo Armielle**, both named "Supervisor"
+   on the title page (GISDIA laboratory model since 6 November 2026). Logos in `figures/logos/`:
+   `enspd.png` from enspd-udo.cm (left), `udo.png` from univ-douala.cm (right; the official file
+   is 109×142 px, enlarged ×4; replace it with a sharper copy under the same name if one is found).
 8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
    unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
 

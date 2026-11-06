@@ -90,6 +90,8 @@
 \definecolor{cLink}{RGB}{0,72,150}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=cLink,urlcolor=cLink,bookmarksnumbered=true]{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
+\usepackage{qrcode}   % QR code of the repository on the title page (also a link in the PDF)
+\newcommand{\repourl}{https://github.com/ayuni237/telemonitor_real}
 \AtBeginBibliography{\hypersetup{linkcolor=cLink}}   % the "cit. on pp." page links
 \hypersetup{pdftitle={Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors},
   pdfauthor={Nsame Ayuni Rodrick}}
@@ -99,61 +101,98 @@
 
 % Front matter: title page, declaration, abstract, résumé, contents, acronyms, lists.
 % Acknowledgments: added after the Declaration when the author sends them.
+% Title page on the model of the GISDIA laboratory: bilingual header (French on the left,
+% English on the right) under the logos of the school and of the University of Douala.
+% The logos are read from figures/logos/enspd.(png|jpg|pdf) and figures/logos/udo.(png|jpg|pdf);
+% until those files exist, a grey frame marks their place.
+\definecolor{tpNavy}{RGB}{23,43,99}
+\definecolor{tpBlue}{RGB}{31,78,145}
+\definecolor{tpBox}{RGB}{204,228,243}
+\definecolor{tpEdge}{RGB}{120,165,205}
+\newcommand{\tplogo}[2]{%
+  \IfFileExists{figures/logos/#1.png}{\includegraphics[height=2.4cm]{figures/logos/#1.png}}{%
+  \IfFileExists{figures/logos/#1.jpg}{\includegraphics[height=2.4cm]{figures/logos/#1.jpg}}{%
+  \IfFileExists{figures/logos/#1.pdf}{\includegraphics[height=2.4cm]{figures/logos/#1.pdf}}{%
+  {\setlength{\fboxsep}{0pt}\fcolorbox{gray}{white}{\parbox[c][2.4cm][c]{2.4cm}{\centering\tiny\color{gray}#2}}}}}}}
+\newcommand{\tpsep}{{\mdseries *********}}
+\newgeometry{top=1.5cm,bottom=1.6cm,left=2.2cm,right=2.2cm}
 \begin{titlepage}
 \singlespacing
-% bilingual header, as in Cameroonian university documents (space for the logos in the middle)
-{\scriptsize
-\noindent\begin{minipage}[t]{0.42\textwidth}\centering
-\textbf{REPUBLIC OF CAMEROON}\\ Peace -- Work -- Fatherland\\[3pt]
-\textbf{MINISTRY OF HIGHER EDUCATION}\\[3pt]
-\textbf{THE UNIVERSITY OF DOUALA}\\[3pt]
-\textbf{NATIONAL HIGHER POLYTECHNIC\\ SCHOOL OF DOUALA}
+\color{tpNavy}
+\noindent\begin{minipage}[t]{0.44\textwidth}\centering
+\tplogo{enspd}{school logo}
 \end{minipage}\hfill
-\begin{minipage}[t]{0.42\textwidth}\centering
-\textbf{RÉPUBLIQUE DU CAMEROUN}\\ Paix -- Travail -- Patrie\\[3pt]
-\textbf{MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR}\\[3pt]
-\textbf{UNIVERSITÉ DE DOUALA}\\[3pt]
-\textbf{ÉCOLE NATIONALE SUPÉRIEURE\\ POLYTECHNIQUE DE DOUALA}
+\begin{minipage}[t]{0.44\textwidth}\centering
+\tplogo{udo}{University logo}
+\end{minipage}
+
+\vspace{0.25cm}
+{\scriptsize\bfseries
+\noindent\begin{minipage}[t]{0.44\textwidth}\centering
+RÉPUBLIQUE DU CAMEROUN\\ {\mdseries\itshape Paix -- Travail -- Patrie}\\ \tpsep\\
+UNIVERSITÉ DE DOUALA\\ \tpsep\\
+ÉCOLE NATIONALE SUPÉRIEURE\\ POLYTECHNIQUE DE DOUALA\\ \tpsep\\
+LABORATOIRE GISDIA\\ BP : 2701 DOUALA
+\end{minipage}\hfill
+\begin{minipage}[t]{0.44\textwidth}\centering
+REPUBLIC OF CAMEROON\\ {\mdseries\itshape Peace -- Work -- Fatherland}\\ \tpsep\\
+THE UNIVERSITY OF DOUALA\\ \tpsep\\
+NATIONAL HIGHER POLYTECHNIC\\ SCHOOL OF DOUALA\\ \tpsep\\
+GISDIA LABORATORY\\ P.O. BOX: 2701 DOUALA
 \end{minipage}\par}
 
-\vspace{0.6cm}
-\noindent\rule{\textwidth}{0.4pt}
+\vspace{0.8cm}
 \begin{center}
-{\small Laboratory of Computer Engineering, Data Science and Artificial Intelligence}
+% the registered title: its first part in the box, its end below it
+{\setlength{\fboxsep}{9pt}\fcolorbox{tpEdge}{tpBox}{\parbox{0.92\textwidth}{\centering\Large\bfseries\color{tpNavy}
+DESIGN OF A TELEMONITORING SYSTEM FOR PATIENTS WITH CHRONIC DISEASES (HYPERTENSION, DIABETES)}}\par}
 
-\vspace{1.4cm}
-{\large\bfseries MASTER'S THESIS}
+\vspace{0.6cm}
+{\large\color{tpBlue} Using Consultation Data, Home Measurements\\ and Possibly Mobile Sensors\par}
 
-\vspace{0.9cm}
-\rule{\textwidth}{0.8pt}\\[0.4cm]
-{\LARGE\bfseries Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors\par}
-\vspace{0.3cm}\rule{\textwidth}{0.8pt}
+\vspace{0.75cm}
+{\small\color{tpBlue}\textbf{Specialty:} Data Science and Artificial Intelligence\\[1pt]
+\textbf{Host laboratory:} \textit{GISDIA -- NHPSD / University of Douala}\par}
 
-\vspace{1.3cm}
-Presented by\\[0.2cm]
-{\Large\bfseries Nsame Ayuni Rodrick}
+\vspace{0.8cm}
+{\color{black}By\par}\vspace{0.15cm}
+{\Large\bfseries\color{black} NSAME AYUNI Rodrick\par}\vspace{0.1cm}
+{\small\bfseries\itshape\color{tpBlue} Master 2 student in Data Science and Artificial Intelligence\par}
+\end{center}
 
-\vspace{0.9cm}
-In partial fulfilment of the requirements for the degree of\\[0.1cm]
-{\large\bfseries Master of Science in Data Science and Artificial Intelligence}
+\vspace{0.8cm}
+\noindent{\small\bfseries Under the supervision of:}\par\vspace{0.15cm}
+{\small\color{black}\noindent
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l r@{}}
+\textbf{Dr.\ MALONG Yannick} & Supervisor, NHPSD \\[3pt]
+\textbf{Dr.\ NOULAPEU NGAFFO Armielle} & Supervisor, NHPSD \\
+\end{tabular*}\par}
 
-\vspace{1.3cm}
-\begin{tabular}{c@{\hspace{2.5cm}}c}
-Supervisor & Co-supervisor \\[0.1cm]
-{\large\bfseries Dr.\ Malong Yannick} & {\large\bfseries Dr.\ Noulapeu Ngaffo} \\
-\end{tabular}
+\vspace{0.8cm}
+\noindent{\small\bfseries Before the jury composed of:}\par\vspace{0.45cm}
+{\small\color{black}
+\noindent\textbf{President:}\ \dotfill\par\vspace{0.5cm}
+\noindent\textbf{Rapporteur:}\ \dotfill\par\vspace{0.5cm}
+\noindent\textbf{Examiner:}\ \dotfill\par\vspace{0.5cm}
+\noindent\textbf{Date of defence:}\ \dotfill\par}
 
 \vfill
-Academic year 2025--2026
-\end{center}
+% academic year in the centre; QR code of the GitHub repository (code and thesis) on the right
+\noindent\begin{minipage}[b]{0.29\textwidth}\mbox{}\end{minipage}\hfill
+\begin{minipage}[b]{0.38\textwidth}\centering{\small\bfseries\itshape\color{tpBlue} Academic year 2025--2026}\end{minipage}\hfill
+\begin{minipage}[b]{0.29\textwidth}\raggedleft
+{\color{black}\qrcode[height=1.8cm]{\repourl}}\\[3pt]
+{\tiny\color{black}\href{\repourl}{\texttt{github.com/ayuni237/telemonitor\_real}}}
+\end{minipage}
 \end{titlepage}
+\restoregeometry
 
 \pagenumbering{roman}
 \setcounter{page}{1}
 
 \chapter*{Declaration}
 \addcontentsline{toc}{chapter}{Declaration}
-I, \textbf{Nsame Ayuni Rodrick}, declare that this Master's thesis entitled \emph{``Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors''} is the result of my own research, carried out under the supervision of Dr.\ Malong Yannick and Dr.\ Noulapeu Ngaffo at the National Higher Polytechnic School of Douala (NHPSD), University of Douala, Cameroon.
+I, \textbf{Nsame Ayuni Rodrick}, declare that this Master's thesis entitled \emph{``Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors''} is the result of my own research, carried out under the supervision of Dr.\ Malong Yannick and Dr.\ Noulapeu Ngaffo Armielle at the National Higher Polytechnic School of Douala (NHPSD), University of Douala, Cameroon.
 
 I declare that, to the best of my knowledge, this work has not been submitted, in whole or in part, for any other degree, diploma or certification at any other institution.
 
@@ -332,7 +371,7 @@ This work contributes:
 \caption{Organisation of the thesis and where each research question is answered.}\label{fig:roadmap}
 \end{figure}
 
-\Cref{fig:roadmap} summarises the organisation. \Cref{ch:review} reviews the clinical and technical literature and identifies the gaps. \Cref{ch:framework} formalises the risk-tiering problem. \Cref{ch:methodology} describes the data, their treatment, the benchmark protocol and the system. \Cref{ch:results} reports the results and discusses them, and the Conclusion summarises the findings and the directions for future work. Every number of the results is produced by a script of the accompanying code, which can be rerun.
+\Cref{fig:roadmap} summarises the organisation. \Cref{ch:review} reviews the clinical and technical literature and identifies the gaps. \Cref{ch:framework} formalises the risk-tiering problem. \Cref{ch:methodology} describes the data, their treatment, the benchmark protocol and the system. \Cref{ch:results} reports the results and discusses them, and the Conclusion summarises the findings and the directions for future work. Every number of the results is produced by a script of the accompanying code, which can be rerun. The code of the application, of the research pipeline and of the risk service, together with the source of this thesis, is available at \url{https://github.com/ayuni237/telemonitor_real}, which the QR code of the title page opens; the patient records are not in it.
 
 
 %==========================================================================
@@ -344,13 +383,15 @@ This work contributes:
 
 A literature review situates a piece of research in its scientific field: it establishes what is already known, how it was established and with what limits, so that the contribution of the work can be stated precisely and defended. For this thesis it is all the more necessary as the subject lies at the crossing of three fields that rarely meet: the epidemiology of chronic diseases in sub-Saharan Africa, the clinical evaluation of telemonitoring, and the engineering of connected and predictive systems. The general context is that of the Introduction: hypertension and type~2 diabetes are frequent and often associated in Cameroon, their care fails mainly at follow-up, specialists are few, records are fragmented and connectivity is intermittent, but mobile telephony is widespread.
 
-The review is built on nineteen core sources, eighteen peer-reviewed studies and the global report of the World Health Organization (WHO) on hypertension, each checked against PubMed, Crossref or the publisher's record; \cref{app:sources} summarises each of them. Two further studies, the TELEMED-CAM evaluation \parencite{kingue2013} and a home monitoring system \parencite{chatrati2022}, complete them, together with the guidelines of the WHO \parencite{who2021guideline,whoHEARTS} and of the European Society of Hypertension (ESH) \parencite{mancia2023}, from which the blood pressure thresholds are taken. Two architecture references \parencite{mucchi2021,yazdani2018} are used for the system design.
+% 86 = entries of the References (memoire_restructure.bbl); 35 = works cited in this chapter,
+% 19 of them in tab:sources. Update these counts here and in appendix A if references change.
+The thesis cites 86 references in all, listed in the References at the end of the document. This chapter draws on 35 of them; the other 51, on data, clinical rules, measurement standards, regulation, methods and statistics, are introduced in the chapters that use them. Among the 35, nineteen are the core sources of the review: eighteen peer-reviewed studies and the global report of the World Health Organization (WHO) on hypertension, each checked against PubMed, Crossref or the publisher's record and analysed with its method, results and limits; \cref{app:sources} summarises each of them. The other sixteen support them: two further studies, the TELEMED-CAM evaluation \parencite{kingue2013} and a home monitoring system \parencite{chatrati2022}; the guidelines of the WHO \parencite{who2021guideline,whoHEARTS} and of the European Society of Hypertension (ESH) \parencite{mancia2023}, from which the blood pressure thresholds are taken; two architecture references \parencite{mucchi2021,yazdani2018}, used for the system design; and nine methodological and comparative references, cited where the review discusses the evaluation of prediction models, the tracking of a patient's state and the transfer of early-warning scores (\cref{sec:lr-ml,sec:lit-gaps}).
 
 The chapter is organised as the school plan requires. \Cref{sec:concepts} defines the key concepts and the models that structure the reasoning. \Cref{sec:burden,sec:lr-regional,sec:evidence,sec:lr-iot,sec:lr-ml,sec:lr-privacy} analyse previous work in six themes, from the problem to the response (\cref{tab:lr-overview}); within each theme the studies are presented in chronological order, each study once, with its method, its main results and its limits. \Cref{sec:comparison} compares the approaches critically, \cref{sec:lit-gaps} identifies the limits of the existing literature, \cref{sec:research-questions} links them to the present research, and \cref{sec:lr-synthesis} summarises the review and prepares the transition to the methodology.
 
 \begin{table}[htbp]
 \centering\footnotesize
-\caption{Sources of the review, by theme and in chronological order within each theme.}\label{tab:lr-overview}
+\caption{Studies and reports analysed in the review, by theme and in chronological order within each theme: the nineteen core sources and two further studies.}\label{tab:lr-overview}
 \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}p{3.9cm} >{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Theme} & \textbf{Source} & \textbf{Design and setting} \\
@@ -2794,14 +2835,14 @@ The system answers the first research question: a patient application and a clin
 %==========================================================================
 % APPENDICES
 %==========================================================================
-\chapter{The Nineteen Sources of the Review}\label{app:sources}
+\chapter{Core Sources of the Literature Review}\label{app:sources}
 
-\Cref{tab:sources} summarises the nineteen core sources of \cref{ch:review}, in the order of its themes: design and data, main findings, limits, and what this thesis takes from each.
+The thesis cites 86 references, and \cref{ch:review} draws on 35 of them (\cref{sec:lr-intro}). \Cref{tab:sources} summarises the nineteen core sources among these 35, the studies and the report analysed in detail, in the order of the themes of the review: design and data, main findings, limits, and what this thesis takes from each. The other references are described where they are cited.
 
 {\scriptsize
 \setlength{\tabcolsep}{3pt}
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.1cm} >{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{2.6cm}@{}}
-\caption{The nineteen core sources of the literature review.}\label{tab:sources}\\
+\caption{The nineteen core sources of the literature review (out of the 35 references of \cref{ch:review}).}\label{tab:sources}\\
 \toprule
 \textbf{Source} & \textbf{Design and data} & \textbf{Main findings} & \textbf{Limits} & \textbf{Use in this thesis} \\
 \midrule
@@ -3057,7 +3098,7 @@ The modelling study is reported according to TRIPOD+AI \parencite{collins2024}; 
 15 & Output, thresholds & \cref{sec:tiers} \\
 16 & Development against evaluation data & \cref{sec:results-data} \\
 17 & Ethical approval & \cref{sec:ethics-considerations} \\
-18c--f & Protocol, registration, sharing & protocol fixed before results; not registered; \cref{sec:tools} \\
+18c--f & Protocol, registration, sharing & protocol fixed before results; not registered; \cref{sec:tools}; code public at \url{https://github.com/ayuni237/telemonitor_real}; Douala records not shared \\
 19 & Patient and public involvement & none \\
 20--27 & Results, discussion & \cref{ch:results} \\
 \bottomrule

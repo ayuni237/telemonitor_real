@@ -1,7 +1,7 @@
 # Design of a Telemonitoring System for Patients with Chronic Diseases (Hypertension, Diabetes) Using Consultation Data, Home Measurements and Possibly Mobile Sensors
 
 Master's thesis in Data Science and Artificial Intelligence, **National Higher Polytechnic School of Douala (NHPSD), University of Douala**, academic year 2025–2026.
-**Nsame Ayuni Rodrick** — supervised by Dr. Malong Yannick and Dr. Noulapeu Ngaffo.
+**Nsame Ayuni Rodrick** — supervised by Dr. Malong Yannick and Dr. Noulapeu Ngaffo Armielle.
 
 **TeleMonitor** is the system designed in this thesis, for patients living with **hypertension and/or type 2 diabetes** in Cameroon. It has two parts:
 
