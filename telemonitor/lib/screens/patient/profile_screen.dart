@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/app_user.dart';
 import '../../services/auth_service.dart';
+import '../../services/consent_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/push_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/clinician_link_card.dart';
 import '../../widgets/theme_selector_card.dart';
+import '../../widgets/user_avatar.dart';
+import '../terms_screen.dart';
 import 'edit_profile_screen.dart';
 
 /// The patient's own profile, driven by their Firestore document.
@@ -121,6 +128,9 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 14),
                 ],
 
+                _consentCard(context, p),
+                const SizedBox(height: 14),
+
                 // Appearance control — Light / Dark / Auto.
                 const ThemeSelectorCard(),
                 const SizedBox(height: 14),
@@ -139,6 +149,15 @@ class ProfileScreen extends StatelessWidget {
                         p.isAssigned ? 'Assigned' : 'Not yet assigned',
                         Icons.person_pin_outlined,
                       ),
+                      const SizedBox(height: 4),
+                      _actionRow(
+                        context,
+                        'Password',
+                        'Change',
+                        Icons.lock_outline,
+                        () => _changePassword(context, p.email),
+                      ),
+                      const _NotificationsRow(),
                     ],
                   ),
                 ),
@@ -150,6 +169,120 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Terms accepted, and the research consent the patient can give or
+  /// withdraw at any time (consent_service.dart).
+  Widget _consentCard(BuildContext context, AppUser p) {
+    final accepted = p.termsAcceptedAt == null
+        ? 'Accepted'
+        : 'Accepted ${DateFormat('d MMM y').format(p.termsAcceptedAt!)}';
+    return _card(
+      context,
+      title: 'Privacy and consent',
+      icon: Icons.privacy_tip_outlined,
+      child: Column(
+        children: [
+          _actionRow(
+            context,
+            'Terms of use',
+            'Read',
+            Icons.description_outlined,
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsScreen())),
+            detail: accepted,
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(Icons.science_outlined, size: 16, color: AppColors.textMuted(context)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Use of my data for research',
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Without your name, contact details, photo or messages. '
+                      'Your care is the same either way.',
+                      style: TextStyle(fontSize: 11, height: 1.35, color: AppColors.textMuted(context)),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: p.researchConsent,
+                activeThumbColor: AppColors.primary,
+                onChanged: (v) => _setResearch(context, v),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> _setResearch(BuildContext context, bool value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    String text;
+    try {
+      await ConsentService.instance.setResearchConsent(value);
+      text = value
+          ? 'Thank you. Your data, without your name or contact details, may be used for research.'
+          : 'Done. Your data will be left out of new research extracts.';
+    } on TimeoutException {
+      text = 'Saved on the phone. It will be sent when you are back online.';
+    } catch (e) {
+      text = 'Could not save your choice: $e';
+    }
+    messenger.showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// A reset link to the account's own address, as from the login screen.
+  static Future<void> _changePassword(BuildContext context, String email) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await AuthService.instance.sendPasswordReset(email);
+      messenger.showSnackBar(SnackBar(
+        content: Text('We sent a link to $email to choose a new password. Look in the spam folder too.'),
+      ));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(AuthService.instance.messageFor(e))));
+    }
+  }
+
+  Widget _actionRow(BuildContext context, String label, String action, IconData icon, VoidCallback onTap,
+      {String? detail}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textMuted(context)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
+              if (detail != null)
+                Text(detail, style: TextStyle(fontSize: 11, color: AppColors.textMuted(context))),
+            ],
+          ),
+        ),
+        TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primaryText(context),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: const Size(0, 36),
+          ),
+          child: Text(action, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+      ],
     );
   }
 
@@ -167,22 +300,38 @@ class ProfileScreen extends StatelessWidget {
       decoration: const BoxDecoration(color: AppColors.primary),
       child: Column(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Center(
-              child: Text(
-                _initials(p.displayName),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                ),
+          // Optional photo: tap to take, choose or remove it.
+          Semantics(
+            button: true,
+            label: 'Change profile photo',
+            child: GestureDetector(
+              onTap: () => showProfilePhotoSheet(context, uid: p.uid, forClinician: false),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  UserAvatar(
+                    uid: p.uid,
+                    name: p.displayName,
+                    size: 72,
+                    background: Colors.white.withValues(alpha: 0.2),
+                    border: Border.all(color: Colors.white, width: 2),
+                    fontSize: 26,
+                  ),
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.primary, width: 2),
+                      ),
+                      child: const Icon(Icons.photo_camera, size: 13, color: AppColors.primary),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -312,13 +461,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
-
   Widget _pill(String label, IconData icon) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -445,6 +587,72 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Whether this phone shows the app's notifications (alerts, reminders,
+/// reviews), with a way to ask again when they are off. Hidden where the app
+/// cannot tell (screen tests, web).
+class _NotificationsRow extends StatefulWidget {
+  const _NotificationsRow();
+
+  @override
+  State<_NotificationsRow> createState() => _NotificationsRowState();
+}
+
+class _NotificationsRowState extends State<_NotificationsRow> {
+  bool? _allowed;
+
+  @override
+  void initState() {
+    super.initState();
+    PushService.instance.notificationsAllowed().then((v) {
+      if (mounted) setState(() => _allowed = v);
+    });
+  }
+
+  Future<void> _enable() async {
+    final v = await PushService.instance.enable();
+    if (!mounted) return;
+    setState(() => _allowed = v);
+    if (v != true) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Notifications are blocked on this phone. Allow them for TeleMonitor in the '
+            "phone's settings (Apps, TeleMonitor, Notifications)."),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allowed = _allowed;
+    if (allowed == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Icon(allowed ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+              size: 16, color: AppColors.textMuted(context)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Notifications', style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
+          ),
+          if (allowed)
+            Text('On',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.successText(context)))
+          else
+            TextButton(
+              onPressed: _enable,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.dangerText(context),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 36),
+              ),
+              child: const Text('Off: turn on', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
         ],
       ),
     );

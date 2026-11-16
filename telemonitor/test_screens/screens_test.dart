@@ -21,9 +21,12 @@ import 'package:telemonitor/screens/patient/care_finder_screen.dart';
 import 'package:telemonitor/screens/patient/history_screen.dart';
 import 'package:telemonitor/screens/patient/log_reading_screen.dart';
 import 'package:telemonitor/screens/patient/patient_home.dart';
+import 'package:telemonitor/screens/patient/profile_screen.dart';
 import 'package:telemonitor/screens/signup_screen.dart';
+import 'package:telemonitor/screens/terms_screen.dart';
 import 'package:telemonitor/services/auth_service.dart';
 import 'package:telemonitor/services/clinician_queue.dart';
+import 'package:telemonitor/services/consent_service.dart';
 import 'package:telemonitor/services/queue_logic.dart';
 import 'package:telemonitor/services/readings_repository.dart';
 import 'package:telemonitor/theme/app_theme.dart';
@@ -44,7 +47,14 @@ Future<void> _loadFonts() async {
 
 final now = DateTime.now();
 Reading r(String id, int hoursAgo,
-        {int? sbp, int? dbp, int? hr, double? glucose, String ctx = 'Fasting', int count = 1, String? supersedes}) =>
+        {int? sbp,
+        int? dbp,
+        int? hr,
+        int? cam,
+        double? glucose,
+        String ctx = 'Fasting',
+        int count = 1,
+        String? supersedes}) =>
     Reading(
       id: id,
       timestamp: now.subtract(Duration(hours: hoursAgo)),
@@ -52,6 +62,8 @@ Reading r(String id, int hoursAgo,
       sbp: sbp,
       dbp: dbp,
       hr: hr,
+      hrCamera: cam,
+      hrCameraQuality: cam == null ? null : 0.82,
       glucose: glucose,
       context: ctx,
       readingCount: count,
@@ -61,9 +73,9 @@ Reading r(String id, int hoursAgo,
     );
 
 final readings = [
-  r('a', 2, sbp: 164, dbp: 98, hr: 82, glucose: 7.9, count: 2),
+  r('a', 2, sbp: 164, dbp: 98, hr: 82, cam: 80, glucose: 7.9, count: 2),
   r('b', 14, sbp: 152, dbp: 94, hr: 78, ctx: 'After meal'),
-  r('c', 26, sbp: 147, dbp: 91, glucose: 10.6, ctx: 'After meal'),
+  r('c', 26, sbp: 147, dbp: 91, cam: 77, glucose: 10.6, ctx: 'After meal'),
   r('d', 50, sbp: 139, dbp: 88, hr: 74),
   r('e', 98, sbp: 141, dbp: 90, glucose: 6.1),
   r('f', 170, sbp: 133, dbp: 85, hr: 70),
@@ -80,6 +92,8 @@ const patient = AppUser(
   sex: 'Female',
   conditions: ['Hypertension', 'Type 2 diabetes'],
   medications: ['Amlodipine', 'Metformin'],
+  termsVersion: ConsentService.termsVersion,
+  researchConsent: true,
 );
 
 ClinicalEvent ev(String id, RiskTier tier, TriggerSource src, int hoursAgo,
@@ -156,18 +170,23 @@ final screens = <String, Widget Function()>{
   'risk_clinician': () => riskScreen(true),
   'queue': queueScreen,
   'care_finder': () => const CareFinderScreen(),
+  'profile': () => const ProfileScreen(),
   'edit_profile': () => const EditProfileScreen(profile: patient),
   'connect_clinician': () => const ConnectClinicianScreen(),
+  'terms': () => const TermsScreen(),
+  'accept_terms': () => AcceptTermsScreen(onAccepted: () {}, updated: true),
 };
 
 /// Screens checked again with the text enlarged by 30 %, as many older
 /// patients set their phone: nothing may overflow.
-const largeText = ['home', 'log_reading', 'history', 'queue'];
+const largeText = ['home', 'log_reading', 'history', 'queue', 'signup', 'accept_terms', 'profile'];
 
 void main() {
   setUpAll(() async {
     await _loadFonts();
     AuthService.instance.debugProfile = patient;
+    // the reminder card of an address not yet confirmed, on the dashboard
+    AuthService.instance.debugEmailVerified = false;
     ReadingsRepository.instance.debugSetReadings(readings);
   });
 

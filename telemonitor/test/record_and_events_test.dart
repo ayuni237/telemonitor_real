@@ -48,14 +48,20 @@ void main() {
         firstSbp: 156,
         firstDbp: 95,
         firstHr: 72,
+        hrCamera: 73,
+        hrCameraQuality: 0.8371,
         supersedes: 'a',
       ).toFirestore();
       expect(pair.keys.toSet().difference(rulesKeys('function isValidReading')), isEmpty);
       expect(pair['recordedAt'], isA<FieldValue>());
       expect(pair['entryMode'], 'manual');
+      expect(pair['hrCameraQuality'], 0.84);
       final single = Reading(timestamp: DateTime(2026, 10, 1), glucose: 5.5).toFirestore();
       expect(single.containsKey('firstSbp'), isFalse);
       expect(single.containsKey('supersedes'), isFalse);
+      // the camera pulse only when measured, and always with its quality
+      expect(single.keys, isNot(contains('hrCamera')));
+      expect(single.keys, isNot(contains('hrCameraQuality')));
     });
 
     test('a reading entered more than 15 minutes after it was taken is marked', () {

@@ -40,6 +40,16 @@ class Reading {
   final int? firstDbp;
   final int? firstHr;
 
+  /// Pulse measured with the phone camera (camera_pulse.dart), beside the
+  /// monitor's [hr]. Shown to the patient and the clinician; never used by
+  /// the triage or the model until it is validated against the monitor
+  /// (thesis ch.2: smartphone heart rate is evaluated before it is relied
+  /// upon). A reading with both values is a pair for that comparison.
+  final int? hrCamera;
+
+  /// Quality of [hrCamera]: share of the signal at the pulse frequency, 0-1.
+  final double? hrCameraQuality;
+
   /// Id of the reading this one corrects, if any.
   final String? supersedes;
 
@@ -62,6 +72,8 @@ class Reading {
     this.firstSbp,
     this.firstDbp,
     this.firstHr,
+    this.hrCamera,
+    this.hrCameraQuality,
     this.supersedes,
     this.qualityFlag,
   });
@@ -127,6 +139,8 @@ class Reading {
       firstSbp: (data['firstSbp'] as num?)?.toInt(),
       firstDbp: (data['firstDbp'] as num?)?.toInt(),
       firstHr: (data['firstHr'] as num?)?.toInt(),
+      hrCamera: (data['hrCamera'] as num?)?.toInt(),
+      hrCameraQuality: (data['hrCameraQuality'] as num?)?.toDouble(),
       supersedes: data['supersedes'] as String?,
       qualityFlag: data['qualityFlag'] as String?,
     );
@@ -150,6 +164,10 @@ class Reading {
           'firstSbp': firstSbp,
           'firstDbp': firstDbp,
           'firstHr': firstHr,
+        },
+        if (hrCamera != null) ...{
+          'hrCamera': hrCamera,
+          'hrCameraQuality': ((hrCameraQuality ?? 0) * 100).round() / 100,
         },
         if (supersedes != null) 'supersedes': supersedes,
       };

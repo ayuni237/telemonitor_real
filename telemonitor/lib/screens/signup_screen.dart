@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/consent_checks.dart';
 
 /// Patient self-registration.
 ///
@@ -26,6 +27,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+
+  // Terms of use (required) and research use (optional), terms_screen.dart.
+  bool _acceptTerms = false;
+  bool _researchConsent = false;
   String? _errorMessage;
 
   // Live verification of the clinician code, so the patient sees who
@@ -99,6 +104,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return 'That code was not recognised. Check it, or clear the field '
           'and connect to your clinician later.';
     }
+    if (!_acceptTerms) {
+      return 'Please read and accept the terms of use to create your account.';
+    }
     return null;
   }
 
@@ -119,12 +127,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: _emailController.text,
         password: _passwordController.text,
         name: _nameController.text,
+        acceptedTerms: _acceptTerms,
+        researchConsent: _researchConsent,
         clinicianCode: _codeController.text.trim().isEmpty
             ? null
             : _codeController.text,
       );
-      // No manual navigation: AuthGate is listening to auth state and
-      // swaps the screen as soon as the account exists.
+      // AuthGate, under this page, already shows the new account's home:
+      // close the page (it was pushed over the sign-in screen).
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -201,6 +212,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                       ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          'Use an address you can open: we send a link to confirm it, '
+                          'and it is how you set a new password if you forget yours.',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary(context),
+                              height: 1.4),
+                        ),
+                      ),
                       const SizedBox(height: 16),
 
                       _label('Password'),
@@ -224,7 +246,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      Row(
+                      // Wrap, not Row: with large text the two parts go on two lines
+                      Wrap(
+                        spacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.end,
                         children: [
                           Text(
                             'Clinician code',
@@ -234,7 +259,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               color: AppColors.primaryText(context),
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Text(
                             '(optional)',
                             style: TextStyle(
@@ -263,6 +287,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         textCapitalization: TextCapitalization.characters,
                       ),
                       _codeFeedback(),
+
+                      const SizedBox(height: 16),
+                      ConsentChecks(
+                        terms: _acceptTerms,
+                        research: _researchConsent,
+                        onTerms: (v) => setState(() => _acceptTerms = v),
+                        onResearch: (v) => setState(() => _researchConsent = v),
+                      ),
 
                       const SizedBox(height: 20),
 

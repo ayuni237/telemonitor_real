@@ -84,12 +84,13 @@ service cloud.firestore {
     // the entry screen (thesis Table "tab:units"); a pressure pair complete
     // and coherent; glucose in mmol/L; measured at most 30 days before it
     // reaches the server and not in the future; record time set by the
-    // server; a superseded reading must exist.
+    // server; a superseded reading must exist. A pulse measured with the
+    // phone camera (hrCamera) comes with its signal quality, 0 to 1.
     function isValidReading(userId) {
       let d = request.resource.data;
       return d.keys().hasOnly(['timestamp', 'recordedAt', 'entryMode', 'sbp', 'dbp', 'glucose', 'hr',
                                'context', 'notes', 'readingCount', 'firstSbp', 'firstDbp', 'firstHr',
-                               'supersedes'])
+                               'hrCamera', 'hrCameraQuality', 'supersedes'])
         && d.timestamp is timestamp
         && d.timestamp <= request.time + duration.value(5, 'm')
         && d.timestamp >= request.time - duration.value(30, 'd')
@@ -97,6 +98,10 @@ service cloud.firestore {
         && d.entryMode == 'manual'
         && optInt(d, 'sbp', 60, 260) && optInt(d, 'dbp', 30, 160) && optInt(d, 'hr', 30, 220)
         && optInt(d, 'firstSbp', 60, 260) && optInt(d, 'firstDbp', 30, 160) && optInt(d, 'firstHr', 30, 220)
+        && optInt(d, 'hrCamera', 30, 220)
+        && ((d.get('hrCamera', null) == null) == (d.get('hrCameraQuality', null) == null))
+        && (d.get('hrCameraQuality', null) == null
+            || (d.hrCameraQuality is number && d.hrCameraQuality >= 0 && d.hrCameraQuality <= 1))
         && ((d.get('sbp', null) == null) == (d.get('dbp', null) == null))
         && (d.get('sbp', null) == null || d.sbp - d.dbp >= 10)
         && (d.get('glucose', null) == null || (d.glucose is number && d.glucose >= 1 && d.glucose <= 35))
@@ -174,6 +179,18 @@ service cloud.firestore {
         && d.comment is string && d.comment.size() <= 1000;
     }
 
+    // Terms of use and research consent (lib/services/consent_service.dart):
+    // each change is stamped with the server time, so the record shows when
+    // the patient accepted the terms and when they gave or withdrew consent.
+    function isValidConsentChange() {
+      let d = request.resource.data;
+      let changed = d.diff(resource.data).affectedKeys();
+      return (!changed.hasAny(['termsVersion', 'termsAcceptedAt'])
+              || (d.termsVersion is string && d.termsAcceptedAt == request.time))
+        && (!changed.hasAny(['researchConsent', 'researchConsentAt'])
+              || (d.researchConsent is bool && d.researchConsentAt == request.time));
+    }
+
     // A one-time claim of a clinician: the ONLY field changing is
     // assignedClinicianId, it was previously ABSENT, and the new value
     // points at a genuine clinician. Because the rule requires absence,
@@ -215,10 +232,15 @@ service cloud.firestore {
                   || isMyClinicianDoc(userId);
 
       // Self-registration. assignedClinicianId is now OPTIONAL, but when
-      // present it must point at a genuine clinician.
+      // present it must point at a genuine clinician. The terms of use are
+      // accepted and the research choice made in the sign-up form.
       allow create: if isSelf(userId)
                     && request.resource.data.role == 'patient'
                     && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.termsVersion is string
+                    && request.resource.data.termsAcceptedAt == request.time
+                    && request.resource.data.researchConsent is bool
+                    && request.resource.data.researchConsentAt == request.time
                     && (
                          !request.resource.data.keys().hasAny(['assignedClinicianId'])
                          || targetIsClinician(request.resource.data.assignedClinicianId)
@@ -228,7 +250,8 @@ service cloud.firestore {
       // untouched, or the one-time clinician link.
       allow update: if (isSelf(userId)
                         && ( !touchesProtected() || isFirstClinicianLink() )
-                        && isValidAlternate())
+                        && isValidAlternate()
+                        && isValidConsentChange())
                     || isCheckupPeriodUpdate();
 
       allow delete: if false;
@@ -246,6 +269,21 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // Optional profile photo (lib/services/profile_photo_service.dart): one
+      // small JPEG in its own document, seen by the person, by a patient's
+      // assigned clinician and by a clinician's patients; written and removed
+      // by the person only.
+      match /photo/{docId} {
+        allow read: if isSelf(userId) || isAssignedClinicianOf(userId) || isMyClinicianDoc(userId);
+        allow create, update: if isSelf(userId)
+                              && docId == 'current'
+                              && request.resource.data.keys().hasOnly(['image', 'updatedAt'])
+                              && request.resource.data.image is bytes
+                              && request.resource.data.image.size() <= 153600
+                              && request.resource.data.updatedAt == request.time;
+        allow delete: if isSelf(userId);
+      }
+
       match /messages/{messageId} {
         allow read: if isSelf(userId) || isAssignedClinicianOf(userId);
         allow create: if (isSelf(userId) || isAssignedClinicianOf(userId))
@@ -257,6 +295,43 @@ service cloud.firestore {
                       && request.resource.data.readAt == request.time;
         allow delete: if false;
       }
+    }
+
+    // A user asks the worker for the email confirming their own address
+    // (worker.py, mail.py), at most once a minute. The worker takes the
+    // address from Firebase Auth, never from here, and records sentAt.
+    match /mail_requests/{userId} {
+      allow create, update: if isSelf(userId)
+        && request.resource.data.keys().hasOnly(['kind', 'requestedAt'])
+        && request.resource.data.kind == 'verify_email'
+        && request.resource.data.requestedAt == request.time
+        && (resource == null
+            || request.time > resource.data.requestedAt + duration.value(60, 's'));
+      allow read, delete: if false;
+    }
+
+    // "Forgot password?" is used signed out, so anyone may ask the worker
+    // for the reset email of an address, at most once a minute per address.
+    // The worker answers only for an existing account, sends to that
+    // account's own address, a few times a day at most, and deletes the
+    // requests of addresses that have no account.
+    match /password_resets/{address} {
+      allow create, update: if request.resource.data.keys().hasOnly(['requestedAt'])
+        && request.resource.data.requestedAt == request.time
+        && address.size() <= 254
+        && address == address.lower()
+        && address.matches('[^@]+@[^@]+[.][^@]+')
+        && (resource == null
+            || request.time > resource.data.requestedAt + duration.value(60, 's'));
+      allow read, delete: if false;
+    }
+
+    // Written by the worker only: config/mail.workerAt says it sends the
+    // emails; the app falls back on Firebase's email when it is stale. The
+    // login screen reads it signed out, for "Forgot password?".
+    match /config/{docId} {
+      allow read: if isSignedIn() || docId == 'mail';
+      allow write: if false;
     }
 
     // Escalated events across patients, for the alternate's queue

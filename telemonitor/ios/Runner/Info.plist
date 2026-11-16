@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>To take an optional profile photo, seen only by you and your clinician, and to measure your pulse with the camera and the flash when you choose to. No video is recorded.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>To choose an optional profile photo, seen only by you and your clinician.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

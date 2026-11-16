@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/push_service.dart';
 import 'chat_screen.dart';
 import 'history_screen.dart';
 import 'log_reading_screen.dart';
@@ -23,6 +24,29 @@ class _PatientHomeState extends State<PatientHome> {
   int _index = 0;
 
   static const _tabs = [PatientDashboard(), HistoryScreen(), ChatScreen(), ProfileScreen()];
+  static const _messages = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    PushService.instance.opened.addListener(_openFromPush);
+    // a notification that launched the app was tapped before this screen existed
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFromPush());
+  }
+
+  @override
+  void dispose() {
+    PushService.instance.opened.removeListener(_openFromPush);
+    super.dispose();
+  }
+
+  /// A tapped message notification: the Messages tab, above whatever was open.
+  void _openFromPush() {
+    if (!mounted || PushService.instance.opened.value == null) return;
+    PushService.instance.opened.value = null;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() => _index = _messages);
+  }
 
   void _log() => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogReadingScreen()));
 

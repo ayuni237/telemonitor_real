@@ -5,14 +5,18 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_user.dart';
 import '../../models/reading.dart';
+import '../../services/app_messenger.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinician_queue.dart';
 import '../../services/events_service.dart';
 import '../../services/patients_service.dart';
+import '../../services/push_service.dart';
 import '../../widgets/enrolment_code_card.dart';
 import '../../widgets/event_widgets.dart';
+import '../../widgets/user_avatar.dart';
 import '../../widgets/verdict_sheet.dart';
 import '../../theme/app_theme.dart';
+import 'patient_chat_screen.dart';
 import 'patient_detail_screen.dart';
 
 /// Clinician home: the queue of unreviewed events in priority order
@@ -41,10 +45,14 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
       },
       onError: (Object e) => setState(() => _rosterError = e),
     );
+    PushService.instance.opened.addListener(_openFromPush);
+    // a notification that launched the app was tapped before this screen existed
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFromPush());
   }
 
   @override
   void dispose() {
+    PushService.instance.opened.removeListener(_openFromPush);
     _roster?.cancel();
     _queue.dispose();
     super.dispose();
@@ -53,39 +61,10 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
   /// Names the colleague who receives this clinician's alerts left
   /// unreviewed too long (queue-age sweep of the worker).
   Future<void> _editAlternate() async {
-    final me = AuthService.instance.currentProfile;
-    final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Alternate clinician'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              me?.alternateClinicianName == null
-                  ? 'No alternate named. Alerts you leave unreviewed are escalated to nobody.'
-                  : 'Current alternate: ${me!.alternateClinicianName}.',
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: "Colleague's enrolment code"),
-            ),
-          ],
-        ),
-        actions: [
-          if (me?.alternateClinicianId != null)
-            TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Remove')),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Save')),
-        ],
-      ),
+      builder: (_) => _AlternateDialog(me: AuthService.instance.currentProfile),
     );
-    controller.dispose();
     if (result == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -97,6 +76,31 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not save: $e')));
     }
+  }
+
+  /// A tapped message notification: the conversation with that patient.
+  Future<void> _openFromPush() async {
+    final target = PushService.instance.opened.value;
+    if (!mounted || target == null) return;
+    PushService.instance.opened.value = null;
+    final navigator = Navigator.of(context);
+    var patient = _patients?.where((p) => p.uid == target.patientId).firstOrNull;
+    if (patient == null) {
+      try {
+        final snap = await FirebaseFirestore.instance.collection('users').doc(target.patientId).get();
+        if (snap.exists) patient = AppUser.fromFirestore(snap.id, snap.data()!);
+      } catch (_) {
+        // no longer assigned, or offline with nothing cached
+      }
+    }
+    if (!mounted) return;
+    if (patient == null) {
+      AppMessenger.show('This conversation could not be opened.', error: true);
+      return;
+    }
+    final p = patient;
+    navigator.popUntil((route) => route.isFirst);
+    navigator.push(MaterialPageRoute(builder: (_) => PatientChatScreen(patient: p)));
   }
 
   void _open(AppUser p) => Navigator.push(
@@ -119,6 +123,20 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
           ),
           elevation: 0,
           actions: [
+            // The clinician's own optional photo, shown to their patients.
+            if (AuthService.instance.currentProfile case final me?)
+              IconButton(
+                tooltip: 'My photo',
+                onPressed: () => showProfilePhotoSheet(context, uid: me.uid, forClinician: true),
+                icon: UserAvatar(
+                  uid: me.uid,
+                  name: me.displayName,
+                  size: 28,
+                  background: Colors.white.withValues(alpha: 0.2),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  fontSize: 11,
+                ),
+              ),
             IconButton(
               tooltip: 'Alternate clinician',
               icon: const Icon(Icons.swap_horiz, size: 22),
@@ -252,13 +270,6 @@ class _PatientCard extends StatelessWidget {
   final AppUser patient;
   const _PatientCard({required this.patient});
 
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -285,24 +296,7 @@ class _PatientCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      _initials(patient.displayName),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
+                UserAvatar(uid: patient.uid, name: patient.displayName, size: 42, fontSize: 13),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -381,6 +375,60 @@ class _LatestReadingLine extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Names the alternate clinician. It owns its text controller, disposed with
+/// the dialog: disposing it as soon as the dialog returns breaks the field,
+/// still on screen while the dialog fades out.
+class _AlternateDialog extends StatefulWidget {
+  final AppUser? me;
+
+  const _AlternateDialog({required this.me});
+
+  @override
+  State<_AlternateDialog> createState() => _AlternateDialogState();
+}
+
+class _AlternateDialogState extends State<_AlternateDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = widget.me;
+    return AlertDialog(
+      title: const Text('Alternate clinician'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            me?.alternateClinicianName == null
+                ? 'No alternate named. Alerts you leave unreviewed are escalated to nobody.'
+                : 'Current alternate: ${me!.alternateClinicianName}.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: "Colleague's enrolment code"),
+          ),
+        ],
+      ),
+      actions: [
+        if (me?.alternateClinicianId != null)
+          TextButton(onPressed: () => Navigator.pop(context, ''), child: const Text('Remove')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
+      ],
     );
   }
 }

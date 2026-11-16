@@ -226,6 +226,7 @@ class HealthAssistantService {
     if (r.hasBP) parts.add('BP ${r.sbp}/${r.dbp}');
     if (r.hasGlucose) parts.add('glucose ${r.glucose}');
     if (r.hr != null) parts.add('heart rate ${r.hr}');
+    if (r.hrCamera != null) parts.add('heart rate by phone camera ${r.hrCamera} (not validated)');
     final when = '${r.timestamp.day}/${r.timestamp.month}/${r.timestamp.year}';
     final ctx = r.context.isNotEmpty ? ' (${r.context})' : '';
     return '$when: ${parts.isEmpty ? 'no values' : parts.join(', ')}$ctx';

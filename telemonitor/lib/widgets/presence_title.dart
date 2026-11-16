@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/presence_service.dart';
+import 'user_avatar.dart';
 
 /// App-bar title showing a name, a green dot when online, and a
 /// last-seen line underneath.
@@ -73,16 +74,13 @@ class _PresenceTitleState extends State<PresenceTitle> {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Icon(widget.icon, color: Colors.white, size: 18),
-              ),
+            // the other person's photo when they set one, the icon otherwise
+            UserAvatar(
+              uid: widget.otherUid,
+              name: widget.name,
+              size: 36,
+              background: Colors.white.withValues(alpha: 0.2),
+              fallbackIcon: widget.icon,
             ),
             if (online)
               Positioned(

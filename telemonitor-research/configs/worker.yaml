@@ -11,6 +11,12 @@ max_age_hours: 24
 # A patient who stays silent is reminded again at this interval (decision flow: "repeated
 # reminders"); the non-transmission event stays open until the clinician closes it.
 reminder_interval_hours: 24
+# Messages: the recipient is notified of a message still unread this long after it
+# arrived. An open conversation reads it at once, so it brings no notification.
+message_delay_seconds: 20
+# "Forgot password?" is asked signed out, so anyone may ask for any address: at most
+# this many reset emails per account in 24 h (the rules allow one request a minute).
+password_resets_per_day: 5
 
 # Queue-age sweep: an open event older than this is escalated to the clinician's
 # named alternate (alternateClinicianId on the clinician's profile) and re-notified.
@@ -33,3 +39,7 @@ notify:
     clinician: "Unreviewed alert for {pseudonym} since {age} h ({tier})"
   verdict:
     patient: "Your clinician has reviewed your alert of {date}."
+  # Who wrote, never what: a notification shows on a locked screen. One message, then several.
+  message:
+    patient: ["New message from your clinician", "{count} new messages from your clinician"]
+    clinician: ["New message from {pseudonym}", "{count} new messages from {pseudonym}"]

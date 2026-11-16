@@ -14,6 +14,8 @@ import '../../widgets/risk_card.dart';
 import '../../widgets/find_care_card.dart';
 import '../../widgets/assistant_card.dart';
 import '../../widgets/assistant_bubble.dart';
+import '../../widgets/user_avatar.dart';
+import '../../widgets/verify_email_card.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -52,13 +54,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   String get _patientName =>
       AuthService.instance.currentProfile?.displayName ?? '';
-
-  String get _initials {
-    final parts = _patientName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
 
   List<Reading> get _readings => ReadingsRepository.instance.readings;
 
@@ -112,6 +107,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     _buildPendingBanner(ReadingsRepository.instance.pendingCount),
                     const SizedBox(height: 16),
                   ],
+                  const VerifyEmailCard(),
                   const ClinicianLinkCard(),
                   if (_hasAlert) _buildAlertBanner(),
                   if (_hasAlert) const SizedBox(height: 16),
@@ -175,23 +171,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ],
           ),
         ),
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              _initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-          ),
+        UserAvatar(
+          uid: AuthService.instance.currentProfile?.uid,
+          name: _patientName,
+          size: 44,
+          radius: 12,
+          fontSize: 15,
         ),
       ],
     );
@@ -274,7 +259,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Widget _buildMetricCards() {
     final bp = _latestWith((r) => r.hasBP);
     final glu = _latestWith((r) => r.hasGlucose);
-    final hr = _latestWith((r) => r.hr != null);
+    final hr = _latestWith((r) => r.hr != null || r.hrCamera != null);
+    final byCamera = hr != null && hr.hr == null;
     final last = _latest;
 
     return GridView.count(
@@ -301,10 +287,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ),
         _metricCard(
           label: 'Pulse',
-          value: hr == null ? '—' : '${hr.hr}',
-          unit: hr == null ? 'bpm' : 'bpm · ${_ago(hr.timestamp)}',
-          icon: Icons.monitor_heart_outlined,
-          level: hr == null ? null : HomeProtocol.pulse(hr.hr),
+          value: hr == null ? '—' : '${hr.hr ?? hr.hrCamera}',
+          unit: hr == null ? 'bpm' : 'bpm${byCamera ? ' · camera' : ''} · ${_ago(hr.timestamp)}',
+          icon: byCamera ? Icons.photo_camera_outlined : Icons.monitor_heart_outlined,
+          // the camera's pulse is not graded: it is not relied upon
+          level: hr == null || byCamera ? null : HomeProtocol.pulse(hr.hr),
         ),
         _metricCard(
           label: 'Last reading',

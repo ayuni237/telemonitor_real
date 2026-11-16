@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 enum UserRole { patient, clinician }
 
 extension UserRoleParsing on String {
@@ -49,6 +51,12 @@ class AppUser {
   final String? alternateClinicianId;
   final String? alternateClinicianName;
 
+  /// Terms of use accepted (version and server time) and the optional
+  /// research consent (lib/services/consent_service.dart).
+  final String? termsVersion;
+  final DateTime? termsAcceptedAt;
+  final bool researchConsent;
+
   const AppUser({
     required this.uid,
     required this.email,
@@ -67,6 +75,9 @@ class AppUser {
     this.checkupPeriodDays,
     this.alternateClinicianId,
     this.alternateClinicianName,
+    this.termsVersion,
+    this.termsAcceptedAt,
+    this.researchConsent = false,
   });
 
   /// A patient with no assigned clinician appears on nobody's roster
@@ -137,6 +148,9 @@ class AppUser {
       checkupPeriodDays: (data['checkupPeriodDays'] as num?)?.toInt(),
       alternateClinicianId: _str(data['alternateClinicianId']),
       alternateClinicianName: _str(data['alternateClinicianName']),
+      termsVersion: _str(data['termsVersion']),
+      termsAcceptedAt: data['termsAcceptedAt'] is Timestamp ? (data['termsAcceptedAt'] as Timestamp).toDate() : null,
+      researchConsent: data['researchConsent'] == true,
     );
   }
 

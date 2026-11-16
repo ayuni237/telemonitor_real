@@ -65,91 +65,11 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Password reset. Opens a dialog pre-filled with whatever is already
   /// typed in the email field, so the common case is a single tap.
   Future<void> _handleForgotPassword() async {
-    final controller =
-        TextEditingController(text: _emailController.text.trim());
-
     final email = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.card(dialogContext),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Reset password',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryText(dialogContext),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter your email address and we will send you a link to '
-              'choose a new password.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary(dialogContext),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.emailAddress,
-              autofocus: true,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textPrimary(dialogContext),
-              ),
-              decoration: InputDecoration(
-                hintText: 'you@example.com',
-                hintStyle: TextStyle(
-                    color: AppColors.textMuted(dialogContext), fontSize: 13),
-                prefixIcon: Icon(Icons.email_outlined,
-                    color: AppColors.primaryText(dialogContext), size: 20),
-                filled: true,
-                fillColor: AppColors.field(dialogContext),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 14),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel',
-                style: TextStyle(
-                    color: AppColors.textSecondary(dialogContext))),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Send link'),
-          ),
-        ],
-      ),
+      builder: (_) =>
+          _ResetPasswordDialog(initialEmail: _emailController.text.trim()),
     );
-
-    controller.dispose();
 
     if (email == null || email.isEmpty) return;
 
@@ -162,10 +82,10 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(
           content: Text(
             'If an account exists for that address, a reset link has been '
-            'sent. Check your inbox.',
+            'sent. Check your inbox, and the spam folder too.',
           ),
           backgroundColor: AppColors.success,
-          duration: Duration(seconds: 4),
+          duration: Duration(seconds: 6),
         ),
       );
     } catch (e) {
@@ -530,6 +450,110 @@ class _LoginScreenState extends State<LoginScreen> {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
+    );
+  }
+}
+
+/// The "Forgot password?" dialog. It owns its text controller, disposed with
+/// the dialog: disposing it as soon as the dialog returns breaks the field,
+/// still on screen while the dialog fades out.
+class _ResetPasswordDialog extends StatefulWidget {
+  final String initialEmail;
+
+  const _ResetPasswordDialog({required this.initialEmail});
+
+  @override
+  State<_ResetPasswordDialog> createState() => _ResetPasswordDialogState();
+}
+
+class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
+  late final _controller = TextEditingController(text: widget.initialEmail);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card(context),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Reset password',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryText(context),
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Enter the email address of your account and we will send you '
+            'a link to choose a new password. No access to that email? Ask '
+            'your clinician: the administrator can reset it.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            keyboardType: TextInputType.emailAddress,
+            autofocus: true,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary(context),
+            ),
+            decoration: InputDecoration(
+              hintText: 'you@example.com',
+              hintStyle: TextStyle(
+                  color: AppColors.textMuted(context), fontSize: 13),
+              prefixIcon: Icon(Icons.email_outlined,
+                  color: AppColors.primaryText(context), size: 20),
+              filled: true,
+              fillColor: AppColors.field(context),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 14),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel',
+              style: TextStyle(
+                  color: AppColors.textSecondary(context))),
+        ),
+        ElevatedButton(
+          onPressed: () =>
+              Navigator.pop(context, _controller.text.trim()),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text('Send link'),
+        ),
+      ],
     );
   }
 }

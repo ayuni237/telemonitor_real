@@ -237,8 +237,8 @@ class _HistoryScreenState extends State<HistoryScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: _valueBox(
-                  Icons.monitor_heart_outlined,
-                  r.hr != null ? '${r.hr}' : '—',
+                  r.hr == null && r.hrCamera != null ? Icons.photo_camera_outlined : Icons.monitor_heart_outlined,
+                  r.hr != null ? '${r.hr}' : (r.hrCamera != null ? '${r.hrCamera}' : '—'),
                   'bpm',
                   color: LevelStyle.valueColor(context, HomeProtocol.pulse(r.hr)),
                 ),
@@ -273,6 +273,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                     if (r.context.isNotEmpty) _contextText(r.context),
                     if (ReadingsRepository.instance.isPending(r)) 'saved on your phone, not sent yet',
                     if (r.readingCount == 2) 'second of two readings',
+                    if (r.hrCamera != null)
+                      r.hr == null ? 'pulse by phone camera' : 'pulse by phone camera ${r.hrCamera}',
                     if (r.isCorrection) 'corrected entry',
                     if (r.isBackdated) 'entered later',
                   ].join(' · '),

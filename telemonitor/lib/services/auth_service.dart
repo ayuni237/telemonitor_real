@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../models/app_user.dart';
+import 'consent_service.dart';
 import 'push_service.dart';
 import 'readings_repository.dart';
 
@@ -45,6 +47,14 @@ class AuthService {
   @visibleForTesting
   set debugProfile(AppUser? p) => _currentProfile = p;
 
+  /// Screen tests: whether the signed-in email is confirmed.
+  @visibleForTesting
+  bool? debugEmailVerified;
+
+  /// Widget tests: replaces the account creation of [signUpPatient].
+  @visibleForTesting
+  Future<void> Function()? debugSignUp;
+
   Stream<fb_auth.User?> get authStateChanges => _auth.authStateChanges();
 
   fb_auth.User? get currentFirebaseUser => _auth.currentUser;
@@ -71,8 +81,84 @@ class AuthService {
   /// generic confirmation regardless of outcome: revealing whether an
   /// address is registered would let anyone test which emails have
   /// accounts on a medical system.
-  Future<void> sendPasswordReset(String email) {
-    return _auth.sendPasswordResetEmail(email: email.trim());
+  ///
+  /// While the worker runs, it sends TeleMonitor's own email, asked for
+  /// through password_resets/{address} (this is used signed out, so the
+  /// request names the address; the worker answers only for an existing
+  /// account). Otherwise, or when the request fails, Firebase's email.
+  Future<void> sendPasswordReset(String email) async {
+    final address = email.trim().toLowerCase();
+    if (_mailAddress.hasMatch(address) && address.length <= 254 && await _workerSendsMail()) {
+      if (await _askWorker(_db.collection('password_resets').doc(address), {})) return;
+    }
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  static final _mailAddress = RegExp(r'^[^@\s/]+@[^@\s/]+\.[^@\s/]+$');
+
+  /// Writes an email request for the worker; false when it is refused (the
+  /// rules allow one a minute) or does not reach the server in time.
+  Future<bool> _askWorker(DocumentReference<Map<String, dynamic>> request, Map<String, Object> fields) async {
+    try {
+      await request
+          .set({...fields, 'requestedAt': FieldValue.serverTimestamp()})
+          .timeout(const Duration(seconds: 15));
+      return true;
+    } catch (e) {
+      debugPrint('Email request refused, Firebase sends its email: $e');
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Email confirmation
+  // ---------------------------------------------------------------
+  //
+  // The password reset link goes to the account's email, so an address
+  // the patient cannot open means a forgotten password cannot be reset.
+  // The address is confirmed by a link sent at sign-up; the dashboard
+  // reminds the patient until it is done (verify_email_card.dart). The
+  // app is not blocked meanwhile: a patient's readings must not wait on
+  // their mailbox.
+
+  /// True when there is nothing to confirm (signed out, or no Firebase in
+  /// screen tests).
+  bool get emailVerified {
+    if (debugEmailVerified != null) return debugEmailVerified!;
+    if (Firebase.apps.isEmpty) return true;
+    return _auth.currentUser?.emailVerified ?? true;
+  }
+
+  /// Sends the confirmation link. While the worker runs, it sends it in
+  /// TeleMonitor's own email (worker.py, mail.py), asked for through
+  /// mail_requests/{uid}; the worker keeps config/mail.workerAt fresh. When
+  /// it does not run, or the request fails, Firebase's standard email is
+  /// sent instead: the link never depends on the worker.
+  Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    if (await _workerSendsMail() &&
+        await _askWorker(_db.collection('mail_requests').doc(user.uid), {'kind': 'verify_email'})) {
+      return;
+    }
+    await user.sendEmailVerification();
+  }
+
+  /// Whether the worker sent its heartbeat in the last few minutes.
+  Future<bool> _workerSendsMail() async {
+    try {
+      final doc = await _db.collection('config').doc('mail').get();
+      final at = doc.data()?['workerAt'];
+      return at is Timestamp && DateTime.now().difference(at.toDate()).abs() < const Duration(minutes: 5);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Asks the server whether the link has been opened since sign-in.
+  Future<bool> refreshEmailVerified() async {
+    await _auth.currentUser?.reload();
+    return _auth.currentUser?.emailVerified ?? false;
   }
 
   // ---------------------------------------------------------------
@@ -131,8 +217,16 @@ class AuthService {
     required String email,
     required String password,
     required String name,
+    required bool acceptedTerms,
+    required bool researchConsent,
     String? clinicianCode,
   }) async {
+    // the form requires the tick; the security rules require the fields
+    if (!acceptedTerms) {
+      throw const SignUpException('Please read and accept the terms of use to create your account.');
+    }
+    if (debugSignUp != null) return debugSignUp!();
+
     // Resolve the code BEFORE creating the account, so an invalid code
     // does not leave a half-made account behind.
     ClinicianCode? code;
@@ -169,6 +263,7 @@ class AuthService {
         // that the field is ABSENT, so an explicit null would block it.
         if (code != null) 'assignedClinicianId': code.clinicianId,
         'createdAt': FieldValue.serverTimestamp(),
+        ...ConsentService.acceptanceFields(research: researchConsent),
       });
     } catch (e) {
       try {
@@ -180,6 +275,14 @@ class AuthService {
       throw SignUpException(
         'Your account could not be set up. Please try again. ($e)',
       );
+    }
+
+    // The confirmation link; a failure here (offline, quota) does not undo
+    // the account: the dashboard card can send it again.
+    try {
+      await sendEmailVerification();
+    } catch (e) {
+      debugPrint('Could not send the confirmation email: $e');
     }
 
     await fetchCurrentUserProfile();
@@ -232,6 +335,17 @@ class AuthService {
   // ---------------------------------------------------------------
   // Profile
   // ---------------------------------------------------------------
+
+  /// The signed-in user's profile, live. AuthGate follows it, so a profile
+  /// written just after the account (sign-up) is not missed. A document
+  /// absent from the local cache is waited for; one the server says does not
+  /// exist gives null.
+  Stream<AppUser?> watchProfile(String uid) => _db
+      .collection('users')
+      .doc(uid)
+      .snapshots()
+      .where((s) => s.exists || !s.metadata.isFromCache)
+      .map((s) => _currentProfile = s.exists ? AppUser.fromFirestore(uid, s.data()!) : null);
 
   Future<AppUser?> fetchCurrentUserProfile() async {
     final fbUser = _auth.currentUser;

@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
+import '../services/consent_service.dart';
 import '../services/push_service.dart';
 import '../theme/app_theme.dart';
 import '../services/readings_repository.dart';
 import 'login_screen.dart';
+import 'terms_screen.dart';
 import 'patient/patient_home.dart';
 import 'clinician/clinician_home_screen.dart';
 
@@ -29,26 +31,46 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        return FutureBuilder<AppUser?>(
-          future: AuthService.instance.fetchCurrentUserProfile(),
-          builder: (context, profileSnapshot) {
-            if (profileSnapshot.connectionState == ConnectionState.waiting) {
-              return const _SplashLoader();
-            }
+        return _ProfileGate(key: ValueKey(firebaseUser.uid), uid: firebaseUser.uid);
+      },
+    );
+  }
+}
 
-            final profile = profileSnapshot.data;
-            if (profile == null) {
-              return _NoProfileScreen(uid: firebaseUser.uid);
-            }
-            // idempotent: registers this device for the worker's notifications
-            PushService.instance.start(profile.uid);
+/// Follows the signed-in user's profile document, live rather than read
+/// once: at sign-up the account exists a moment before its profile, and a
+/// single read made in between would never see it.
+class _ProfileGate extends StatefulWidget {
+  final String uid;
+  const _ProfileGate({super.key, required this.uid});
 
-            if (profile.role == UserRole.clinician) {
-              return const ClinicianHomeScreen();
-            }
-            return _PatientShell(patientId: profile.uid);
-          },
-        );
+  @override
+  State<_ProfileGate> createState() => _ProfileGateState();
+}
+
+class _ProfileGateState extends State<_ProfileGate> {
+  late final Stream<AppUser?> _profile = AuthService.instance.watchProfile(widget.uid);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AppUser?>(
+      stream: _profile,
+      builder: (context, profileSnapshot) {
+        if (profileSnapshot.connectionState == ConnectionState.waiting) {
+          return const _SplashLoader();
+        }
+
+        final profile = profileSnapshot.data;
+        if (profile == null) {
+          return _NoProfileScreen(uid: widget.uid);
+        }
+        // idempotent: registers this device for the worker's notifications
+        PushService.instance.start(profile.uid);
+
+        if (profile.role == UserRole.clinician) {
+          return const ClinicianHomeScreen();
+        }
+        return _PatientShell(profile: profile);
       },
     );
   }
@@ -58,23 +80,35 @@ class AuthGate extends StatelessWidget {
 /// showing their dashboard. Binding lives here — in initState, once —
 /// rather than inside build(), so it isn't re-triggered on every
 /// rebuild.
+///
+/// A patient who has not accepted the current terms of use (an account made
+/// before them, or before their latest version) accepts them first.
 class _PatientShell extends StatefulWidget {
-  final String patientId;
-  const _PatientShell({required this.patientId});
+  final AppUser profile;
+  const _PatientShell({required this.profile});
 
   @override
   State<_PatientShell> createState() => _PatientShellState();
 }
 
 class _PatientShellState extends State<_PatientShell> {
+  late bool _termsAccepted = widget.profile.termsVersion == ConsentService.termsVersion;
+
   @override
   void initState() {
     super.initState();
-    ReadingsRepository.instance.bindTo(widget.patientId);
+    ReadingsRepository.instance.bindTo(widget.profile.uid);
   }
 
   @override
-  Widget build(BuildContext context) => const PatientHome();
+  Widget build(BuildContext context) {
+    if (_termsAccepted) return const PatientHome();
+    return AcceptTermsScreen(
+      updated: widget.profile.termsVersion != null,
+      initialResearch: widget.profile.researchConsent,
+      onAccepted: () => setState(() => _termsAccepted = true),
+    );
+  }
 }
 
 class _SplashLoader extends StatelessWidget {

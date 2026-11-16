@@ -8,11 +8,12 @@ class AppMessenger {
 
   static final GlobalKey<ScaffoldMessengerState> key = GlobalKey<ScaffoldMessengerState>();
 
-  static void show(String text, {bool error = false}) {
+  static void show(String text, {bool error = false, ({String label, VoidCallback onPressed})? action}) {
     key.currentState?.showSnackBar(SnackBar(
       content: Text(text),
       backgroundColor: error ? const Color(0xFFA32D2D) : null,
       duration: const Duration(seconds: 6),
+      action: action == null ? null : SnackBarAction(label: action.label, onPressed: action.onPressed),
     ));
   }
 }

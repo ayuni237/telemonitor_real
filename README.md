@@ -104,7 +104,30 @@ Over Wi-Fi instead, publish the service on the network (`$env:RISK_API_BIND = "0
 
 ### Server worker (escalation, reminders, notifications)
 
-Requires a Firebase service-account key in `telemonitor-research/secrets/service-account.json` (excluded from git, never share it). See section 7 of [`BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md).
+The phones receive alerts, reminders, review notices and new-message notices only while the worker runs; it also sends the email confirming a new patient's address (below). A message still unread 20 seconds after it was sent is notified to the other side (the patient, or the assigned clinician), naming who wrote but never the text, since the notification shows on a locked screen; a tap opens the conversation. The worker listens to new messages, so this costs one Firestore read per message; the listener needs the index in `telemonitor/firestore.indexes.json` (`firebase deploy --only firestore`). The worker needs a Firebase service-account key: Firebase console, Project settings, Service accounts, *Generate new private key*, saved as `telemonitor-research/secrets/service-account.json` (excluded from git, never share it). Then, from `C:\Projects`:
+
+```powershell
+docker compose --profile worker up -d worker                     # runs until stopped
+docker compose run --rm worker python -m telemonitor.serve.worker --credentials /work/secrets/service-account.json --test-push <account email>
+```
+
+The second command sends a test notification to the phones signed in to that account and says why nothing was sent when no phone is registered (in the app: Profile, Account, Notifications). See also section 7 of [`BENCHMARKS.md`](telemonitor-research/BENCHMARKS.md).
+
+**Confirmation and password-reset emails.** The links that confirm a new patient's address and choose a new password are Firebase's, but the emails carrying them can be TeleMonitor's own: logo, greeting by name, a button (`telemonitor-research/src/telemonitor/serve/mail.py`). Firebase does not let this project change its own templates, hence emails sent by the worker. The worker sends them through an email account described in `telemonitor-research/secrets/smtp.json`; the format is at the top of `mail.py`. For a Gmail account, use an app password (Google account, Security, 2-Step Verification, App passwords), not the account's password. The app asks the worker only while it runs, and otherwise sends Firebase's standard email, so a link never depends on the worker. "Forgot password?" is used signed out, so anyone may ask for any address: the worker answers only for an existing account, to that account's own address, at most five times a day (`password_resets_per_day` in `configs/worker.yaml`; the rules allow one request a minute per address). A brand-new sending account lands in the spam folder at first; each "Not spam" teaches the mailbox. To check the account, after `docker compose --profile worker restart worker`:
+
+```powershell
+docker compose run --rm worker python -m telemonitor.serve.worker --credentials /work/secrets/service-account.json --test-mail <account email>
+```
+
+### Research extract (consenting patients only)
+
+Patients accept the terms of use at sign-up and choose, separately, whether their data may be used for research; they can change that choice in their profile. With the same key as the worker:
+
+```powershell
+docker compose run --rm research python -m telemonitor.serve.research_export --credentials secrets/service-account.json
+```
+
+This writes `telemonitor-research/out/research_export/<date>/` (git-ignored): patients, readings and alerts of the consenting patients only, without names, contact details, photos, messages or notes. Patients and readings are codes made with a key kept in `secrets/research_export.key`, so successive extracts can be joined. Readings that carry both the monitor's pulse (`hr`) and the pulse measured with the phone camera (`hrCamera`, with its signal quality) are the pairs of a Bland–Altman comparison of the camera with the monitor.
 
 ### Thesis
 
@@ -121,11 +144,11 @@ The thesis follows the structure required by the school (unnumbered Introduction
 
 | Built | Specified, not built yet |
 |---|---|
-| Patient app: manual entry, history, trends, risk card, messaging, health assistant, nearby-care search | Bluetooth acquisition from validated devices |
+| Patient app: manual entry, history, trends, risk card, messaging, health assistant, nearby-care search, optional profile photo; email confirmation, terms of use and separate research consent; pulse with the phone camera (shown for information beside the monitor's pulse, not used by the alerts) | Bluetooth acquisition from validated devices |
 | Clinician view of assigned patients; review queue (red before yellow) with verdict and action capture | Clinical pilot analysing the captured verdicts |
 | Offline guideline rule on the phone | Sensor prototype (ESP32) and MQTT transport |
 | Risk service holding the deployed models, run in Docker on the computer and reached by the app | Online hosting of the risk service |
-| Server worker with push notifications | SMS fallback |
+| Server worker with push notifications; pseudonymised research extract of consenting patients | SMS fallback |
 | Research pipeline; benchmark on the eICU demo, external validation in Douala; deployed models exported (CatBoost for blood pressure, GRU-D for glucose) | Benchmark on the full eICU database (credentialed access) |
 | Thesis (115 pages): all chapters, benchmark and external validation results, abstract and résumé | Acknowledgments; lead times of 24 and 48 h (H2: runs at 12 and 36 h to make, the table is ready) |
 

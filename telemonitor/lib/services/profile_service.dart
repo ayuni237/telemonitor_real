@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../models/app_user.dart';
 import 'auth_service.dart';
@@ -19,6 +20,8 @@ class ProfileService {
 
   /// Live view of the signed-in user's own profile document.
   Stream<AppUser?> watchOwnProfile() {
+    // screen tests run without Firebase: show the profile set for them
+    if (Firebase.apps.isEmpty) return Stream.value(AuthService.instance.currentProfile);
     final uid = AuthService.instance.currentFirebaseUser?.uid;
     if (uid == null) return Stream.value(null);
 

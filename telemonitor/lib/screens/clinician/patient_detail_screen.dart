@@ -11,6 +11,7 @@ import '../../widgets/evolution_card.dart';
 import '../../widgets/profile_card.dart';
 import '../../widgets/trend_chart.dart';
 import '../../widgets/risk_card.dart';
+import '../../widgets/user_avatar.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
 
@@ -181,24 +182,7 @@ class _ProfileCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    _initials(patient.displayName),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
+              UserAvatar(uid: patient.uid, name: patient.displayName, size: 46, fontSize: 15),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -312,13 +296,6 @@ class _ProfileCard extends StatelessWidget {
   static String _withUnit(String value, String unit) {
     final v = value.trim();
     return RegExp(r'[a-zA-Z]').hasMatch(v) ? v : '$v $unit';
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 
   Widget _pill(BuildContext context, String label, IconData icon) {
@@ -605,6 +582,14 @@ class _ReadingTile extends StatelessWidget {
                   Icons.monitor_heart_outlined,
                   '${reading.hr}',
                   'bpm',
+                  false,
+                ),
+              if (reading.hrCamera != null)
+                _chip(
+                  context,
+                  Icons.photo_camera_outlined,
+                  '${reading.hrCamera}',
+                  'bpm by phone camera',
                   false,
                 ),
             ],

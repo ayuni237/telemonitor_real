@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 
 import '../../models/risk_assessment.dart';
 import '../../services/app_messenger.dart';
+import '../../services/camera_pulse.dart';
 import '../../services/home_protocol.dart';
 import '../../models/reading.dart';
 import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/level_style.dart';
 import '../../widgets/risk_card.dart';
+import 'camera_pulse_screen.dart';
 
 /// Manual entry of a reading (thesis ch.4 §Manual entry): fixed glucose
 /// unit, plausible ranges, coherent pressure pair, measurement context, the
@@ -50,6 +52,10 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   /// When the reading was taken; null means now (set at save).
   DateTime? _measuredAt;
 
+  /// Pulse measured with the phone camera, beside the monitor's.
+  int? _hrCamera;
+  double? _hrCameraQuality;
+
   /// How far back a reading may be dated (the server accepts 30 days, to
   /// leave room for readings queued offline).
   static const Duration _maxBackdate = Duration(days: 7);
@@ -74,6 +80,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     _sbp1Controller.text = r.firstSbp?.toString() ?? '';
     _dbp1Controller.text = r.firstDbp?.toString() ?? '';
     _hr1Controller.text = r.firstHr?.toString() ?? '';
+    _hrCamera = r.hrCamera;
+    _hrCameraQuality = r.hrCameraQuality;
   }
 
   static const _measurementTypes = ['Both', 'Blood Pressure', 'Glucose'];
@@ -338,6 +346,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
       firstSbp: pair ? int.tryParse(_sbp1Controller.text) : null,
       firstDbp: pair ? int.tryParse(_dbp1Controller.text) : null,
       firstHr: pair ? int.tryParse(_hr1Controller.text) : null,
+      hrCamera: _hrCamera,
+      hrCameraQuality: _hrCamera == null ? null : _hrCameraQuality,
       supersedes: widget.correcting?.id,
     );
 
@@ -442,6 +452,11 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                 isDecimal: true,
                 maxLength: 5,
               ),
+              const SizedBox(height: 20),
+            ],
+
+            if (CameraPulseScreen.supported) ...[
+              _buildCameraPulse(),
               const SizedBox(height: 20),
             ],
 
@@ -559,6 +574,77 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _measurePulse() async {
+    final r = await Navigator.push<PulseEstimate>(
+      context,
+      MaterialPageRoute(builder: (_) => const CameraPulseScreen()),
+    );
+    if (r == null || !mounted) return;
+    setState(() {
+      _hrCamera = r.bpm;
+      _hrCameraQuality = r.quality;
+    });
+  }
+
+  /// Optional pulse with the phone camera (camera_pulse.dart), kept beside
+  /// the monitor's pulse and not used by the alerts.
+  Widget _buildCameraPulse() {
+    final bpm = _hrCamera;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
+      decoration: BoxDecoration(
+        color: AppColors.card(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border(context), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.photo_camera_outlined, size: 18, color: AppColors.primaryText(context)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  bpm == null ? 'Pulse with the phone camera (optional)' : 'Pulse by camera: $bpm bpm',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context)),
+                ),
+              ),
+              if (bpm != null)
+                IconButton(
+                  tooltip: 'Remove',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary(context)),
+                  onPressed: () => setState(() {
+                    _hrCamera = null;
+                    _hrCameraQuality = null;
+                  }),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 28, right: 8, top: 4),
+            child: Text(
+              bpm == null
+                  ? "Right after your monitor's reading, you can also measure your pulse with the camera and "
+                      "flash. It is for information: the alerts use your monitor's values."
+                  : "For information, beside your monitor's pulse.",
+              style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.textSecondary(context)),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _isLoading ? null : _measurePulse,
+              icon: const Icon(Icons.monitor_heart_outlined, size: 18),
+              label: Text(bpm == null ? 'Measure' : 'Measure again'),
             ),
           ),
         ],
