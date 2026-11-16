@@ -158,6 +158,83 @@ def test_the_french_texts_have_the_fields_of_the_english_ones():
     assert cfg["notify_fr"]["tiers"].keys() == cfg["notify"]["tiers"].keys()
 
 
+class MirroredFake(FakeStore):
+    """Reads from a Mirror the listeners would fill (MirroredStore); the worker's
+    writes reach the mirror at once and never come back from 'Firestore', as
+    when a listener lags or is down."""
+
+    def __init__(self):
+        super().__init__()
+        self.mirror = W.Mirror()
+
+    def listen(self):
+        self.mirror.apply("users", list(self.users.items()))
+        self.mirror.apply("readings", [("pat1", i, d) for i, d in self.reads["pat1"].items()])
+        self.mirror.apply("events", [("pat1", i, d) for i, d in self.evs["pat1"].items()])
+
+    def patients(self):
+        return self.mirror.patients()
+
+    def user(self, uid):
+        return self.mirror.user(uid)
+
+    def readings(self, uid, measured_after):
+        return self.mirror.readings(uid, measured_after)
+
+    def last_reading(self, uid):
+        return self.mirror.last_reading(uid)[1]
+
+    def events(self, uid):
+        return self.mirror.events(uid)
+
+    def create_event(self, uid, event_id, data):
+        if event_id in self.mirror.docs["events"][uid]:
+            return False
+        self.mirror.merge("events", uid, event_id, self._resolve(data))
+        return True
+
+    def update_event(self, uid, event_id, data):
+        self.mirror.merge("events", uid, event_id, self._resolve(data))
+
+    def update_reading(self, uid, reading_id, data):
+        self.mirror.merge("readings", uid, reading_id, self._resolve(data))
+
+
+def test_from_memory_a_cycle_acts_once_even_when_no_write_comes_back():
+    s = MirroredFake()
+    s.add_reading("r1", 2, sbp=185, dbp=110, hr=80)
+    s.listen()
+    w = worker(s)
+    stats = w.cycle(NOW)
+    assert stats["rule_events"] == 1 and {u for u, _ in s.pushed} == {"pat1", "doc1"}
+    s.pushed.clear()
+    assert w.cycle(NOW + timedelta(minutes=1)).get("rule_events", 0) == 0 and s.pushed == []
+    assert s.mirror.docs["readings"]["pat1"]["r1"]["qualityFlag"] == "ok"
+
+
+def test_the_mirror_answers_like_firestore():
+    m = W.Mirror()
+    m.apply("users", [("pat1", {"role": "patient"}), ("doc1", {"role": "clinician"})])
+    m.apply("readings", [("pat1", "a", {"timestamp": NOW - timedelta(days=2)}),
+                         ("pat1", "b", {"timestamp": NOW - timedelta(hours=1)}),
+                         ("pat1", "c", {"timestamp": NOW - timedelta(days=40)})])
+    m.apply("events", [("pat1", "e1", {"tsTriggered": NOW - timedelta(days=1)}),
+                       ("pat1", "e2", {"tsTriggered": NOW})])
+    assert m.loaded == set(W.Mirror.KINDS)
+    assert m.patients() == [("pat1", {"role": "patient"})] and m.user("doc1") == {"role": "clinician"}
+    assert [i for i, _ in m.readings("pat1", NOW - timedelta(days=30))] == ["a", "b"]   # oldest first
+    assert m.last_reading("pat1") == (True, ("b", {"timestamp": NOW - timedelta(hours=1)}))
+    assert [i for i, _ in m.events("pat1")] == ["e2", "e1"]                              # newest first
+    m.apply("readings", [("pat1", "b", None)])                                          # removed
+    assert [i for i, _ in m.readings("pat1", NOW - timedelta(days=30))] == ["a"]
+    # a patient with nothing in the window: unknown until looked up once
+    assert m.last_reading("pat2") == (False, None)
+    m.remember_older("pat2", ("old", {"timestamp": NOW - timedelta(days=60)}))
+    assert m.last_reading("pat2")[0] is True
+    m.forget_older()
+    assert m.last_reading("pat2") == (False, None)
+
+
 def test_yellow_notifies_the_patient_only():
     s = FakeStore()
     s.add_reading("r1", 1, sbp=165, dbp=95)

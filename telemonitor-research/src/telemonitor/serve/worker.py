@@ -294,6 +294,86 @@ class MailRequests:
                 self._not_before[uid] = now + timedelta(seconds=WATCH_RETRY_SECONDS)
 
 
+class Mirror:
+    """What a cycle reads (users, readings of the last weeks, events), kept in
+    memory by Firestore listeners: a cycle then costs no read, where polling
+    cost several reads per patient a minute and the free plan allows 50,000 a
+    day. The worker's own writes are applied at once, so a listener that lags
+    or drops cannot make it notify twice. Thread-safe, like Inbox."""
+
+    KINDS = ("users", "readings", "events")
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.users: dict[str, dict] = {}
+        self.docs = {"readings": defaultdict(dict), "events": defaultdict(dict)}   # kind -> uid -> id -> data
+        self.older: dict[str, Doc | None] = {}     # last reading of a patient with none in the window
+        self.loaded: set[str] = set()
+
+    def apply(self, kind: str, changes: list[tuple]) -> None:
+        """Listener changes: (uid, data) for users, (uid, doc id, data) otherwise;
+        data None for a removed document."""
+        with self._lock:
+            for *key, d in changes:
+                if kind == "users":
+                    if d is None:
+                        self.users.pop(key[0], None)
+                    else:
+                        self.users[key[0]] = d
+                else:
+                    uid, doc_id = key
+                    if d is None:
+                        self.docs[kind][uid].pop(doc_id, None)
+                    else:
+                        self.docs[kind][uid][doc_id] = d
+                        if kind == "readings":
+                            self.older.pop(uid, None)
+            self.loaded.add(kind)
+
+    def merge(self, kind: str, uid: str, doc_id: str, data: dict) -> None:
+        with self._lock:
+            table = self.docs[kind][uid]
+            table[doc_id] = {**table.get(doc_id, {}), **data}
+
+    def patients(self) -> list[Doc]:
+        with self._lock:
+            return [(u, dict(d)) for u, d in self.users.items() if d.get("role") == "patient"]
+
+    def user(self, uid: str) -> dict | None:
+        with self._lock:
+            d = self.users.get(uid)
+            return None if d is None else dict(d)
+
+    def readings(self, uid: str, measured_after: datetime) -> list[Doc]:
+        with self._lock:
+            docs = [(i, dict(d)) for i, d in self.docs["readings"][uid].items() if d["timestamp"] > measured_after]
+        return sorted(docs, key=lambda x: x[1]["timestamp"])
+
+    def last_reading(self, uid: str) -> tuple[bool, Doc | None]:
+        """(known, reading): unknown for a patient with no reading in the window
+        whose last reading has not been looked up yet."""
+        with self._lock:
+            docs = self.docs["readings"][uid]
+            if docs:
+                i = max(docs, key=lambda k: docs[k]["timestamp"])
+                return True, (i, dict(docs[i]))
+            return (uid in self.older), self.older.get(uid)
+
+    def remember_older(self, uid: str, last: Doc | None) -> None:
+        with self._lock:
+            self.older[uid] = last
+
+    def forget_older(self) -> None:
+        with self._lock:
+            self.older.clear()
+
+    def events(self, uid: str) -> list[Doc]:
+        with self._lock:
+            docs = [(i, dict(d)) for i, d in self.docs["events"][uid].items()]
+        far = datetime.max.replace(tzinfo=timezone.utc)      # one just created, its server time not back yet
+        return sorted(docs, key=lambda x: x[1].get("tsTriggered") or far, reverse=True)[:200]
+
+
 @dataclass
 class Worker:
     store: Store
@@ -746,6 +826,81 @@ class FirestoreStore:
         return res.success_count
 
 
+class MirroredStore(FirestoreStore):
+    """FirestoreStore whose reads come from the Mirror while its three listeners
+    are live (main sets [live]), and from Firestore itself otherwise (--once,
+    a listener down): the same answers, without a read per patient a minute."""
+
+    def __init__(self, credentials_path: str | Path, mirror: Mirror):
+        super().__init__(credentials_path)
+        self.mirror = mirror
+        self.live = lambda: False
+
+    def patients(self):
+        return self.mirror.patients() if self.live() else super().patients()
+
+    def user(self, uid):
+        return self.mirror.user(uid) if self.live() else super().user(uid)
+
+    def readings(self, uid, measured_after):
+        return self.mirror.readings(uid, measured_after) if self.live() else super().readings(uid, measured_after)
+
+    def last_reading(self, uid):
+        if not self.live():
+            return super().last_reading(uid)
+        known, last = self.mirror.last_reading(uid)
+        if not known:          # nothing in the window: looked up once (again when the listener is renewed)
+            last = super().last_reading(uid)
+            self.mirror.remember_older(uid, last)
+        return last
+
+    def events(self, uid):
+        return self.mirror.events(uid) if self.live() else super().events(uid)
+
+    @staticmethod
+    def _now(data: dict) -> dict:
+        now = datetime.now(timezone.utc)
+        return {k: (now if v is SERVER_TIME else v) for k, v in data.items()}
+
+    def create_event(self, uid, event_id, data):
+        created = super().create_event(uid, event_id, data)
+        if created:
+            self.mirror.merge("events", uid, event_id, self._now(data))
+        return created
+
+    def update_event(self, uid, event_id, data):
+        super().update_event(uid, event_id, data)
+        self.mirror.merge("events", uid, event_id, self._now(data))
+
+    def update_reading(self, uid, reading_id, data):
+        super().update_reading(uid, reading_id, data)
+        self.mirror.merge("readings", uid, reading_id, self._now(data))
+
+    def _watch(self, kind: str, query, parse):
+        def callback(_docs, changes, _read_time):
+            try:
+                self.mirror.apply(kind, [c for ch in changes
+                                         if (c := parse(ch.document, ch.type.name == "REMOVED")) is not None])
+            except Exception:
+                log.exception("%s listener", kind)
+        return query.on_snapshot(callback)
+
+    def watch_users(self):
+        return self._watch("users", self.db.collection("users"),
+                           lambda doc, removed: (doc.id, None if removed else doc.to_dict()))
+
+    def watch_readings(self, since: datetime):
+        # collection-group query: its index is in firestore.indexes.json (readings.timestamp)
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        q = self.db.collection_group("readings").where(filter=FieldFilter("timestamp", ">=", since))
+        q.limit(1).get()     # fails at once, with the reason (index missing or being built)
+        self.mirror.forget_older()             # looked up again: a patient may have measured meanwhile
+        return self._watch("readings", q, self._change)
+
+    def watch_events(self):
+        return self._watch("events", self.db.collection_group("events"), self._change)
+
+
 def test_push(store, email: str) -> int:
     """Checks the whole notification path for one account: key, token, phone."""
     uid = store.uid_for_email(email)
@@ -799,7 +954,8 @@ def main(argv=None):
     table, arts = load_checked(Path(a.artifacts) if a.artifacts else None)
     log.info("thresholds %s, models: %s", table.version, ", ".join(x.version for x in arts.values()) or "none (rule only)")
     log.info("confirmation emails: %s", f"sent from {mailer.from_address}" if mailer else "by Firebase (no smtp.json)")
-    store = FirestoreStore(a.credentials)
+    mirror = Mirror()
+    store = MirroredStore(a.credentials, mirror)
     worker = Worker(store, table, arts, cfg, mailer=mailer)
     inbox = Inbox()
     max_age = timedelta(hours=cfg["max_age_hours"])
@@ -820,15 +976,24 @@ def main(argv=None):
     emails = [Listening("email requests", lambda: store.watch_mail_requests(requests.apply)),
               Listening("password reset requests",
                         lambda: store.watch_mail_requests(resets.apply, "password_resets"))] if mailer else []
+    # the cycle reads from memory while these run (Mirror); the window covers the
+    # quality check and the longest checkup period (30 days, patient_detail_screen.dart)
+    window = timedelta(days=max(cfg["quality_window_days"], 30))
+    mirrored = [Listening("users", store.watch_users),
+                Listening("readings", lambda: store.watch_readings(datetime.now(timezone.utc) - window)),
+                Listening("events", store.watch_events)]
+    store.live = lambda: all(listener.active for listener in mirrored) and mirror.loaded >= set(Mirror.KINDS)
     next_cycle = 0.0
     while True:
         t = time.time()
-        for listener in (messages, *emails):
+        for listener in (messages, *mirrored, *emails):
             listener.keep(t)
         if t >= next_cycle:
             next_cycle = t + cfg["interval_seconds"]
+            live = store.live()
             stats = worker.cycle()
-            log.info("cycle done in %.1f s: %s", time.time() - t, stats or "nothing new")
+            log.info("cycle done in %.1f s%s: %s", time.time() - t, "" if live else " (read from Firestore)",
+                     stats or "nothing new")
             if emails and all(listener.active for listener in emails):   # else the app sends Firebase's
                 try:
                     store.mail_heartbeat()

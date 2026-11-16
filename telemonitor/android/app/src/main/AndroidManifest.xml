@@ -10,7 +10,7 @@
         tools:replace="android:required" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <application
-        android:label="telemonitor"
+        android:label="TeleMonitor"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
