@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../models/app_user.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 /// Lets a patient maintain their own profile details.
 ///
@@ -76,8 +77,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your name.'),
+        SnackBar(
+          content: Text(context.l10n.enterYourName),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -92,8 +93,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // unusual but real value.
       if (age == null || age < 1 || age > 120) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter an age between 1 and 120.'),
+          SnackBar(
+            content: Text(context.l10n.ageRange),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -116,10 +117,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         emergencyContact: _emergency.text,
       );
       if (!mounted) return;
+      final updated = context.l10n.profileUpdated;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated'),
+        SnackBar(
+          content: Text(updated),
           backgroundColor: AppColors.success,
         ),
       );
@@ -128,7 +130,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not save: $e'),
+          content: Text(context.l10n.couldNotSave('$e')),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -140,9 +142,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.editProfileTitle,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       body: SingleChildScrollView(
@@ -150,21 +152,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _card('About you', Icons.person_outline, [
-              _field(_name, 'Full name', 'e.g. Jean Mbarga'),
+            _card(context.l10n.aboutYou, Icons.person_outline, [
+              _field(_name, context.l10n.fullName, context.l10n.fullNameHint),
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                    child: _field(_age, 'Age', 'e.g. 34',
+                    child: _field(_age, context.l10n.age, context.l10n.example('34'),
                         numeric: true, maxLength: 3),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _dropdown(
-                      label: 'Sex',
+                      label: context.l10n.sex,
                       value: _sex,
                       options: _sexOptions,
+                      display: context.l10n.sexLabel,
                       onChanged: (v) => setState(() => _sex = v),
                     ),
                   ),
@@ -173,14 +176,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: _field(_height, 'Height', 'e.g. 175 cm')),
+                  Expanded(child: _field(_height, context.l10n.height, context.l10n.example('175 cm'))),
                   const SizedBox(width: 12),
-                  Expanded(child: _field(_weight, 'Weight', 'e.g. 78 kg')),
+                  Expanded(child: _field(_weight, context.l10n.weight, context.l10n.example('78 kg'))),
                 ],
               ),
               const SizedBox(height: 14),
               _dropdown(
-                label: 'Blood type',
+                label: context.l10n.bloodType,
                 value: _bloodType,
                 options: _bloodOptions,
                 onChanged: (v) => setState(() => _bloodType = v),
@@ -188,27 +191,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ]),
 
             const SizedBox(height: 14),
-            _card('Medical', Icons.medical_information_outlined, [
+            _card(context.l10n.medical, Icons.medical_information_outlined, [
               _field(
                 _conditions,
-                'Conditions',
-                'One per line\ne.g. Hypertension\nType 2 Diabetes',
+                context.l10n.conditions,
+                context.l10n.conditionsHint,
                 lines: 3,
               ),
               const SizedBox(height: 14),
               _field(
                 _medications,
-                'Current medications',
-                'One per line\ne.g. Amlodipine 5mg',
+                context.l10n.currentMedicationsField,
+                context.l10n.medicationsHint,
                 lines: 3,
               ),
             ]),
 
             const SizedBox(height: 14),
-            _card('Contact', Icons.phone_outlined, [
-              _field(_phone, 'Phone', '+237 6XX XXX XXX'),
+            _card(context.l10n.contact, Icons.phone_outlined, [
+              _field(_phone, context.l10n.phone, '+237 6XX XXX XXX'),
               const SizedBox(height: 14),
-              _field(_emergency, 'Emergency contact', '+237 6XX XXX XXX'),
+              _field(_emergency, context.l10n.emergencyContact, '+237 6XX XXX XXX'),
             ]),
 
             const SizedBox(height: 14),
@@ -237,9 +240,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Save Changes',
-                        style: TextStyle(
+                    : Text(
+                        context.l10n.saveChanges,
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -306,7 +309,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   size: 15, color: AppColors.textSecondary(context)),
               const SizedBox(width: 8),
               Text(
-                'Managed by your care team',
+                context.l10n.managedByCareTeam,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -316,11 +319,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          _roRow('Email', p.email),
-          _roRow('Account type',
-              p.role == UserRole.clinician ? 'Clinician' : 'Patient'),
-          _roRow('Assigned clinician',
-              p.isAssigned ? 'Linked' : 'Not yet assigned'),
+          _roRow(context.l10n.emailLabel, p.email),
+          _roRow(context.l10n.accountType,
+              p.role == UserRole.clinician ? context.l10n.clinician : context.l10n.patient),
+          _roRow(context.l10n.assignedClinician,
+              p.isAssigned ? context.l10n.linked : context.l10n.notYetAssigned),
         ],
       ),
     );
@@ -409,6 +412,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    String Function(String stored)? display,
   }) {
     return DropdownButtonFormField<String>(
       initialValue: value,
@@ -437,10 +441,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       items: [
         DropdownMenuItem<String>(
           value: null,
-          child: Text('Not set',
+          child: Text(context.l10n.notSet,
               style: TextStyle(color: AppColors.textMuted(context))),
         ),
-        ...options.map((o) => DropdownMenuItem(value: o, child: Text(o))),
+        ...options.map((o) => DropdownMenuItem(value: o, child: Text(display?.call(o) ?? o))),
       ],
       onChanged: onChanged,
     );

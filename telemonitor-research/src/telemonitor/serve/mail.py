@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 LOGO = Path(__file__).with_name("mail_logo.png")
 LOGO_CID = "logo@telemonitor"
@@ -32,38 +33,82 @@ RESET_SUBJECT = "Choose a new password for TeleMonitor"
 FOOTER = "TeleMonitor: home monitoring of blood pressure and blood glucose, with your clinician."
 
 
-def _greeting(name: str | None) -> str:
-    first = (name or "").strip().split()
-    return f"Hello {first[0]}," if first else "Hello,"
+# The words of the emails in the app's two languages (users/{uid}.language).
+WORDS = {
+    "en": {
+        "hello": "Hello {name},", "hello_anonymous": "Hello,",
+        "fallback": "If the button does not work, copy this link into your browser:",
+        "footer": FOOTER,
+        "verify": {
+            "subject": SUBJECT,
+            "intro": "Welcome to TeleMonitor. Please confirm that this is your email address: "
+                     "it is the only way to set a new password if you ever forget yours.",
+            "text_intro": "Welcome to TeleMonitor. Please confirm your email address by opening this link:",
+            "button": "Confirm my email address",
+            "closing": "If you did not create a TeleMonitor account, you can ignore this email.",
+        },
+        "reset": {
+            "subject": RESET_SUBJECT,
+            "intro": "We received a request to choose a new password for your TeleMonitor account.",
+            "text_intro": "We received a request to choose a new password for your TeleMonitor account. "
+                          "To choose it, open this link:",
+            "button": "Choose a new password",
+            "closing": "If you did not ask for this, you can ignore this email: your password stays the same.",
+        },
+    },
+    "fr": {
+        "hello": "Bonjour {name},", "hello_anonymous": "Bonjour,",
+        "fallback": "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :",
+        "footer": "TeleMonitor : suivi à domicile de la tension artérielle et de la glycémie, avec votre clinicien.",
+        "verify": {
+            "subject": "Confirmez votre adresse e-mail pour TeleMonitor",
+            "intro": "Bienvenue sur TeleMonitor. Veuillez confirmer que cette adresse e-mail est bien la vôtre : "
+                     "c'est le seul moyen de choisir un nouveau mot de passe si vous oubliez le vôtre.",
+            "text_intro": "Bienvenue sur TeleMonitor. Veuillez confirmer votre adresse e-mail en ouvrant ce lien :",
+            "button": "Confirmer mon adresse e-mail",
+            "closing": "Si vous n'avez pas créé de compte TeleMonitor, vous pouvez ignorer cet e-mail.",
+        },
+        "reset": {
+            "subject": "Choisissez un nouveau mot de passe pour TeleMonitor",
+            "intro": "Nous avons reçu une demande pour choisir un nouveau mot de passe pour votre compte TeleMonitor.",
+            "text_intro": "Nous avons reçu une demande pour choisir un nouveau mot de passe pour votre compte "
+                          "TeleMonitor. Pour le choisir, ouvrez ce lien :",
+            "button": "Choisir un nouveau mot de passe",
+            "closing": "Si vous n'avez rien demandé, vous pouvez ignorer cet e-mail : votre mot de passe ne change pas.",
+        },
+    },
+}
 
 
-def verification_email(name: str | None, link: str) -> tuple[str, str, str]:
+def localized_link(link: str, lang: str) -> str:
+    """Firebase's link with the language of the page it opens (its lang parameter)."""
+    parts = urlsplit(link)
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != "lang"]
+    return urlunsplit(parts._replace(query=urlencode(query + [("lang", lang)])))
+
+
+def verification_email(name: str | None, link: str, lang: str = "en") -> tuple[str, str, str]:
     """Subject, plain text and HTML of the email confirming an address."""
-    return _email(SUBJECT, name, link,
-                  intro="Welcome to TeleMonitor. Please confirm that this is your email address: "
-                        "it is the only way to set a new password if you ever forget yours.",
-                  text_intro="Welcome to TeleMonitor. Please confirm your email address by opening this link:",
-                  button="Confirm my email address",
-                  closing="If you did not create a TeleMonitor account, you can ignore this email.")
+    return _email("verify", name, link, lang)
 
 
-def password_reset_email(name: str | None, link: str) -> tuple[str, str, str]:
+def password_reset_email(name: str | None, link: str, lang: str = "en") -> tuple[str, str, str]:
     """Subject, plain text and HTML of the email choosing a new password."""
-    return _email(RESET_SUBJECT, name, link,
-                  intro="We received a request to choose a new password for your TeleMonitor account.",
-                  text_intro="We received a request to choose a new password for your TeleMonitor account. "
-                             "To choose it, open this link:",
-                  button="Choose a new password",
-                  closing="If you did not ask for this, you can ignore this email: your password stays the same.")
+    return _email("reset", name, link, lang)
 
 
-def _email(subject: str, name: str | None, link: str, intro: str, text_intro: str,
-           button: str, closing: str) -> tuple[str, str, str]:
-    hello = _greeting(name)
-    text = f"{hello}\n\n{text_intro}\n\n{link}\n\n{closing}\n\n--\n{FOOTER}\n"
+def _email(kind: str, name: str | None, link: str, lang: str) -> tuple[str, str, str]:
+    lang = lang if lang in WORDS else "en"
+    w = WORDS[lang]
+    words = w[kind]
+    subject, intro, button, closing = words["subject"], words["intro"], words["button"], words["closing"]
+    first = (name or "").strip().split()
+    hello = w["hello"].format(name=first[0]) if first else w["hello_anonymous"]
+    link = localized_link(link, lang)
+    text = f"{hello}\n\n{words['text_intro']}\n\n{link}\n\n{closing}\n\n--\n{w['footer']}\n"
     h, url = html.escape(hello), html.escape(link, quote=True)
     body = f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>{html.escape(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f3f5f9">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5f9">
@@ -84,12 +129,12 @@ def _email(subject: str, name: str | None, link: str, intro: str, text_intro: st
   font-weight:600;font-size:15px;padding:14px 30px;border-radius:10px">{html.escape(button)}</a>
 </td></tr>
 <tr><td style="padding:0 28px 24px;font-size:13px;line-height:1.5;color:#6b7280">
-  <p style="margin:0 0 12px">If the button does not work, copy this link into your browser:<br>
+  <p style="margin:0 0 12px">{html.escape(w['fallback'])}<br>
   <a href="{url}" style="color:{PRIMARY};word-break:break-all">{url}</a></p>
   <p style="margin:0">{html.escape(closing)}</p>
 </td></tr>
 <tr><td style="padding:16px 28px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#9ca3af">
-  {html.escape(FOOTER)}
+  {html.escape(w['footer'])}
 </td></tr>
 </table>
 </td></tr>

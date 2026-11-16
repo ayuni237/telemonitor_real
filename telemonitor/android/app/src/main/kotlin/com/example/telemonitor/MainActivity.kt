@@ -15,20 +15,21 @@ class MainActivity : FlutterActivity() {
         // channel in AndroidManifest.xml and the one the worker names
         // (telemonitor-research, serve/worker.py, ALERT_CHANNEL).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // names in the phone's language (res/values, res/values-fr)
             val channel = NotificationChannel(
                 "alerts",
-                "Alerts and reminders",
+                getString(R.string.channel_alerts),
                 NotificationManager.IMPORTANCE_HIGH,
             )
-            channel.description = "Readings that need attention, reminders to measure, and your clinician's reviews"
+            channel.description = getString(R.string.channel_alerts_description)
             // New messages (worker.py, MESSAGE_CHANNEL), apart: a person may
             // silence the messages and keep the alerts.
             val messages = NotificationChannel(
                 "messages",
-                "Messages",
+                getString(R.string.channel_messages),
                 NotificationManager.IMPORTANCE_HIGH,
             )
-            messages.description = "New messages from your clinician or your patients"
+            messages.description = getString(R.string.channel_messages_description)
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannels(listOf(channel, messages))
         }

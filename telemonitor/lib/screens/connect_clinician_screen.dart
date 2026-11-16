@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Lets a patient who registered without a clinician connect to one
 /// later, using the code their doctor gives them.
@@ -75,7 +76,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Confirm your clinician',
+          context.l10n.confirmClinician,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -83,16 +84,13 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
           ),
         ),
         content: Text(
-          'You will be connected to ${code.clinicianName}. They will be '
-          'able to see the readings you record.\n\n'
-          'This cannot be changed from the app afterwards — contact your '
-          'care team if you need it corrected.',
+          context.l10n.confirmClinicianBody(code.clinicianName),
           style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context), height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary(context))),
+            child: Text(context.l10n.cancel, style: TextStyle(color: AppColors.textSecondary(context))),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -103,7 +101,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
               shape:
                   RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('Connect'),
+            child: Text(context.l10n.connect),
           ),
         ],
       ),
@@ -123,7 +121,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Connected to ${linked.clinicianName}'),
+          content: Text(context.l10n.connectedTo(linked.clinicianName)),
           backgroundColor: AppColors.success,
         ),
       );
@@ -144,9 +142,9 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Connect to your clinician',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.connectToClinician,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       body: SingleChildScrollView(
@@ -165,7 +163,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Enter your clinician code',
+                    context.l10n.enterClinicianCode,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -174,8 +172,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Ask your doctor for their code. It looks something like '
-                    'MBARGA-4F7K.',
+                    context.l10n.askDoctorForCode,
                     style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
                   ),
                   const SizedBox(height: 18),
@@ -259,9 +256,9 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
                               child: CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2),
                             )
-                          : const Text(
-                              'Connect',
-                              style: TextStyle(
+                          : Text(
+                              context.l10n.connect,
+                              style: const TextStyle(
                                   fontSize: 15, fontWeight: FontWeight.w600),
                             ),
                     ),
@@ -284,10 +281,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Don't have a code yet? You can keep recording your "
-                      'readings without one. They are saved to your account '
-                      'and your clinician will see them from the day you '
-                      'connect.',
+                      context.l10n.noCodeYetNote,
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary(context),
@@ -315,7 +309,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
                 height: 12,
                 child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 8),
-            Text('Checking code…',
+            Text(context.l10n.checkingCode,
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context))),
           ],
         ),
@@ -350,7 +344,7 @@ class _ConnectClinicianScreenState extends State<ConnectClinicianScreen> {
           children: [
             Icon(Icons.error_outline, size: 14, color: AppColors.dangerText(context)),
             SizedBox(width: 6),
-            Text('Code not recognised',
+            Text(context.l10n.codeNotRecognised,
                 style: TextStyle(fontSize: 11, color: AppColors.dangerText(context))),
           ],
         ),

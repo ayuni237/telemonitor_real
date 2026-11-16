@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_service.dart';
+import '../l10n/l10n.dart';
 
 /// Optional profile photo of a patient or a clinician.
 ///
@@ -55,7 +56,7 @@ class ProfilePhotoService {
   static Uint8List encode(Uint8List input) {
     final decoded = img.decodeImage(input);
     if (decoded == null) {
-      throw const FormatException('This file is not an image the app can read.');
+      throw FormatException(l10nNow.notAnImage);
     }
     var im = img.bakeOrientation(decoded);
     final s = math.min(im.width, im.height);
@@ -70,7 +71,7 @@ class ProfilePhotoService {
     }
     final out = Uint8List.fromList(img.encodeJpg(im, quality: quality));
     if (out.length > maxBytes) {
-      throw const FormatException('This photo is too large. Please choose another one.');
+      throw FormatException(l10nNow.photoTooLarge);
     }
     return out;
   }

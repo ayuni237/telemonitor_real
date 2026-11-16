@@ -13,11 +13,13 @@ import '../../services/patients_service.dart';
 import '../../services/push_service.dart';
 import '../../widgets/enrolment_code_card.dart';
 import '../../widgets/event_widgets.dart';
+import '../../widgets/language_selector_card.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/verdict_sheet.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
 import 'patient_detail_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// Clinician home: the queue of unreviewed events in priority order
 /// (thesis ch.4 §Clinician dashboard), and the roster with the enrolment code
@@ -67,14 +69,15 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
     );
     if (result == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       final name = await EventsService.instance.setAlternate(result.trim().isEmpty ? null : result);
       messenger.showSnackBar(SnackBar(
-          content: Text(name == null ? 'Alternate removed.' : '$name is now your alternate.')));
+          content: Text(name == null ? l10n.alternateRemoved : l10n.alternateNamed(name))));
     } on FormatException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not save: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.couldNotSave('$e'))));
     }
   }
 
@@ -95,7 +98,7 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
     }
     if (!mounted) return;
     if (patient == null) {
-      AppMessenger.show('This conversation could not be opened.', error: true);
+      AppMessenger.show(l10nNow.conversationNotOpened, error: true);
       return;
     }
     final p = patient;
@@ -117,16 +120,17 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          title: const Text(
-            'My Patients',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          title: Text(
+            context.l10n.myPatients,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
           elevation: 0,
           actions: [
+            const LanguageToggle(color: Colors.white),
             // The clinician's own optional photo, shown to their patients.
             if (AuthService.instance.currentProfile case final me?)
               IconButton(
-                tooltip: 'My photo',
+                tooltip: context.l10n.myPhoto,
                 onPressed: () => showProfilePhotoSheet(context, uid: me.uid, forClinician: true),
                 icon: UserAvatar(
                   uid: me.uid,
@@ -138,12 +142,12 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
                 ),
               ),
             IconButton(
-              tooltip: 'Alternate clinician',
+              tooltip: context.l10n.alternateClinician,
               icon: const Icon(Icons.swap_horiz, size: 22),
               onPressed: _editAlternate,
             ),
             IconButton(
-              tooltip: 'Sign out',
+              tooltip: context.l10n.signOut,
               icon: const Icon(Icons.logout, size: 20),
               onPressed: () => AuthService.instance.signOut(),
             ),
@@ -155,9 +159,9 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
             tabs: [
               ListenableBuilder(
                 listenable: _queue,
-                builder: (_, _) => Tab(text: 'Queue (${_queue.items.length})'),
+                builder: (context, _) => Tab(text: context.l10n.queueTab(_queue.items.length)),
               ),
-              const Tab(text: 'Patients'),
+              Tab(text: context.l10n.patientsTab),
             ],
           ),
         ),
@@ -171,15 +175,13 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
       listenable: _queue,
       builder: (context, _) {
         if (_rosterError != null || _queue.error != null) {
-          return _message(context, Icons.error_outline, 'Could not load the queue.',
+          return _message(context, Icons.error_outline, context.l10n.queueNotLoaded,
               (_rosterError ?? _queue.error).toString());
         }
         if (_patients == null) return const Center(child: CircularProgressIndicator());
         final items = _queue.items;
         if (items.isEmpty) {
-          return _message(context, Icons.inbox_outlined, 'No alert to review.',
-              'Yellow and red readings, model alerts and patients who stopped sending '
-                  'readings appear here, the most urgent first.');
+          return _message(context, Icons.inbox_outlined, context.l10n.queueEmpty, context.l10n.queueEmptyNote);
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -197,7 +199,7 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
 
   Widget _rosterTab() {
     if (_rosterError != null) {
-      return _message(context, Icons.error_outline, 'Could not load patients.', _rosterError.toString());
+      return _message(context, Icons.error_outline, context.l10n.patientsNotLoaded, _rosterError.toString());
     }
     final patients = _patients;
     if (patients == null) return const Center(child: CircularProgressIndicator());
@@ -224,14 +226,13 @@ class _ClinicianHomeScreenState extends State<ClinicianHomeScreen> {
         children: [
           Icon(Icons.people_outline, size: 44, color: AppColors.textMuted(context)),
           const SizedBox(height: 14),
-          const Text(
-            'No patients connected yet.',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          Text(
+            context.l10n.noPatientsYet,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           ),
           const SizedBox(height: 6),
           Text(
-            'Share the code above with a patient so they can register and '
-            'be linked to you.',
+            context.l10n.noPatientsYetNote,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
           ),
@@ -337,7 +338,7 @@ class _LatestReadingLine extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Text(
-            'No readings yet',
+            context.l10n.noReadingsYet,
             style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
           );
         }
@@ -364,7 +365,7 @@ class _LatestReadingLine extends StatelessWidget {
             ],
             Flexible(
               child: Text(
-                parts.isEmpty ? 'Reading logged' : parts.join(' · '),
+                parts.isEmpty ? context.l10n.readingLogged : parts.join(' · '),
                 style: TextStyle(
                   fontSize: 11,
                   color: isHigh ? AppColors.dangerText(context) : AppColors.textSecondary(context),
@@ -404,30 +405,30 @@ class _AlternateDialogState extends State<_AlternateDialog> {
   Widget build(BuildContext context) {
     final me = widget.me;
     return AlertDialog(
-      title: const Text('Alternate clinician'),
+      title: Text(context.l10n.alternateClinician),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             me?.alternateClinicianName == null
-                ? 'No alternate named. Alerts you leave unreviewed are escalated to nobody.'
-                : 'Current alternate: ${me!.alternateClinicianName}.',
+                ? context.l10n.noAlternate
+                : context.l10n.currentAlternate(me!.alternateClinicianName!),
             style: const TextStyle(fontSize: 13),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _controller,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: "Colleague's enrolment code"),
+            decoration: InputDecoration(labelText: context.l10n.colleagueCode),
           ),
         ],
       ),
       actions: [
         if (me?.alternateClinicianId != null)
-          TextButton(onPressed: () => Navigator.pop(context, ''), child: const Text('Remove')),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context, ''), child: Text(context.l10n.remove)),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        FilledButton(onPressed: () => Navigator.pop(context, _controller.text), child: Text(context.l10n.save)),
       ],
     );
   }

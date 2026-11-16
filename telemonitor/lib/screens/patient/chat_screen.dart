@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/chat_thread_view.dart';
 import '../../widgets/presence_title.dart';
 import '../connect_clinician_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// The patient's conversation with their assigned clinician.
 class ChatScreen extends StatefulWidget {
@@ -48,7 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (me == null) {
       return Scaffold(
         backgroundColor: AppColors.background(context),
-        appBar: AppBar(title: const Text('Messages')),
+        appBar: AppBar(title: Text(context.l10n.navMessages)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -59,9 +60,9 @@ class _ChatScreenState extends State<ChatScreen> {
       return Scaffold(
         backgroundColor: AppColors.background(context),
         appBar: AppBar(
-          title: const Text(
-            'Messages',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          title: Text(
+            context.l10n.navMessages,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           ),
         ),
         body: Center(
@@ -74,7 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     size: 44, color: AppColors.textMuted(context)),
                 const SizedBox(height: 14),
                 Text(
-                  'No clinician connected yet',
+                  context.l10n.noClinicianYet,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -83,8 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Enter the code your doctor gives you to start a '
-                  'conversation with them.',
+                  context.l10n.noClinicianYetNote,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: 12, color: AppColors.textSecondary(context)),
@@ -111,7 +111,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text('Connect to a clinician'),
+                  child: Text(context.l10n.connectToAClinician),
                 ),
               ],
             ),
@@ -126,8 +126,8 @@ class _ChatScreenState extends State<ChatScreen> {
         titleSpacing: 0,
         title: PresenceTitle(
           name: _loadingClinician
-              ? 'Messages'
-              : (_clinician?.displayName ?? 'Your clinician'),
+              ? context.l10n.navMessages
+              : (_clinician?.displayName ?? context.l10n.yourClinician),
           otherUid: me.assignedClinicianId,
           icon: Icons.medical_services_outlined,
         ),

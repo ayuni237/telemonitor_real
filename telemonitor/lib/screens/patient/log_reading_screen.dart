@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/level_style.dart';
 import '../../widgets/risk_card.dart';
 import 'camera_pulse_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// Manual entry of a reading (thesis ch.4 §Manual entry): fixed glucose
 /// unit, plausible ranges, coherent pressure pair, measurement context, the
@@ -85,7 +86,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
   }
 
   static const _measurementTypes = ['Both', 'Blood Pressure', 'Glucose'];
-  /// Stored values; the labels shown are in [_contextLabels]. Fasting and
+  /// Stored values; the labels shown are in the user's language
+  /// (L10nValues.readingContextChoice). Fasting and
   /// before a meal use the before-meal glucose targets, the others the
   /// after-meal targets (HomeProtocol).
   static const _contextOptions = [
@@ -96,14 +98,6 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     'After exercise',
     'Random',
   ];
-  static const _contextLabels = {
-    'Fasting': 'Fasting (before breakfast)',
-    'Before meal': 'Before a meal',
-    'After meal': 'About 90 minutes after a meal',
-    'After medication': 'After medication',
-    'After exercise': 'After exercise',
-    'Random': 'Other / not sure',
-  };
 
   // ---------------------------------------------------------------
   // Physiologically plausible input ranges.
@@ -136,6 +130,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     super.dispose();
   }
 
+  /// A glucose value typed with a decimal point or a decimal comma.
+  static double? _glucose(String text) => double.tryParse(text.trim().replaceAll(',', '.'));
+
   bool get _needsBP => _selectedMeasurementType != 'Glucose';
   bool get _needsGlucose => _selectedMeasurementType != 'Blood Pressure';
 
@@ -147,29 +144,25 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     final dbp = int.tryParse(dbpC.text);
 
     if (sbp == null || dbp == null) {
-      return 'Please enter valid blood pressure values$which.';
+      return context.l10n.bpInvalid(which);
     }
     if (sbp < _sbpMin || sbp > _sbpMax) {
-      return 'Systolic $sbp$which is outside the plausible range '
-          '($_sbpMin–$_sbpMax mmHg). Please re-check the reading.';
+      return context.l10n.sbpOutOfRange(sbp, which, _sbpMin, _sbpMax);
     }
     if (dbp < _dbpMin || dbp > _dbpMax) {
-      return 'Diastolic $dbp$which is outside the plausible range '
-          '($_dbpMin–$_dbpMax mmHg). Please re-check the reading.';
+      return context.l10n.dbpOutOfRange(dbp, which, _dbpMin, _dbpMax);
     }
     if (sbp - dbp < _minPulsePressure) {
-      return 'Systolic ($sbp) should be at least $_minPulsePressure '
-          'higher than diastolic ($dbp)$which. Please re-check the reading.';
+      return context.l10n.pulsePressureTooLow(sbp, _minPulsePressure, dbp, which);
     }
 
     // Heart rate is optional — validated only when something is typed.
     final hrText = hrC.text.trim();
     if (hrText.isNotEmpty) {
       final hr = int.tryParse(hrText);
-      if (hr == null) return 'Please enter a valid heart rate$which.';
+      if (hr == null) return context.l10n.hrInvalid(which);
       if (hr < _hrMin || hr > _hrMax) {
-        return 'Heart rate $hr$which is outside the plausible range '
-            '($_hrMin–$_hrMax bpm). Please re-check the reading.';
+        return context.l10n.hrOutOfRange(hr, which, _hrMin, _hrMax);
       }
     }
     return null;
@@ -180,34 +173,32 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     if (at != null) {
       final now = DateTime.now();
       if (at.isAfter(now.add(const Duration(minutes: 1)))) {
-        return 'The time of the reading cannot be in the future.';
+        return context.l10n.readingInFuture;
       }
       if (now.difference(at) > _maxBackdate && !_isCorrection) {
-        return 'A reading can be dated at most ${_maxBackdate.inDays} days back.';
+        return context.l10n.backdateLimit(_maxBackdate.inDays);
       }
     }
 
     if (_needsBP) {
       if (_twoReadings) {
         final first =
-            _bpError(_sbp1Controller, _dbp1Controller, _hr1Controller, ' (reading 1)');
+            _bpError(_sbp1Controller, _dbp1Controller, _hr1Controller, context.l10n.whichReading(1));
         if (first != null) return first;
       }
       final kept = _bpError(_sbpController, _dbpController, _heartRateController,
-          _twoReadings ? ' (reading 2)' : '');
+          _twoReadings ? context.l10n.whichReading(2) : '');
       if (kept != null) return kept;
     }
 
     if (_needsGlucose) {
-      final bg = double.tryParse(_glucoseController.text);
-      if (bg == null) return 'Please enter a valid glucose value.';
+      final bg = _glucose(_glucoseController.text);
+      if (bg == null) return context.l10n.glucoseInvalid;
       if (bg < _glucoseMin || bg > _glucoseMax) {
-        return 'Glucose $bg is outside the plausible range '
-            '($_glucoseMin–$_glucoseMax mmol/L). Check your units — this '
-            'app uses mmol/L, not mg/dL.';
+        return context.l10n.glucoseOutOfRange('$bg', '$_glucoseMin', '$_glucoseMax');
       }
       if (_selectedContext == null) {
-        return 'Choose when the glucose was measured: your target depends on the meal.';
+        return context.l10n.glucoseNeedsContext;
       }
     }
 
@@ -245,7 +236,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Against your home targets',
+            context.l10n.againstHomeTargets,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -255,7 +246,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           const SizedBox(height: 10),
           if (hasBP)
             _previewRow(
-              'BP: $sbpText/$dbpText mmHg',
+              context.l10n.previewBp(sbpText, dbpText),
               _levelStyle(HomeProtocol.haemodynamic(
                 sbp: int.tryParse(sbpText),
                 dbp: int.tryParse(dbpText),
@@ -265,11 +256,11 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           if (hasBP && hasBG) const SizedBox(height: 8),
           if (hasBG)
             _selectedContext == null
-                ? Text('Glucose: $bgText mmol/L. Choose the measurement context below.',
+                ? Text(context.l10n.previewGlucoseNoContext(bgText),
                     style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context)))
                 : _previewRow(
-                    'Glucose: $bgText mmol/L',
-                    _levelStyle(HomeProtocol.glucose(double.tryParse(bgText), _selectedContext!)),
+                    context.l10n.previewGlucose(bgText),
+                    _levelStyle(HomeProtocol.glucose(_glucose(bgText), _selectedContext!)),
                   ),
         ],
       ),
@@ -330,7 +321,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
 
     final sbp = int.tryParse(_sbpController.text);
     final dbp = int.tryParse(_dbpController.text);
-    final bg = double.tryParse(_glucoseController.text);
+    final bg = _glucose(_glucoseController.text);
     final hr = int.tryParse(_heartRateController.text);
     final pair = _needsBP && _twoReadings;
 
@@ -356,11 +347,11 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
       // returns at once: offline, the reading waits in the phone's queue
       ReadingsRepository.instance.addReading(
         reading,
-        onRejected: (e) => AppMessenger.show('A reading was not accepted by the server: $e', error: true),
+        onRejected: (e) => AppMessenger.show(l10nNow.readingRejected('$e'), error: true),
       );
     } catch (e) {
       setState(() => _isLoading = false);
-      AppMessenger.show('Could not save: $e', error: true);
+      AppMessenger.show(context.l10n.couldNotSave('$e'), error: true);
       return;
     }
 
@@ -372,11 +363,11 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           icon: Icon(Icons.error_outline, color: AppColors.dangerText(ctx), size: 36),
-          title: const Text('This reading is out of range'),
+          title: Text(ctx.l10n.outOfRangeTitle),
           content: Text(RiskCard.patientInstruction(RiskTier.red)!,
               style: const TextStyle(fontSize: 15, height: 1.4)),
           actions: [
-            FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('I understand')),
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.l10n.iUnderstand)),
           ],
         ),
       );
@@ -384,8 +375,8 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
     if (!mounted) return;
 
     AppMessenger.show(ReadingsRepository.instance.pendingCount > 0
-        ? 'Reading saved on your phone. It will be sent when you are online.'
-        : 'Reading saved.');
+        ? context.l10n.readingSavedOffline
+        : context.l10n.readingSaved);
     Navigator.pop(context);
   }
 
@@ -399,7 +390,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
         title: Text(
-          _isCorrection ? 'Correct a Reading' : 'Log a Reading',
+          _isCorrection ? context.l10n.correctAReading : context.l10n.logAReadingTitle,
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
@@ -415,12 +406,12 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             _buildEntryHint(),
             const SizedBox(height: 20),
 
-            _sectionLabel('Measurement type'),
+            _sectionLabel(context.l10n.measurementType),
             const SizedBox(height: 8),
             _buildSegmentedControl(),
             const SizedBox(height: 20),
 
-            _sectionLabel('When was it taken?'),
+            _sectionLabel(context.l10n.whenTaken),
             const SizedBox(height: 8),
             _buildTimePicker(),
             const SizedBox(height: 20),
@@ -429,26 +420,26 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               _buildProtocolSwitch(),
               const SizedBox(height: 12),
               if (_twoReadings) ...[
-                _bpInputs('Reading 1', _sbp1Controller, _dbp1Controller, _hr1Controller),
+                _bpInputs(context.l10n.readingNumber(1), _sbp1Controller, _dbp1Controller, _hr1Controller),
                 const SizedBox(height: 16),
               ],
-              _bpInputs(_twoReadings ? 'Reading 2 — kept' : 'Blood Pressure (mmHg)',
+              _bpInputs(_twoReadings ? context.l10n.reading2Kept : context.l10n.bpMmHg,
                   _sbpController, _dbpController, _heartRateController),
               const SizedBox(height: 6),
               Text(
-                'Pressures in mmHg, pulse in beats per minute.',
+                context.l10n.unitsNote,
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
               ),
               const SizedBox(height: 20),
             ],
 
             if (_needsGlucose) ...[
-              _sectionLabel('Blood Glucose (mmol/L)'),
+              _sectionLabel(context.l10n.glucoseMmol),
               const SizedBox(height: 8),
               _inputField(
                 controller: _glucoseController,
-                hint: 'e.g. 6.1',
-                label: 'Glucose',
+                hint: context.l10n.example(context.l10n.glucoseExample),
+                label: context.l10n.glucose,
                 isDecimal: true,
                 maxLength: 5,
               ),
@@ -460,14 +451,14 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               const SizedBox(height: 20),
             ],
 
-            _sectionLabel('Measurement context'),
+            _sectionLabel(context.l10n.measurementContext),
             const SizedBox(height: 8),
             _buildContextDropdown(),
             const SizedBox(height: 20),
 
             _buildLivePreview(),
 
-            _sectionLabel('Notes (optional)'),
+            _sectionLabel(context.l10n.notesOptional),
             const SizedBox(height: 8),
             TextField(
               controller: _notesController,
@@ -475,7 +466,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               style: TextStyle(
                   fontSize: 14, color: AppColors.textPrimary(context)),
               decoration: _decoration(
-                hint: 'e.g. Taken after morning medication...',
+                hint: context.l10n.notesHint,
               ),
             ),
             const SizedBox(height: 28),
@@ -508,7 +499,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                           const Icon(Icons.save_outlined, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            _isCorrection ? 'Save Correction' : 'Save Reading',
+                            _isCorrection ? context.l10n.saveCorrection : context.l10n.saveReading,
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -550,7 +541,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isCorrection ? 'Correct this reading' : 'Enter your reading',
+                  _isCorrection ? context.l10n.correctThisReading : context.l10n.enterYourReading,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -559,14 +550,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _isCorrection
-                      ? 'Your corrected values replace the old ones on your '
-                          'screens. The old entry stays in your record, marked '
-                          'as corrected, so your clinician can see both.'
-                      : 'Type the values shown on your blood pressure monitor or '
-                          'glucometer. For blood pressure, sit and rest for five '
-                          'minutes, then take two readings one minute apart: '
-                          'the second is the one kept.',
+                  _isCorrection ? context.l10n.correctionNote : context.l10n.entryNote,
                   style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary(context),
@@ -613,13 +597,13 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  bpm == null ? 'Pulse with the phone camera (optional)' : 'Pulse by camera: $bpm bpm',
+                  bpm == null ? context.l10n.pulseCameraOptional : context.l10n.pulseByCamera(bpm),
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context)),
                 ),
               ),
               if (bpm != null)
                 IconButton(
-                  tooltip: 'Remove',
+                  tooltip: context.l10n.remove,
                   visualDensity: VisualDensity.compact,
                   icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary(context)),
                   onPressed: () => setState(() {
@@ -632,10 +616,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           Padding(
             padding: const EdgeInsets.only(left: 28, right: 8, top: 4),
             child: Text(
-              bpm == null
-                  ? "Right after your monitor's reading, you can also measure your pulse with the camera and "
-                      "flash. It is for information: the alerts use your monitor's values."
-                  : "For information, beside your monitor's pulse.",
+              bpm == null ? context.l10n.cameraPulseNote : context.l10n.cameraPulseInfo,
               style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.textSecondary(context)),
             ),
           ),
@@ -644,7 +625,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             child: TextButton.icon(
               onPressed: _isLoading ? null : _measurePulse,
               icon: const Icon(Icons.monitor_heart_outlined, size: 18),
-              label: Text(bpm == null ? 'Measure' : 'Measure again'),
+              label: Text(bpm == null ? context.l10n.measure : context.l10n.measureAgain),
             ),
           ),
         ],
@@ -691,15 +672,15 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              at == null ? 'Now' : _formatTime(at),
+              at == null ? context.l10n.now : _formatTime(at),
               style: TextStyle(fontSize: 14, color: AppColors.textPrimary(context)),
             ),
           ),
           if (at != null && !_isCorrection)
             TextButton(
                 onPressed: () => setState(() => _measuredAt = null),
-                child: const Text('Now')),
-          TextButton(onPressed: _pickTime, child: const Text('Earlier…')),
+                child: Text(context.l10n.now)),
+          TextButton(onPressed: _pickTime, child: Text(context.l10n.earlier)),
         ],
       ),
     );
@@ -712,9 +693,9 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionLabel('Two blood pressure readings'),
+              _sectionLabel(context.l10n.twoBpReadings),
               Text(
-                'One minute apart; the second is kept.',
+                context.l10n.twoBpNote,
                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
               ),
             ],
@@ -737,7 +718,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           children: [
             Expanded(
               child: _inputField(
-                  controller: sbpC, hint: 'e.g. 128', label: 'Systolic', maxLength: 3),
+                  controller: sbpC, hint: context.l10n.example('128'), label: context.l10n.systolic, maxLength: 3),
             ),
             const SizedBox(width: 8),
             Text(
@@ -751,7 +732,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: _inputField(
-                  controller: dbpC, hint: 'e.g. 82', label: 'Diastolic', maxLength: 3),
+                  controller: dbpC, hint: context.l10n.example('82'), label: context.l10n.diastolic, maxLength: 3),
             ),
           ],
         ),
@@ -759,7 +740,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
         // on its own line, so that the label stays readable with large text
         FractionallySizedBox(
           widthFactor: 0.5,
-          child: _inputField(controller: hrC, hint: 'e.g. 72', label: 'Pulse (optional)', maxLength: 3),
+          child: _inputField(controller: hrC, hint: context.l10n.example('72'), label: context.l10n.pulseOptional, maxLength: 3),
         ),
       ],
     );
@@ -786,7 +767,11 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  type,
+                  switch (type) {
+                    'Both' => context.l10n.measureBoth,
+                    'Blood Pressure' => context.l10n.measureBp,
+                    _ => context.l10n.glucose,
+                  },
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -859,7 +844,7 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
       // _validationError() still runs.
       inputFormatters: [
         if (isDecimal)
-          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+          FilteringTextInputFormatter.allow(RegExp(r'^\d*[.,]?\d*'))
         else
           FilteringTextInputFormatter.digitsOnly,
         if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
@@ -889,10 +874,10 @@ class _LogReadingScreenState extends State<LogReadingScreen> {
           style: Theme.of(context).textTheme.bodyMedium!.copyWith(
               color: AppColors.textPrimary(context), fontSize: 14),
           iconEnabledColor: AppColors.textSecondary(context),
-          hint: Text(_needsGlucose ? 'Choose (required for glucose)' : 'Optional',
+          hint: Text(_needsGlucose ? context.l10n.contextRequired : context.l10n.optionalWord,
               style: TextStyle(color: AppColors.textMuted(context), fontSize: 14)),
           items: _contextOptions
-              .map((c) => DropdownMenuItem(value: c, child: Text(_contextLabels[c]!)))
+              .map((c) => DropdownMenuItem(value: c, child: Text(context.l10n.readingContextChoice(c))))
               .toList(),
           onChanged: (val) => setState(() => _selectedContext = val),
         ),

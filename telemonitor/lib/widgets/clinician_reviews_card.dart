@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/clinical_event.dart';
 import '../services/auth_service.dart';
 import '../services/events_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// The outcome of the clinician's reviews, shown to the patient (thesis ch.4,
 /// Table "Application profiles": the patient views the outcome of clinician
@@ -33,19 +35,16 @@ class _ClinicianReviewsCardState extends State<ClinicianReviewsCard> {
     }
   }
 
-  static String actionText(ClinicalAction? a) => switch (a) {
-        ClinicalAction.none => 'No change needed',
-        ClinicalAction.advice => 'Advice from your clinician',
-        ClinicalAction.treatmentChange => 'Your clinician adjusted your treatment',
-        ClinicalAction.consultation => 'Your clinician asks to see you',
-        ClinicalAction.referral => 'You are referred for further care',
-        null => 'Reviewed',
+  static String actionText(AppLocalizations l10n, ClinicalAction? a) => switch (a) {
+        ClinicalAction.none => l10n.actionNone,
+        ClinicalAction.advice => l10n.actionAdvice,
+        ClinicalAction.treatmentChange => l10n.actionTreatmentChange,
+        ClinicalAction.consultation => l10n.actionConsultation,
+        ClinicalAction.referral => l10n.actionReferral,
+        null => l10n.reviewed,
       };
 
-  String _date(DateTime t) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${t.day} ${months[t.month - 1]}';
-  }
+  String _date(DateTime t) => DateFormat('d MMM').format(t);
 
   @override
   Widget build(BuildContext context) {
@@ -75,16 +74,16 @@ class _ClinicianReviewsCardState extends State<ClinicianReviewsCard> {
                 Row(children: [
                   Icon(Icons.medical_services_outlined, size: 18, color: AppColors.primaryText(context)),
                   const SizedBox(width: 8),
-                  Text('From your clinician',
+                  Text(context.l10n.fromYourClinician,
                       style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
                 ]),
                 for (final e in reviewed) ...[
                   const SizedBox(height: 10),
-                  Text(actionText(e.action),
+                  Text(actionText(context.l10n, e.action),
                       style: TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary(context))),
-                  Text('Alert of ${_date(e.triggeredAt)}, reviewed ${_date(e.reviewedAt!)}',
+                  Text(context.l10n.alertReviewed(_date(e.triggeredAt), _date(e.reviewedAt!)),
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context))),
                   if (e.comment.isNotEmpty)
                     Padding(

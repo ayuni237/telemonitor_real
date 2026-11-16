@@ -6,6 +6,7 @@ import '../models/app_user.dart';
 import '../models/message.dart';
 import 'app_messenger.dart';
 import 'auth_service.dart';
+import '../l10n/l10n.dart';
 
 /// Reads, writes and marks-as-read the message thread for a patient.
 class ChatService {
@@ -60,7 +61,7 @@ class ChatService {
           text: trimmed,
           timestamp: DateTime.now(),
         ).toFirestore())
-        .catchError((Object e) => AppMessenger.show('A message was not sent: $e', error: true)));
+        .catchError((Object e) => AppMessenger.show(l10nNow.messageNotSent('$e'), error: true)));
   }
 
   /// Marks every message in [messages] that was sent by the OTHER party

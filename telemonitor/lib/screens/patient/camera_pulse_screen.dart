@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../services/camera_pulse.dart';
 import '../../services/home_protocol.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 /// Measures the pulse with the back camera and its flash (camera_pulse.dart).
 /// Returns the [PulseEstimate] the patient chose to keep, or null.
@@ -67,7 +68,7 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
     try {
       final back = (await availableCameras()).where((c) => c.lensDirection == CameraLensDirection.back);
       if (back.isEmpty) {
-        if (mounted) setState(() => _error = 'This phone has no back camera to measure the pulse.');
+        if (mounted) setState(() => _error = l10nNow.noBackCamera);
         return;
       }
       final camera = CameraController(
@@ -97,7 +98,7 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
       if (mounted) setState(() => _error = _message(e));
     } catch (e) {
       await _stop();
-      if (mounted) setState(() => _error = 'The camera could not start: $e');
+      if (mounted) setState(() => _error = l10nNow.cameraNotStarted('$e'));
     } finally {
       _starting = false;
     }
@@ -162,9 +163,8 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
 
   static String _message(CameraException e) => switch (e.code) {
     'CameraAccessDenied' || 'CameraAccessDeniedWithoutPrompt' || 'CameraAccessRestricted' || 'cameraPermission' =>
-      'TeleMonitor is not allowed to use the camera. Allow it in the phone settings '
-          '(Apps, TeleMonitor, Permissions), then try again.',
-    _ => 'The camera could not start (${e.description ?? e.code}).',
+      l10nNow.cameraNotAllowed,
+    _ => l10nNow.cameraNotStartedCode(e.description ?? e.code),
   };
 
   void _again() {
@@ -185,7 +185,7 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text('Pulse with the camera', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: Text(context.l10n.pulseWithCamera, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
       ),
       body: SafeArea(
         child: ListView(
@@ -207,7 +207,7 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
               if (_noFlash && !_finished) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'The flash could not be turned on: measure near a bright light.',
+                  context.l10n.noFlash,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
                 ),
@@ -239,9 +239,7 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Stay seated. Cover the back camera and the flash with the tip of your index finger, '
-              'without pressing, and keep still for about 20 seconds. The flash lights your finger and '
-              'the camera follows the blood that each heartbeat brings. No picture or video is kept.',
+              context.l10n.pulseHowTo,
               style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textSecondary(context)),
             ),
           ),
@@ -252,13 +250,13 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
 
   String _status(PulsePhase phase) => switch (phase) {
     PulsePhase.waiting when _meter.interrupted =>
-      'Your finger moved, so the measurement starts again. Cover the camera and the flash.',
+      context.l10n.pulseFingerMoved,
     PulsePhase.waiting =>
       _camera?.value.isInitialized == true
-          ? 'Cover the camera and the flash with your fingertip.'
-          : 'Starting the camera…',
-    PulsePhase.settling => 'Finger detected. Keep still…',
-    _ => 'Measuring. Keep still and breathe normally.',
+          ? context.l10n.pulseCover
+          : context.l10n.pulseStarting,
+    PulsePhase.settling => context.l10n.pulseFingerDetected,
+    _ => context.l10n.pulseMeasuring,
   };
 
   Widget _dial(PulsePhase phase) {
@@ -338,16 +336,13 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Measured with the phone camera. It is shown to you and your clinician for information: your '
-            "monitor's pulse remains the reference, and the alerts use your monitor's readings.",
+            context.l10n.pulseResultNote,
             style: TextStyle(fontSize: 12, height: 1.45, color: AppColors.textSecondary(context)),
           ),
           if (outside) ...[
             const SizedBox(height: 10),
             Text(
-              'This pulse is very ${r.bpm <= 40 ? 'low' : 'high'}. Sit, rest for five minutes and measure '
-              'again; if your monitor shows a pulse, enter it too. If you feel unwell (chest pain, '
-              'breathlessness, fainting), go to the nearest health centre without waiting.',
+              r.bpm <= 40 ? context.l10n.pulseVeryLow : context.l10n.pulseVeryHigh,
               style: TextStyle(
                 fontSize: 13,
                 height: 1.45,
@@ -365,10 +360,10 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
                 backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Use this value', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.useThisValue, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
           ),
-          TextButton(onPressed: _again, child: const Text('Measure again')),
+          TextButton(onPressed: _again, child: Text(context.l10n.measureAgain)),
         ],
       ),
     );
@@ -376,14 +371,12 @@ class _CameraPulseScreenState extends State<CameraPulseScreen> with WidgetsBindi
 
   Widget _failedCard() {
     return _card(
-      'The signal was not steady enough to give a pulse. Keep the finger still and press lightly: '
-          'pressing hard stops the blood. Cold fingers give a weak signal; warm your hand first. If it '
-          "still fails, use your monitor's pulse.",
-      'Try again',
+      context.l10n.pulseFailed,
+      context.l10n.tryAgain,
     );
   }
 
-  Widget _errorCard() => _card(_error!, 'Try again');
+  Widget _errorCard() => _card(_error!, context.l10n.tryAgain);
 
   Widget _card(String text, String action) {
     return Container(

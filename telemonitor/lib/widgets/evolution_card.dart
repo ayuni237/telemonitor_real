@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/reading.dart';
 import '../services/state_evolution.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// How each vital sign moved: the last 24 hours against the three days
 /// before. Descriptive, not an alert: the colours stay neutral and the risk
@@ -35,15 +36,15 @@ class EvolutionCard extends StatelessWidget {
           Row(children: [
             Icon(Icons.compare_arrows, size: 16, color: AppColors.primaryText(context)),
             const SizedBox(width: 8),
-            Text('Evolution',
+            Text(context.l10n.evolution,
                 style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
           ]),
           const SizedBox(height: 4),
-          Text('Last 24 hours compared with the three days before', style: muted),
+          Text(context.l10n.evolutionNote, style: muted),
           const SizedBox(height: 10),
           if (changes.isEmpty)
-            Text('Not enough readings yet: log readings on several days to see how they change.',
+            Text(context.l10n.evolutionEmpty,
                 style: muted)
           else
             for (final ch in changes) _row(context, ch),
@@ -64,7 +65,7 @@ class EvolutionCard extends StatelessWidget {
         Icon(icon, size: 18, color: AppColors.primaryText(context)),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(StateEvolution.names[ch.channel]!,
+          child: Text(context.l10n.channelName(ch.channel),
               style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context))),
         ),
         Text('${_fmt(ch.channel, ch.current)} $unit',
@@ -74,7 +75,7 @@ class EvolutionCard extends StatelessWidget {
         SizedBox(
           width: 86,
           child: Text(
-            stable ? 'stable' : '$sign${_fmt(ch.channel, ch.change.abs())} $unit',
+            stable ? context.l10n.stable : '$sign${_fmt(ch.channel, ch.change.abs())} $unit',
             textAlign: TextAlign.right,
             style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
           ),

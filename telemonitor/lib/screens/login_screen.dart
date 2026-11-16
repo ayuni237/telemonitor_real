@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/language_selector_card.dart';
 import 'signup_screen.dart';
+import '../l10n/l10n.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter both email and password.');
+      setState(() => _errorMessage = context.l10n.loginMissingFields);
       return;
     }
 
@@ -79,11 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
       // Deliberately generic: confirming whether an address is registered
       // would let anyone test which emails have accounts on the system.
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'If an account exists for that address, a reset link has been '
-            'sent. Check your inbox, and the spam folder too.',
-          ),
+        SnackBar(
+          content: Text(context.l10n.resetLinkSentGeneric),
           backgroundColor: AppColors.success,
           duration: Duration(seconds: 6),
         ),
@@ -110,7 +109,12 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 12),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: LanguageToggle(color: Colors.white),
+                ),
+                const SizedBox(height: 18),
 
                 // Logo + title. White works on both backgrounds, since
                 // both are dark.
@@ -134,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Chronic Disease Telemonitoring',
+                        context.l10n.appTagline,
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.7),
@@ -158,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Welcome back',
+                        context.l10n.loginWelcome,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -167,24 +171,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Sign in to your account',
+                        context.l10n.loginSubtitle,
                         style: TextStyle(
                             fontSize: 13,
                             color: AppColors.textSecondary(context)),
                       ),
                       const SizedBox(height: 28),
 
-                      _label('Email'),
+                      _label(context.l10n.emailLabel),
                       const SizedBox(height: 8),
                       _field(
                         controller: _emailController,
-                        hint: 'you@example.com',
+                        hint: context.l10n.emailHint,
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 18),
 
-                      _label('Password'),
+                      _label(context.l10n.passwordLabel),
                       const SizedBox(height: 8),
                       _field(
                         controller: _passwordController,
@@ -213,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: TextButton(
                           onPressed: _handleForgotPassword,
                           child: Text(
-                            'Forgot password?',
+                            context.l10n.forgotPassword,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.primaryText(context),
@@ -280,8 +284,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Sign In',
+                              : Text(
+                                  context.l10n.signIn,
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -304,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              'or',
+                              context.l10n.or,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textMuted(context),
@@ -342,8 +346,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'New patient? Create an account',
+                          child: Text(
+                            context.l10n.createAccountLink,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -378,7 +382,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Patients and clinicians use the same login',
+                            context.l10n.sameLogin,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.7),
@@ -482,7 +486,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
-        'Reset password',
+        context.l10n.resetPasswordTitle,
         style: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w600,
@@ -494,9 +498,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Enter the email address of your account and we will send you '
-            'a link to choose a new password. No access to that email? Ask '
-            'your clinician: the administrator can reset it.',
+            context.l10n.resetPasswordIntro,
             style: TextStyle(
               fontSize: 13,
               color: AppColors.textSecondary(context),
@@ -512,7 +514,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
               color: AppColors.textPrimary(context),
             ),
             decoration: InputDecoration(
-              hintText: 'you@example.com',
+              hintText: context.l10n.emailHint,
               hintStyle: TextStyle(
                   color: AppColors.textMuted(context), fontSize: 13),
               prefixIcon: Icon(Icons.email_outlined,
@@ -536,7 +538,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel',
+          child: Text(context.l10n.cancel,
               style: TextStyle(
                   color: AppColors.textSecondary(context))),
         ),
@@ -551,7 +553,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          child: const Text('Send link'),
+          child: Text(context.l10n.sendLink),
         ),
       ],
     );

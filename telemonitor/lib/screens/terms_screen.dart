@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/consent_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/consent_checks.dart';
+import '../l10n/l10n.dart';
 
 /// Terms of use and privacy notice, version [ConsentService.termsVersion].
 ///
@@ -14,94 +15,27 @@ import '../widgets/consent_checks.dart';
 /// it, the optional research use, and the patient's rights under Cameroon's
 /// personal data law. A change in substance needs a new version number, so
 /// every patient is asked to accept it again.
-const List<(String, List<String>)> termsSections = [
-  (
-    'What TeleMonitor is',
-    [
-      'TeleMonitor helps you follow your blood pressure and blood sugar at home with your clinician. '
-          'You enter your readings; the app compares them with your home targets and your clinician '
-          'reviews the alerts.',
-      'TeleMonitor does not replace a consultation and is not an emergency service. It never changes '
-          'your treatment: only your clinician can. If you feel very unwell, go to the nearest health '
-          'centre or hospital without waiting for an answer in the app.',
-    ],
-  ),
-  (
-    'The information the app keeps',
-    [
-      '• Your account: name and email address.',
-      '• Your profile, if you fill it in: age, sex, height, weight, conditions, medications, phone, '
-          'emergency contact and an optional photo.',
-      '• Your readings (blood pressure, heart rate, blood sugar, when you measured and your notes), the '
-          'alerts they raise and your clinician\'s review of them.',
-      '• If you measure your pulse with the phone camera, the pulse found: the images of the camera are '
-          'read on the phone and dropped at once, never kept or sent.',
-      '• The messages you exchange with your clinician.',
-      '• What the service needs to work: when you last used the app, and the address used to send '
-          'notifications to your phone.',
-    ],
-  ),
-  (
-    'Who can see it',
-    [
-      '• You.',
-      '• The clinician you connect to, and the colleague they name to replace them when an alert waits '
-          'too long.',
-      '• The administrator of the system, only to keep it working.',
-      'Your information is stored on Google Firebase servers and travels encrypted. Access rules let each '
-          'person see only what they are allowed to see.',
-      'When you use the health assistant, your question, age, sex, conditions, medications and recent '
-          'readings are sent to Google\'s Gemini service to prepare the answer, never your name or contact '
-          'details. Do not type your name or other personal details in the assistant.',
-    ],
-  ),
-  (
-    'Research, only if you agree',
-    [
-      'If you tick the research box, your information may also be used for medical research on the home '
-          'follow-up of hypertension and diabetes, by the TeleMonitor project of the GISDIA laboratory, '
-          'National Higher Polytechnic School of Douala (ENSPD), University of Douala.',
-      'Before any use, your name, email, phone numbers, emergency contact, photo, messages and notes are '
-          'removed, and your account is replaced by a code. Results are published only as figures about '
-          'groups of patients, in which no one can be recognised.',
-      'Saying no changes nothing in your care. You can change your choice at any time in your profile; '
-          'from then on, your information is left out of new research extracts.',
-    ],
-  ),
-  (
-    'Your rights',
-    [
-      'Under Law No. 2024/017 of 23 December 2024 on the protection of personal data in Cameroon, you can '
-          'see your information (the app shows it to you), have it corrected, withdraw your research '
-          'consent, and ask for your account and your information to be deleted. For a deletion or any '
-          'question, ask your clinician or the administrator.',
-    ],
-  ),
-  (
-    'Keeping your account safe',
-    [
-      'Keep your password to yourself. Confirm your email address: it is the only way to set a new '
-          'password if you forget yours. On a shared phone, sign out when you finish.',
-    ],
-  ),
-  (
-    'Changes to these terms',
-    [
-      'If these terms change, the app shows you the new version and asks you to accept it before you '
-          'continue.',
-    ],
-  ),
-];
+/// The sections of the terms, (title, paragraphs), in the user's language;
+/// the French text says the same as the English one.
+List<(String, List<String>)> termsSections(AppLocalizations l) => [
+      (l.termsS1Title, [l.termsS1P1, l.termsS1P2]),
+      (l.termsS2Title, [l.termsS2B1, l.termsS2B2, l.termsS2B3, l.termsS2B4, l.termsS2B5, l.termsS2B6]),
+      (l.termsS3Title, [l.termsS3B1, l.termsS3B2, l.termsS3B3, l.termsS3P1, l.termsS3P2]),
+      (l.termsS4Title, [l.termsS4P1, l.termsS4P2, l.termsS4P3]),
+      (l.termsS5Title, [l.termsS5P1]),
+      (l.termsS6Title, [l.termsS6P1]),
+      (l.termsS7Title, [l.termsS7P1]),
+    ];
 
 /// The terms as a list of widgets, for a scrolling view.
 List<Widget> termsBody(BuildContext context) {
   final version = DateFormat('d MMMM y').format(DateTime.parse(ConsentService.termsVersion));
   return [
     Text(
-      'Version of $version',
+      context.l10n.termsVersionOf(version),
       style: TextStyle(fontSize: 12, color: AppColors.textMuted(context)),
     ),
-    for (final (title, paragraphs) in termsSections) ...[
+    for (final (title, paragraphs) in termsSections(context.l10n)) ...[
       const SizedBox(height: 18),
       Text(
         title,
@@ -127,7 +61,7 @@ class TermsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background(context),
-      appBar: AppBar(title: const Text('Terms of use', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600))),
+      appBar: AppBar(title: Text(context.l10n.termsOfUse, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600))),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 32), children: termsBody(context)),
       ),
@@ -170,7 +104,7 @@ class _AcceptTermsScreenState extends State<AcceptTermsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      messenger.showSnackBar(SnackBar(content: Text('Could not save your choice: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(context.l10n.choiceNotSaved('$e'))));
       return;
     }
     if (mounted) widget.onAccepted();
@@ -183,7 +117,7 @@ class _AcceptTermsScreenState extends State<AcceptTermsScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Text(
-          widget.updated ? 'Updated terms of use' : 'Terms of use',
+          widget.updated ? context.l10n.updatedTerms : context.l10n.termsOfUse,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
@@ -196,8 +130,8 @@ class _AcceptTermsScreenState extends State<AcceptTermsScreen> {
                 children: [
                   Text(
                     widget.updated
-                        ? 'The terms have changed. Please read them and accept them to continue.'
-                        : 'Please read the terms of use and accept them to continue.',
+                        ? context.l10n.termsChanged
+                        : context.l10n.readAndAcceptTerms,
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary(context)),
                   ),
                   const SizedBox(height: 6),
@@ -237,12 +171,12 @@ class _AcceptTermsScreenState extends State<AcceptTermsScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Accept and continue', style: TextStyle(fontWeight: FontWeight.w600)),
+                          : Text(context.l10n.acceptAndContinue, style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                   TextButton(
                     onPressed: _saving ? null : () => AuthService.instance.signOut(),
-                    child: const Text('Sign out'),
+                    child: Text(context.l10n.signOut),
                   ),
                 ],
               ),

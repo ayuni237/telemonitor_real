@@ -10,9 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   fl_chart: ^0.69.0
-  intl: ^0.19.0
+  intl: ^0.20.2
   firebase_core: ^4.12.1
   firebase_auth: ^6.5.6
   cloud_firestore: ^6.7.1
@@ -37,6 +39,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true   # texts in English and French (l10n.yaml, lib/l10n)
 
 
 # App icon generator — read at build time only, not bundled in the app.

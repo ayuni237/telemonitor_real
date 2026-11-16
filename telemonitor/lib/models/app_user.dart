@@ -57,6 +57,10 @@ class AppUser {
   final DateTime? termsAcceptedAt;
   final bool researchConsent;
 
+  /// 'en' or 'fr': the language of the app on the user's phone, which the
+  /// worker uses for notifications and emails (LocaleController).
+  final String? language;
+
   const AppUser({
     required this.uid,
     required this.email,
@@ -78,6 +82,7 @@ class AppUser {
     this.termsVersion,
     this.termsAcceptedAt,
     this.researchConsent = false,
+    this.language,
   });
 
   /// A patient with no assigned clinician appears on nobody's roster
@@ -151,6 +156,7 @@ class AppUser {
       termsVersion: _str(data['termsVersion']),
       termsAcceptedAt: data['termsAcceptedAt'] is Timestamp ? (data['termsAcceptedAt'] as Timestamp).toDate() : null,
       researchConsent: data['researchConsent'] == true,
+      language: _str(data['language']),
     );
   }
 

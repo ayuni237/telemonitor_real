@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/clinical_event.dart';
 import '../models/risk_assessment.dart';
@@ -7,11 +8,9 @@ import '../services/clinician_queue.dart';
 import '../services/queue_logic.dart';
 import '../theme/app_theme.dart';
 import 'verdict_sheet.dart';
+import '../l10n/l10n.dart';
 
-String _date(DateTime t) {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return '${t.day} ${months[t.month - 1]} ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-}
+String _date(DateTime t) => DateFormat('d MMM HH:mm').format(t);
 
 /// The triggering fact, with units and context.
 String describeTrigger(ClinicalEvent e) {
@@ -19,35 +18,35 @@ String describeTrigger(ClinicalEvent e) {
   if (e.source == TriggerSource.nonTransmission) {
     final last = t['lastReadingAt'];
     final days = t['checkupPeriodDays'];
-    final period = days == null ? '' : ' (checkup period $days days)';
+    final l10n = l10nNow;
+    final period = days == null ? '' : l10n.checkupPeriodSuffix((days as num).toInt());
     return last is Timestamp
-        ? 'No reading since ${_date(last.toDate())}$period'
+        ? l10n.noReadingSince(_date(last.toDate()), period)
         : days == null
-            ? 'No reading within the checkup period'
-            : 'No reading for more than $days days';
+            ? l10n.noReadingInPeriod
+            : l10n.noReadingForDays((days as num).toInt());
   }
   if (t['profile'] == 'bp_7d') {
-    return '7-day profile off target: mean ${(t['meanSbp'] as num?)?.round()}/${(t['meanDbp'] as num?)?.round()} '
-        'mmHg over ${t['readings']} readings, ${t['days']} days';
+    return l10nNow.bpProfileOff('${(t['meanSbp'] as num?)?.round()}', '${(t['meanDbp'] as num?)?.round()}',
+        '${t['readings']}', '${t['days']}');
   }
   if (t['profile'] == 'glucose_6pt') {
-    return 'Glucose profile off target: mean ${t['meanBeforeMeal'] ?? '—'} before and '
-        '${t['meanAfterMeal'] ?? '—'} mmol/L after meals';
+    return l10nNow.glucoseProfileOff('${t['meanBeforeMeal'] ?? '—'}', '${t['meanAfterMeal'] ?? '—'}');
   }
   final parts = <String>[
     if (t['sbp'] != null) '${t['sbp']}/${t['dbp']} mmHg',
-    if (t['hr'] != null) 'pulse ${t['hr']} bpm',
-    if (t['glucose'] != null) 'glucose ${t['glucose']} mmol/L',
+    if (t['hr'] != null) l10nNow.triggerPulse('${t['hr']}'),
+    if (t['glucose'] != null) l10nNow.triggerGlucose('${t['glucose']}'),
   ];
   final ctx = (t['context'] as String?) ?? '';
-  return '${parts.join(' · ')}${ctx.isEmpty ? '' : ' ($ctx)'}';
+  return '${parts.join(' · ')}${ctx.isEmpty ? '' : ' (${l10nNow.readingContextShort(ctx)})'}';
 }
 
 String trendLabel(TrendDirection d) => switch (d) {
-      TrendDirection.rising => 'rising',
-      TrendDirection.falling => 'falling',
-      TrendDirection.stable => 'stable',
-      TrendDirection.unknown => 'too few readings',
+      TrendDirection.rising => l10nNow.trendRising,
+      TrendDirection.falling => l10nNow.trendFalling,
+      TrendDirection.stable => l10nNow.stable,
+      TrendDirection.unknown => l10nNow.trendTooFew,
     };
 
 (Color, Color) tierColors(BuildContext context, RiskTier t) => switch (t) {
@@ -78,7 +77,7 @@ Widget _sourceChip(BuildContext context, TriggerSource s) => Container(
 Widget _escalatedChip(BuildContext context) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: AppColors.dangerBg(context), borderRadius: BorderRadius.circular(20)),
-      child: Text('Escalated',
+      child: Text(context.l10n.escalated,
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.dangerText(context))),
     );
 
@@ -89,7 +88,7 @@ Widget _header(BuildContext context, ClinicalEvent e, TextStyle muted) => Row(
       children: [
         Expanded(
           child: Wrap(spacing: 6, runSpacing: 6, children: [
-            tierChip(context, e.tier.name.toUpperCase(), e.tier),
+            tierChip(context, context.l10n.homeLevel(e.tier.index).toUpperCase(), e.tier),
             _sourceChip(context, e.source),
             if (e.isEscalated) _escalatedChip(context),
           ]),
@@ -111,8 +110,8 @@ class QueueRow extends StatelessWidget {
     final e = item.event;
     final muted = TextStyle(fontSize: 11, color: AppColors.textSecondary(context));
     final sinceReview = item.lastReviewedAt == null
-        ? 'never reviewed'
-        : '${DateTime.now().difference(item.lastReviewedAt!).inDays} d since last review';
+        ? context.l10n.neverReviewed
+        : context.l10n.daysSinceReview(DateTime.now().difference(item.lastReviewedAt!).inDays);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -135,25 +134,26 @@ class QueueRow extends StatelessWidget {
                       fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
               const SizedBox(height: 4),
               if (item.isForeign)
-                Text("Escalated to you as alternate: another clinician's patient", style: muted)
+                Text(context.l10n.escalatedToYou, style: muted)
               else ...[
                 Text(
-                    '14-day trend: systolic ${trendLabel(item.sbpTrend)}, glucose ${trendLabel(item.glucoseTrend)}',
+                    context.l10n.trendLine(trendLabel(item.sbpTrend), trendLabel(item.glucoseTrend)),
                     style: muted),
                 Text(
                     '${pseudonymOf(item.patient.uid)} · ${ageBand(item.patient.age)} · $sinceReview',
                     style: muted),
               ],
               Text(
-                  'Thresholds ${e.thresholdVersion}${e.modelVersion == null ? '' : ' · model ${e.modelVersion}'}'
-                  '${e.score == null ? '' : ' · calibrated P(alert) ${(e.score! * 100).toStringAsFixed(0)}%'}',
+                  context.l10n.thresholdsLine(e.thresholdVersion) +
+                      (e.modelVersion == null ? '' : context.l10n.modelSuffix(e.modelVersion!)) +
+                      (e.score == null ? '' : context.l10n.probabilitySuffix((e.score! * 100).toStringAsFixed(0))),
                   style: TextStyle(fontSize: 11, color: AppColors.textMuted(context))),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                   onPressed: () => showVerdictSheet(context, e),
-                  child: const Text('Verdict'),
+                  child: Text(context.l10n.verdict),
                 ),
               ),
             ],
@@ -191,14 +191,14 @@ class EventLogTile extends StatelessWidget {
           const SizedBox(height: 4),
           if (e.isOpen)
             Row(children: [
-              Text('Open', style: muted.copyWith(fontWeight: FontWeight.w600)),
+              Text(context.l10n.eventOpen, style: muted.copyWith(fontWeight: FontWeight.w600)),
               const Spacer(),
-              TextButton(onPressed: () => showVerdictSheet(context, e), child: const Text('Verdict')),
+              TextButton(onPressed: () => showVerdictSheet(context, e), child: Text(context.l10n.verdict)),
             ])
           else
             Text(
               '${e.verdict?.label ?? '—'} · ${e.action?.label ?? '—'}'
-              '${e.reviewedAt == null ? '' : ' · reviewed ${_date(e.reviewedAt!)}'}'
+              '${e.reviewedAt == null ? '' : context.l10n.reviewedSuffix(_date(e.reviewedAt!))}'
               '${e.comment.isEmpty ? '' : '\n${e.comment}'}',
               style: muted,
             ),

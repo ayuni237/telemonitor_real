@@ -1,4 +1,5 @@
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/l10n.dart';
 
 /// A category of care facility a patient might need to find.
 enum CareCategory {
@@ -30,28 +31,26 @@ extension CareCategoryInfo on CareCategory {
   String get label {
     switch (this) {
       case CareCategory.pharmacy:
-        return 'Pharmacy';
+        return l10nNow.carePharmacy;
       case CareCategory.hospital:
-        return 'Hospital';
+        return l10nNow.careHospital;
       case CareCategory.clinic:
-        return 'Clinic / Health centre';
+        return l10nNow.careClinic;
       case CareCategory.laboratory:
-        return 'Laboratory';
+        return l10nNow.careLaboratory;
     }
   }
 
   String get description {
     switch (this) {
       case CareCategory.pharmacy:
-        return 'Collect medication, or have your blood pressure checked — '
-            'many pharmacies offer this.';
+        return l10nNow.carePharmacyNote;
       case CareCategory.hospital:
-        return 'For urgent care, or when your readings are in the high or '
-            'critical range.';
+        return l10nNow.careHospitalNote;
       case CareCategory.clinic:
-        return 'For a routine consultation or follow-up visit.';
+        return l10nNow.careClinicNote;
       case CareCategory.laboratory:
-        return 'For blood glucose, HbA1c and other laboratory tests.';
+        return l10nNow.careLaboratoryNote;
     }
   }
 }

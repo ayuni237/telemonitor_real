@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification channel names, shown in the phone's settings in its language
+     (values-fr for French); MainActivity.kt. -->
+<resources>
+    <string name="channel_alerts">Alerts and reminders</string>
+    <string name="channel_alerts_description">Readings that need attention, reminders to measure, and your clinician\'s reviews</string>
+    <string name="channel_messages">Messages</string>
+    <string name="channel_messages_description">New messages from your clinician or your patients</string>
+</resources>

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../screens/connect_clinician_screen.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Prompts a patient who has no clinician to connect to one.
 ////// Renders nothing at all once the patient is connected, so it can be
@@ -43,7 +44,7 @@ class _ClinicianLinkCardState extends State<ClinicianLinkCard> {
               ),
               const SizedBox(width: 8),
               Text(
-                'No clinician connected',
+                context.l10n.noClinicianConnected,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -54,8 +55,7 @@ class _ClinicianLinkCardState extends State<ClinicianLinkCard> {
           ),
           const SizedBox(height: 6),
           Text(
-            'You can record readings now, but nobody is reviewing them yet. '
-            'Enter the code your doctor gives you to connect.',
+            context.l10n.noClinicianConnectedNote,
             style: TextStyle(
               fontSize: 12,
               color: AppColors.warningText(context),
@@ -84,9 +84,9 @@ class _ClinicianLinkCardState extends State<ClinicianLinkCard> {
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text(
-                'Connect to a clinician',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              child: Text(
+                context.l10n.connectToAClinician,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
           ),

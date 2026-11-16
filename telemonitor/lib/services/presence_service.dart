@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'auth_service.dart';
+import '../l10n/l10n.dart';
 
 /// Lightweight online presence, built on a heartbeat.
 ///
@@ -75,12 +76,13 @@ class PresenceService {
 
   /// Human-readable status line.
   static String describe(DateTime? lastSeen) {
-    if (lastSeen == null) return 'Offline';
-    if (isOnline(lastSeen)) return 'Online';
+    final l10n = l10nNow;
+    if (lastSeen == null) return l10n.presenceOffline;
+    if (isOnline(lastSeen)) return l10n.presenceOnline;
     final d = DateTime.now().difference(lastSeen);
-    if (d.inMinutes < 60) return 'Last seen ${d.inMinutes} min ago';
-    if (d.inHours < 24) return 'Last seen ${d.inHours} h ago';
-    if (d.inDays == 1) return 'Last seen yesterday';
-    return 'Last seen ${d.inDays} days ago';
+    if (d.inMinutes < 60) return l10n.lastSeenMinutes(d.inMinutes);
+    if (d.inHours < 24) return l10n.lastSeenHours(d.inHours);
+    if (d.inDays == 1) return l10n.lastSeenYesterday;
+    return l10n.lastSeenDays(d.inDays);
   }
 }

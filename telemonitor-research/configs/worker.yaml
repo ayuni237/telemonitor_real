@@ -43,3 +43,30 @@ notify:
   message:
     patient: ["New message from your clinician", "{count} new messages from your clinician"]
     clinician: ["New message from {pseudonym}", "{count} new messages from {pseudonym}"]
+  titles:
+    alert: "TeleMonitor alert"
+    escalation: "TeleMonitor escalation"
+  tiers: {green: green, yellow: yellow, red: red}
+
+# The same in French, for a user who chose French in the app (users/{uid}.language).
+# Who receives a notification is decided by `notify` above; this gives only the words.
+notify_fr:
+  red:
+    patient: "Votre dernière mesure est dans la zone rouge. Rendez-vous aujourd'hui à votre centre de santé ou à l'hôpital."
+    clinician: "Alerte rouge : {pseudonym}, {trigger}"
+  yellow:
+    patient: "Votre dernière mesure est au-dessus de votre objectif à domicile. Faites le contrôle indiqué dans l'application : d'autres mesures dans les prochains jours."
+    clinician: null
+  non_transmission:
+    patient: "Nous n'avons reçu aucune mesure de votre part depuis {days} jours. Veuillez mesurer et enregistrer une mesure."
+  escalation:
+    clinician: "Alerte non examinée pour {pseudonym} depuis {age} h ({tier})"
+  verdict:
+    patient: "Votre clinicien a examiné votre alerte du {date}."
+  message:
+    patient: ["Nouveau message de votre clinicien", "{count} nouveaux messages de votre clinicien"]
+    clinician: ["Nouveau message de {pseudonym}", "{count} nouveaux messages de {pseudonym}"]
+  titles:
+    alert: "Alerte TeleMonitor"
+    escalation: "Alerte TeleMonitor transmise"
+  tiers: {green: vert, yellow: jaune, red: rouge}

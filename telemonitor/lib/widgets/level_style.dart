@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/home_protocol.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// One colour per level of the home triage (green, yellow, red; thesis ch.4
 /// §triage), used by every screen, so that a reading looks the same on the
@@ -15,12 +16,13 @@ class LevelStyle {
   const LevelStyle(this.label, this.fg, this.bg);
 
   factory LevelStyle.of(BuildContext context, int? level) => switch (level) {
-        HomeProtocol.red => LevelStyle(HomeProtocol.name(level), AppColors.dangerText(context), AppColors.dangerBg(context)),
+        HomeProtocol.red =>
+          LevelStyle(context.l10n.homeLevel(level), AppColors.dangerText(context), AppColors.dangerBg(context)),
         HomeProtocol.yellow =>
-          LevelStyle(HomeProtocol.name(level), AppColors.warningText(context), AppColors.warningBg(context)),
+          LevelStyle(context.l10n.homeLevel(level), AppColors.warningText(context), AppColors.warningBg(context)),
         HomeProtocol.green =>
-          LevelStyle(HomeProtocol.name(level), AppColors.successText(context), AppColors.successBg(context)),
-        _ => LevelStyle(HomeProtocol.name(null), AppColors.textSecondary(context), AppColors.field(context)),
+          LevelStyle(context.l10n.homeLevel(level), AppColors.successText(context), AppColors.successBg(context)),
+        _ => LevelStyle(context.l10n.homeLevel(null), AppColors.textSecondary(context), AppColors.field(context)),
       };
 
   /// Value colour on a neutral card: only yellow and red stand out.

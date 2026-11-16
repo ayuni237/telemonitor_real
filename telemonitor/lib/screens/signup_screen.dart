@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/consent_checks.dart';
+import '../l10n/l10n.dart';
 
 /// Patient self-registration.
 ///
@@ -88,24 +89,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String? _validate() {
     if (_nameController.text.trim().isEmpty) {
-      return 'Please enter your full name.';
+      return context.l10n.enterFullName;
     }
     if (_emailController.text.trim().isEmpty) {
-      return 'Please enter your email address.';
+      return context.l10n.enterEmail;
     }
     if (_passwordController.text.length < 6) {
-      return 'Please choose a password of at least 6 characters.';
+      return context.l10n.passwordTooShort;
     }
     // The clinician code is OPTIONAL. A patient may register without one
     // and connect later — otherwise someone who has heard about the app
     // but has no code yet is locked out entirely.
     final code = _codeController.text.trim();
     if (code.isNotEmpty && _verifiedCode == null) {
-      return 'That code was not recognised. Check it, or clear the field '
-          'and connect to your clinician later.';
+      return context.l10n.codeNotRecognisedSignup;
     }
     if (!_acceptTerms) {
-      return 'Please read and accept the terms of use to create your account.';
+      return context.l10n.acceptTermsFirst;
     }
     return null;
   }
@@ -153,9 +153,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
-        title: const Text(
-          'Create account',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.createAccount,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       body: SafeArea(
@@ -178,7 +178,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Join your care team',
+                        context.l10n.joinCareTeam,
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -187,36 +187,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Create your account to start recording readings. '
-                        'You can connect to a clinician now or later.',
+                        context.l10n.joinCareTeamNote,
                         style: TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary(context)),
                       ),
                       const SizedBox(height: 24),
 
-                      _label('Full name'),
+                      _label(context.l10n.fullName),
                       const SizedBox(height: 8),
                       _field(
                         controller: _nameController,
-                        hint: 'e.g. Jean Mbarga',
+                        hint: context.l10n.fullNameHint,
                         icon: Icons.person_outline,
                       ),
                       const SizedBox(height: 16),
 
-                      _label('Email'),
+                      _label(context.l10n.emailLabel),
                       const SizedBox(height: 8),
                       _field(
                         controller: _emailController,
-                        hint: 'you@example.com',
+                        hint: context.l10n.emailHint,
                         icon: Icons.email_outlined,
                         keyboardType: TextInputType.emailAddress,
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 6, left: 4),
                         child: Text(
-                          'Use an address you can open: we send a link to confirm it, '
-                          'and it is how you set a new password if you forget yours.',
+                          context.l10n.emailUseNote,
                           style: TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary(context),
@@ -225,11 +223,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      _label('Password'),
+                      _label(context.l10n.passwordLabel),
                       const SizedBox(height: 8),
                       _field(
                         controller: _passwordController,
-                        hint: 'At least 6 characters',
+                        hint: context.l10n.passwordHint,
                         icon: Icons.lock_outline,
                         obscure: _obscurePassword,
                         suffix: IconButton(
@@ -252,7 +250,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         crossAxisAlignment: WrapCrossAlignment.end,
                         children: [
                           Text(
-                            'Clinician code',
+                            context.l10n.clinicianCode,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -260,7 +258,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                           Text(
-                            '(optional)',
+                            context.l10n.optional,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary(context),
@@ -270,9 +268,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Have one from your doctor? Enter it to connect '
-                        'straight away. You can also skip this and connect '
-                        'later from your profile.',
+                        context.l10n.clinicianCodeNote,
                         style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondary(context),
@@ -281,7 +277,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       const SizedBox(height: 8),
                       _field(
                         controller: _codeController,
-                        hint: 'e.g. MBARGA-4F7K',
+                        hint: context.l10n.clinicianCodeHint,
                         icon: Icons.medical_services_outlined,
                         onChanged: _onCodeChanged,
                         textCapitalization: TextCapitalization.characters,
@@ -349,9 +345,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Create account',
-                                  style: TextStyle(
+                              : Text(
+                                  context.l10n.createAccount,
+                                  style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600),
                                 ),
@@ -363,7 +359,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(
-                            'Already have an account? Sign in',
+                            context.l10n.haveAccountSignIn,
                             style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.primaryText(context)),
@@ -391,8 +387,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Clinician accounts are created by the '
-                            'administrator, not here.',
+                            context.l10n.clinicianAccountsNote,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.7),
@@ -426,7 +421,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 8),
-            Text('Checking code…',
+            Text(context.l10n.checkingCode,
                 style: TextStyle(
                     fontSize: 11, color: AppColors.textSecondary(context))),
           ],
@@ -444,7 +439,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                'You will be linked to ${_verifiedCode!.clinicianName}',
+                context.l10n.willBeLinkedTo(_verifiedCode!.clinicianName),
                 style: TextStyle(
                   fontSize: 11,
                   color: AppColors.successText(context),
@@ -465,7 +460,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Icon(Icons.error_outline,
                 size: 14, color: AppColors.dangerText(context)),
             const SizedBox(width: 6),
-            Text('Code not recognised',
+            Text(context.l10n.codeNotRecognised,
                 style: TextStyle(
                     fontSize: 11, color: AppColors.dangerText(context))),
           ],

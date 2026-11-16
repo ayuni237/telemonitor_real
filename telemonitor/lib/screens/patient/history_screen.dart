@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/reading.dart';
 import '../../services/home_protocol.dart';
@@ -6,6 +7,7 @@ import '../../services/readings_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/level_style.dart';
 import 'log_reading_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// The patient's full reading history, with a filterable list and a
 /// summary tab.
@@ -67,9 +69,9 @@ class _HistoryScreenState extends State<HistoryScreen>
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text(
-          'Reading History',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.readingHistory,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -79,7 +81,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           unselectedLabelColor: Colors.white.withValues(alpha: 0.55),
           labelStyle:
               const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          tabs: const [Tab(text: 'Readings'), Tab(text: 'Summary')],
+          tabs: [Tab(text: context.l10n.readingsTab), Tab(text: context.l10n.summaryTab)],
         ),
       ),
       body: TabBarView(
@@ -97,9 +99,8 @@ class _HistoryScreenState extends State<HistoryScreen>
     if (_all.isEmpty) {
       return _emptyState(
         Icons.history_outlined,
-        'No readings yet',
-        'Your readings will appear here once you log your first one. '
-            'Tap the + button on the home screen to start.',
+        context.l10n.noReadingsYet,
+        context.l10n.historyEmptyNote,
       );
     }
 
@@ -112,8 +113,8 @@ class _HistoryScreenState extends State<HistoryScreen>
           child: items.isEmpty
               ? _emptyState(
                   Icons.filter_alt_off_outlined,
-                  'No readings match this filter',
-                  'Try another filter to see the rest of your history.',
+                  context.l10n.noReadingsMatch,
+                  context.l10n.noReadingsMatchNote,
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -154,7 +155,8 @@ class _HistoryScreenState extends State<HistoryScreen>
                       ),
                     ),
                     child: Text(
-                      f,
+                      // the filter values stay the stored level names; shown in the user's language
+                      f == 'All' ? context.l10n.filterAll : context.l10n.homeLevel(HomeProtocol.names.indexOf(f)),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -178,13 +180,9 @@ class _HistoryScreenState extends State<HistoryScreen>
     final today = DateTime(now.year, now.month, now.day);
     final that = DateTime(ts.year, ts.month, ts.day);
     final diff = today.difference(that).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${ts.day} ${months[ts.month - 1]}';
+    if (diff == 0) return context.l10n.today;
+    if (diff == 1) return context.l10n.yesterday;
+    return DateFormat('d MMM').format(ts);
   }
 
   String _time(DateTime ts) =>
@@ -270,13 +268,13 @@ class _HistoryScreenState extends State<HistoryScreen>
               Expanded(
                 child: Text(
                   [
-                    if (r.context.isNotEmpty) _contextText(r.context),
-                    if (ReadingsRepository.instance.isPending(r)) 'saved on your phone, not sent yet',
-                    if (r.readingCount == 2) 'second of two readings',
+                    if (r.context.isNotEmpty) context.l10n.readingContextShort(r.context),
+                    if (ReadingsRepository.instance.isPending(r)) context.l10n.tagPending,
+                    if (r.readingCount == 2) context.l10n.tagSecondOfTwo,
                     if (r.hrCamera != null)
-                      r.hr == null ? 'pulse by phone camera' : 'pulse by phone camera ${r.hrCamera}',
-                    if (r.isCorrection) 'corrected entry',
-                    if (r.isBackdated) 'entered later',
+                      r.hr == null ? context.l10n.tagPulseCamera : context.l10n.tagPulseCameraValue(r.hrCamera!),
+                    if (r.isCorrection) context.l10n.tagCorrected,
+                    if (r.isBackdated) context.l10n.tagEnteredLater,
                   ].join(' · '),
                   style: TextStyle(fontSize: 12, color: AppColors.textMuted(context)),
                 ),
@@ -293,7 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 icon: const Icon(Icons.edit_outlined, size: 14),
-                label: const Text('Correct', style: TextStyle(fontSize: 12)),
+                label: Text(context.l10n.correct, style: const TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -301,17 +299,6 @@ class _HistoryScreenState extends State<HistoryScreen>
       ),
     );
   }
-
-  /// The measurement context in plain words (the entry screen's labels).
-  static String _contextText(String c) => switch (c) {
-        'Fasting' => 'fasting',
-        'Before meal' => 'before a meal',
-        'After meal' => 'after a meal',
-        'After medication' => 'after medication',
-        'After exercise' => 'after exercise',
-        'Random' => 'other time',
-        _ => c,
-      };
 
   Widget _chip(String text, Color fg, Color bg, {bool bold = false}) {
     return Container(
@@ -383,9 +370,8 @@ class _HistoryScreenState extends State<HistoryScreen>
     if (_all.isEmpty) {
       return _emptyState(
         Icons.insights_outlined,
-        'Nothing to summarise yet',
-        'Once you have logged a few readings, your averages and patterns '
-            'will appear here.',
+        context.l10n.nothingToSummarise,
+        context.l10n.nothingToSummariseNote,
       );
     }
 
@@ -415,7 +401,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           children: [
             Expanded(
               child: _statCard(
-                'Avg blood pressure',
+                context.l10n.avgBloodPressure,
                 avgSbp == null
                     ? '—'
                     : '${avgSbp.round()}/${avgDbp!.round()}',
@@ -426,7 +412,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             const SizedBox(width: 12),
             Expanded(
               child: _statCard(
-                'Avg glucose',
+                context.l10n.avgGlucose,
                 avgGlu == null ? '—' : avgGlu.toStringAsFixed(1),
                 'mmol/L',
                 Icons.water_drop_outlined,
@@ -435,23 +421,23 @@ class _HistoryScreenState extends State<HistoryScreen>
           ],
         ),
         const SizedBox(height: 12),
-        _statCard('Total readings', '$total',
-            total == 1 ? 'reading logged' : 'readings logged',
+        _statCard(context.l10n.totalReadings, '$total',
+            context.l10n.readingsLogged(total),
             Icons.format_list_numbered),
         const SizedBox(height: 16),
         _section(
-          'Reading distribution',
+          context.l10n.readingDistribution,
           Column(
             children: [
               for (final l in _levels) ...[
-                _distributionBar(HomeProtocol.name(l), counts[l]!, total, LevelStyle.of(context, l).fg),
+                _distributionBar(context.l10n.homeLevel(l), counts[l]!, total, LevelStyle.of(context, l).fg),
                 if (l > HomeProtocol.green) const SizedBox(height: 12),
               ],
             ],
           ),
         ),
         const SizedBox(height: 16),
-        _section('Insights', Column(children: _insights(counts, total))),
+        _section(context.l10n.insights, Column(children: _insights(counts, total))),
         const SizedBox(height: 24),
       ],
     );
@@ -468,14 +454,13 @@ class _HistoryScreenState extends State<HistoryScreen>
     if (alerts > 0) {
       out.add(_insightRow(
         Icons.warning_amber_rounded,
-        '${(highShare * 100).round()}% of your readings were above your home '
-        'target or out of range.',
+        context.l10n.insightHighShare((highShare * 100).round()),
         AppColors.warningText(context),
       ));
     } else {
       out.add(_insightRow(
         Icons.check_circle_outline,
-        'All your readings so far have been within your home targets.',
+        context.l10n.insightAllInTarget,
         AppColors.successText(context),
       ));
     }
@@ -485,8 +470,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       out.add(const SizedBox(height: 10));
       out.add(_insightRow(
         Icons.tips_and_updates_outlined,
-        'Logging blood pressure and glucose together gives your risk '
-        'score the most to work with.',
+        context.l10n.insightLogBoth,
         AppColors.primaryText(context),
       ));
     }
@@ -494,8 +478,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     out.add(const SizedBox(height: 10));
     out.add(_insightRow(
       Icons.schedule,
-      'Your risk tier is worked out from your readings of the last four '
-      'days.',
+      context.l10n.insightFourDays,
       AppColors.textSecondary(context),
     ));
 

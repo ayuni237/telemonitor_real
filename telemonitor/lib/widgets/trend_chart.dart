@@ -1,9 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/reading.dart';
 import '../services/queue_logic.dart' show trendWindow;
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Systolic pressure over the last fourteen days with the home target band
 /// behind the series (thesis ch.4 §Trends and what the patient sees). The
@@ -44,12 +46,8 @@ class _TrendChartState extends State<TrendChart> {
       ];
 
   String _dayLabel(double x) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
     final d = _windowStart.add(Duration(days: x.round()));
-    return '${d.day} ${months[d.month - 1]}';
+    return DateFormat('d MMM').format(d);
   }
 
   /// Green systolic range of the home triage (HomeProtocol): from 110 to
@@ -92,7 +90,7 @@ class _TrendChartState extends State<TrendChart> {
             children: [
               Flexible(
                 child: Text(
-                  'Systolic trend — last 14 days',
+                  context.l10n.trendTitle,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -109,7 +107,7 @@ class _TrendChartState extends State<TrendChart> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Home target < 135/85',
+                  context.l10n.homeTargetBadge,
                   style: TextStyle(
                     fontSize: 10,
                     color: AppColors.successText(context),
@@ -125,7 +123,7 @@ class _TrendChartState extends State<TrendChart> {
               height: 140,
               child: Center(
                 child: Text(
-                  'No blood pressure reading in the last 14 days',
+                  context.l10n.noBpIn14Days,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -233,16 +231,12 @@ class _TrendChartState extends State<TrendChart> {
           if (widget.explain) ...[
             const SizedBox(height: 12),
             Text(
-              'Green band: your home target for the upper number, from 110 to 134 mmHg (with the lower '
-              'number below 85). Keeping your blood pressure there lowers the risk of stroke and heart '
-              'disease.',
+              context.l10n.greenBandNote,
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context), height: 1.4),
             ),
             const SizedBox(height: 6),
             Text(
-              'Usual routine: blood pressure twice a week, morning and evening, two readings each time; '
-              'glucose once a week, fasting and 90 minutes after lunch. Measure more often when the app '
-              'asks for a check.',
+              context.l10n.routineNote,
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context), height: 1.4),
             ),
           ],

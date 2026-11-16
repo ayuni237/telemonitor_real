@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/chat_service.dart';
 import '../services/presence_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// The live message thread for one patient, plus the input bar.
 ///
@@ -73,7 +74,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _messageController.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not send: $e'),
+          content: Text(context.l10n.couldNotSend('$e')),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -95,7 +96,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               stream: ChatService.instance.watchMessages(widget.patientId),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return _centered('Could not load messages.\n${snapshot.error}');
+                  return _centered(context.l10n.messagesNotLoaded('${snapshot.error}'));
                 }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -103,8 +104,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
                 final messages = snapshot.data!;
                 if (messages.isEmpty) {
-                  return _centered(
-                      'No messages yet.\nStart the conversation below.');
+                  return _centered(context.l10n.noMessagesYet);
                 }
 
                 // Mark incoming messages read. Done after the frame so it
@@ -274,7 +274,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
                 style: TextStyle(
                     fontSize: 14, color: AppColors.textPrimary(context)),
                 decoration: InputDecoration(
-                  hintText: 'Type a message...',
+                  hintText: context.l10n.typeAMessage,
                   hintStyle: TextStyle(
                       color: AppColors.textMuted(context), fontSize: 13),
                   filled: true,

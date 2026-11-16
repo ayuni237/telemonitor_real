@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../services/clinician_code_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Shows the signed-in clinician their enrolment code, with a one-tap
 /// copy so it can be written on a prescription slip or sent to a patient
@@ -43,9 +44,7 @@ class EnrolmentCodeCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'No enrolment code has been issued for your account '
-                    'yet. Contact the system administrator — without one, '
-                    'patients cannot register to you.',
+                    context.l10n.noEnrolmentCode,
                     style: TextStyle(fontSize: 12, color: AppColors.warningText(context)),
                   ),
                 ),
@@ -71,7 +70,7 @@ class EnrolmentCodeCard extends StatelessWidget {
                       size: 16, color: Colors.white70),
                   const SizedBox(width: 8),
                   Text(
-                    'Your enrolment code',
+                    context.l10n.yourEnrolmentCode,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -113,8 +112,8 @@ class EnrolmentCodeCard extends StatelessWidget {
                         await Clipboard.setData(ClipboardData(text: code));
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Code copied'),
+                          SnackBar(
+                            content: Text(context.l10n.codeCopied),
                             backgroundColor: AppColors.success,
                             duration: Duration(seconds: 2),
                           ),
@@ -130,7 +129,7 @@ class EnrolmentCodeCard extends StatelessWidget {
                                 size: 16, color: AppColors.primaryText(context)),
                             SizedBox(width: 6),
                             Text(
-                              'Copy',
+                              context.l10n.copy,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -146,8 +145,7 @@ class EnrolmentCodeCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Give this code to a patient so they can register and be '
-                'linked to you.',
+                context.l10n.giveCodeNote,
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withValues(alpha: 0.6),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/terms_screen.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// The two ticks of the sign-up form and of the terms screen: the terms of
 /// use (required) and the use of the data for research (optional, separate,
@@ -32,7 +33,7 @@ class ConsentChecks extends StatelessWidget {
         _Tick(
           value: terms,
           onChanged: onTerms,
-          text: 'I have read and I accept the terms of use and the privacy notice.',
+          text: context.l10n.acceptTermsTick,
         ),
         if (showReadLink)
           Padding(
@@ -45,16 +46,14 @@ class ConsentChecks extends StatelessWidget {
                 foregroundColor: AppColors.primaryText(context),
               ),
               icon: const Icon(Icons.description_outlined, size: 16),
-              label: const Text('Read the terms', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              label: Text(context.l10n.readTheTerms, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
             ),
           ),
         const SizedBox(height: 4),
         _Tick(
           value: research,
           onChanged: onResearch,
-          text: 'Optional: my data, without my name, contact details, photo or messages, may be '
-              'used for medical research. My care is the same if I say no, and I can change '
-              'this later in my profile.',
+          text: context.l10n.researchTick,
         ),
       ],
     );

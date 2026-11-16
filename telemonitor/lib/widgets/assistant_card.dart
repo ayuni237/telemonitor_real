@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/patient/assistant_screen.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Entry point to the health assistant.
 ///
@@ -52,7 +53,7 @@ class AssistantCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Ask the Health Assistant',
+                        context.l10n.askHealthAssistant,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -61,7 +62,7 @@ class AssistantCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Understand your readings and your condition',
+                        context.l10n.understandReadings,
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.textSecondary(context),

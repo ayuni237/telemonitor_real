@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../models/reading.dart';
 import '../services/home_protocol.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// The verification profile of the yellow level (thesis ch.4, Table
 /// "tab:thresholds", Figure "two-stage triage"): an isolated reading above
@@ -18,10 +20,7 @@ class ProfileCard extends StatelessWidget {
 
   const ProfileCard({super.key, required this.readings, this.forClinician = false, this.now});
 
-  String _date(DateTime t) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${t.day} ${months[t.month - 1]}';
-  }
+  String _date(BuildContext context, DateTime t) => DateFormat('d MMM').format(t);
 
   @override
   Widget build(BuildContext context) {
@@ -42,32 +41,23 @@ class ProfileCard extends StatelessWidget {
       ProfileStatus.incomplete => (AppColors.warningText(context), AppColors.warningBg(context)),
       ProfileStatus.inProgress => (AppColors.primaryText(context), AppColors.tint(context)),
     };
-    final title = bp ? '7-day blood pressure check' : 'One-day glucose check';
-    final how = bp
-        ? 'Every morning and every evening for 7 days: sit and rest 5 minutes, then take two readings '
-            'one minute apart and log both.'
-        : 'During one day: before and 90 minutes after each of your three meals (6 readings). '
-            'Choose "Before meal" or "After meal" when you log each one.';
+    final l10n = context.l10n;
+    final title = bp ? l10n.bpCheckTitle : l10n.glucoseCheckTitle;
+    final how = bp ? l10n.bpCheckHow : l10n.glucoseCheckHow;
     final progress = bp
-        ? '${p.readings} of ${p.expected} readings · ${p.days} day${p.days == 1 ? '' : 's'} · until ${_date(p.end)}'
-        : 'Before meals: ${p.beforeMeal} of 3 · after meals: ${p.afterMeal} of 3 · until ${_date(p.end)}';
+        ? l10n.bpCheckProgress(p.readings, p.expected, l10n.periodDays(p.days), _date(context, p.end))
+        : l10n.glucoseCheckProgress(p.beforeMeal, p.afterMeal, _date(context, p.end));
     final mean = bp
-        ? (p.meanSbp == null ? null : 'Average ${p.meanSbp!.round()}/${p.meanDbp!.round()} mmHg (target below 135/85)')
+        ? (p.meanSbp == null ? null : l10n.bpCheckMean('${p.meanSbp!.round()}/${p.meanDbp!.round()}'))
         : [
-            if (p.meanBeforeMeal != null)
-              'before meals: ${p.meanBeforeMeal!.toStringAsFixed(1)} mmol/L (target 7 or less)',
-            if (p.meanAfterMeal != null)
-              'after meals: ${p.meanAfterMeal!.toStringAsFixed(1)} mmol/L (target 10 or less)',
-          ].fold<String?>(null, (acc, x) => acc == null ? 'Average $x' : '$acc; $x');
+            if (p.meanBeforeMeal != null) l10n.meanBeforeMeals(p.meanBeforeMeal!.toStringAsFixed(1)),
+            if (p.meanAfterMeal != null) l10n.meanAfterMeals(p.meanAfterMeal!.toStringAsFixed(1)),
+          ].fold<String?>(null, (acc, x) => acc == null ? l10n.averageOf(x) : l10n.joinedBySemicolon(acc, x));
     final result = switch (p.status) {
-      ProfileStatus.inProgress => forClinician ? 'In progress.' : how,
-      ProfileStatus.complete when off => forClinician
-          ? 'Off target: teleconsultation (red event in the queue).'
-          : 'Your average is above the target. Your clinician has the result; contact your health centre.',
-      ProfileStatus.complete => forClinician ? 'On target.' : 'Your average is on target. Keep measuring as usual.',
-      ProfileStatus.incomplete => forClinician
-          ? 'Incomplete: too few readings to conclude.'
-          : 'Not enough readings to conclude. Contact your health centre or start the check again.',
+      ProfileStatus.inProgress => forClinician ? l10n.checkInProgressClinician : how,
+      ProfileStatus.complete when off => forClinician ? l10n.checkOffTargetClinician : l10n.checkOffTargetPatient,
+      ProfileStatus.complete => forClinician ? l10n.checkOnTargetClinician : l10n.checkOnTargetPatient,
+      ProfileStatus.incomplete => forClinician ? l10n.checkIncompleteClinician : l10n.checkIncompletePatient,
     };
     final value = done ? 1.0 : (p.readings / p.expected).clamp(0.0, 1.0);
 
@@ -95,9 +85,9 @@ class ProfileCard extends StatelessWidget {
               decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
               child: Text(
                 switch (p.status) {
-                  ProfileStatus.inProgress => 'In progress',
-                  ProfileStatus.complete => off ? 'Above target' : 'On target',
-                  ProfileStatus.incomplete => 'Incomplete',
+                  ProfileStatus.inProgress => context.l10n.inProgress,
+                  ProfileStatus.complete => off ? context.l10n.aboveTarget : context.l10n.onTarget,
+                  ProfileStatus.incomplete => context.l10n.incomplete,
                 },
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg),
               ),

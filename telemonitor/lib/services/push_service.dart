@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_messenger.dart';
+import '../l10n/l10n.dart';
 
 /// What a notification opens when tapped: the conversation about a patient
 /// (data sent by the worker with a message notification, worker.py).
@@ -91,7 +92,7 @@ class PushService {
         final target = PushTarget.fromData(msg.data);
         AppMessenger.show(
           [n.title, n.body].whereType<String>().join(' — '),
-          action: target == null ? null : (label: 'Open', onPressed: () => opened.value = target),
+          action: target == null ? null : (label: l10nNow.open, onPressed: () => opened.value = target),
         );
       });
       // a tap on a notification while the app was in the background, or one that launched it

@@ -4,6 +4,7 @@ import '../models/clinical_event.dart';
 import '../services/chat_service.dart';
 import '../services/events_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Verdict capture (thesis ch.4 §Clinician dashboard): two or three
 /// interactions — true alert, false alert or uncertain, plus the action
@@ -58,7 +59,7 @@ class _VerdictSheetState extends State<_VerdictSheet> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Could not save the verdict: $e';
+          _error = context.l10n.verdictNotSaved('$e');
         });
       }
     }
@@ -74,7 +75,7 @@ class _VerdictSheetState extends State<_VerdictSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Verdict', style: label.copyWith(fontSize: 15)),
+          Text(context.l10n.verdict, style: label.copyWith(fontSize: 15)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -88,7 +89,7 @@ class _VerdictSheetState extends State<_VerdictSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          Text('Action taken', style: label),
+          Text(context.l10n.actionTaken, style: label),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -108,13 +109,13 @@ class _VerdictSheetState extends State<_VerdictSheet> {
             maxLines: 2,
             maxLength: 1000,
             style: TextStyle(fontSize: 14, color: AppColors.textPrimary(context)),
-            decoration: const InputDecoration(hintText: 'Comment (optional) — serves as the clinical note'),
+            decoration: InputDecoration(hintText: context.l10n.verdictCommentHint),
           ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _tellPatient,
             onChanged: (v) => setState(() => _tellPatient = v ?? false),
-            title: const Text('Send the comment to the patient', style: TextStyle(fontSize: 13)),
+            title: Text(context.l10n.sendCommentToPatient, style: const TextStyle(fontSize: 13)),
           ),
           if (_error != null)
             Text(_error!, style: TextStyle(fontSize: 12, color: AppColors.dangerText(context))),
@@ -123,7 +124,7 @@ class _VerdictSheetState extends State<_VerdictSheet> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _verdict == null || _saving ? null : _save,
-              child: Text(_saving ? 'Saving…' : 'Close the alert'),
+              child: Text(_saving ? context.l10n.saving : context.l10n.closeAlert),
             ),
           ),
         ],

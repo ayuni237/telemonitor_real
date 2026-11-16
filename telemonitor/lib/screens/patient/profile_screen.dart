@@ -10,10 +10,12 @@ import '../../services/profile_service.dart';
 import '../../services/push_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/clinician_link_card.dart';
+import '../../widgets/language_selector_card.dart';
 import '../../widgets/theme_selector_card.dart';
 import '../../widgets/user_avatar.dart';
 import '../terms_screen.dart';
 import 'edit_profile_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// The patient's own profile, driven by their Firestore document.
 class ProfileScreen extends StatelessWidget {
@@ -29,14 +31,14 @@ class ProfileScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppColors.background(context),
           appBar: AppBar(
-            title: const Text(
-              'My Profile',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            title: Text(
+              context.l10n.myProfile,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             actions: [
               if (profile != null)
                 IconButton(
-                  tooltip: 'Edit profile',
+                  tooltip: context.l10n.editProfile,
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   onPressed: () => Navigator.push(
                     context,
@@ -70,7 +72,7 @@ class ProfileScreen extends StatelessWidget {
                 if (p.conditions.isNotEmpty) ...[
                   _listCard(
                     context,
-                    'Medical Conditions',
+                    context.l10n.medicalConditions,
                     Icons.medical_information_outlined,
                     p.conditions,
                     AppColors.dangerText(context),
@@ -80,7 +82,7 @@ class ProfileScreen extends StatelessWidget {
                 if (p.medications.isNotEmpty) ...[
                   _listCard(
                     context,
-                    'Current Medications',
+                    context.l10n.currentMedications,
                     Icons.medication_outlined,
                     p.medications,
                     AppColors.primaryText(context),
@@ -90,17 +92,17 @@ class ProfileScreen extends StatelessWidget {
                 if (p.height != null || p.weight != null) ...[
                   _card(
                     context,
-                    title: 'Physical Info',
+                    title: context.l10n.physicalInfo,
                     icon: Icons.monitor_weight_outlined,
                     child: Column(
                       children: [
                         if (p.height != null)
-                          _row(context, 'Height', _withUnit(p.height!, 'cm'),
+                          _row(context, context.l10n.height, _withUnit(p.height!, 'cm'),
                               Icons.height),
                         if (p.height != null && p.weight != null)
                           const SizedBox(height: 10),
                         if (p.weight != null)
-                          _row(context, 'Weight', _withUnit(p.weight!, 'kg'),
+                          _row(context, context.l10n.weight, _withUnit(p.weight!, 'kg'),
                               Icons.monitor_weight_outlined),
                       ],
                     ),
@@ -110,17 +112,17 @@ class ProfileScreen extends StatelessWidget {
                 if (p.phone != null || p.emergencyContact != null) ...[
                   _card(
                     context,
-                    title: 'Contact',
+                    title: context.l10n.contact,
                     icon: Icons.phone_outlined,
                     child: Column(
                       children: [
                         if (p.phone != null)
-                          _row(context, 'Phone', p.phone!,
+                          _row(context, context.l10n.phone, p.phone!,
                               Icons.phone_outlined),
                         if (p.phone != null && p.emergencyContact != null)
                           const SizedBox(height: 10),
                         if (p.emergencyContact != null)
-                          _row(context, 'Emergency', p.emergencyContact!,
+                          _row(context, context.l10n.emergency, p.emergencyContact!,
                               Icons.emergency_outlined),
                       ],
                     ),
@@ -135,25 +137,29 @@ class ProfileScreen extends StatelessWidget {
                 const ThemeSelectorCard(),
                 const SizedBox(height: 14),
 
+                // English or French, for the app, notifications and emails.
+                const LanguageSelectorCard(),
+                const SizedBox(height: 14),
+
                 _card(
                   context,
-                  title: 'Account',
+                  title: context.l10n.account,
                   icon: Icons.badge_outlined,
                   child: Column(
                     children: [
-                      _row(context, 'Email', p.email, Icons.email_outlined),
+                      _row(context, context.l10n.emailLabel, p.email, Icons.email_outlined),
                       const SizedBox(height: 10),
                       _row(
                         context,
-                        'Clinician',
-                        p.isAssigned ? 'Assigned' : 'Not yet assigned',
+                        context.l10n.clinician,
+                        p.isAssigned ? context.l10n.assigned : context.l10n.notYetAssigned,
                         Icons.person_pin_outlined,
                       ),
                       const SizedBox(height: 4),
                       _actionRow(
                         context,
-                        'Password',
-                        'Change',
+                        context.l10n.passwordLabel,
+                        context.l10n.change,
                         Icons.lock_outline,
                         () => _changePassword(context, p.email),
                       ),
@@ -176,18 +182,18 @@ class ProfileScreen extends StatelessWidget {
   /// withdraw at any time (consent_service.dart).
   Widget _consentCard(BuildContext context, AppUser p) {
     final accepted = p.termsAcceptedAt == null
-        ? 'Accepted'
-        : 'Accepted ${DateFormat('d MMM y').format(p.termsAcceptedAt!)}';
+        ? context.l10n.termsAccepted
+        : context.l10n.termsAcceptedOn(DateFormat('d MMM y').format(p.termsAcceptedAt!));
     return _card(
       context,
-      title: 'Privacy and consent',
+      title: context.l10n.privacyAndConsent,
       icon: Icons.privacy_tip_outlined,
       child: Column(
         children: [
           _actionRow(
             context,
-            'Terms of use',
-            'Read',
+            context.l10n.termsOfUse,
+            context.l10n.read,
             Icons.description_outlined,
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsScreen())),
             detail: accepted,
@@ -205,12 +211,11 @@ class ProfileScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Use of my data for research',
+                    Text(context.l10n.researchUseTitle,
                         style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
                     const SizedBox(height: 2),
                     Text(
-                      'Without your name, contact details, photo or messages. '
-                      'Your care is the same either way.',
+                      context.l10n.researchUseNote,
                       style: TextStyle(fontSize: 11, height: 1.35, color: AppColors.textMuted(context)),
                     ),
                   ],
@@ -230,16 +235,17 @@ class ProfileScreen extends StatelessWidget {
 
   static Future<void> _setResearch(BuildContext context, bool value) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     String text;
     try {
       await ConsentService.instance.setResearchConsent(value);
       text = value
-          ? 'Thank you. Your data, without your name or contact details, may be used for research.'
-          : 'Done. Your data will be left out of new research extracts.';
+          ? l10n.researchConsentGiven
+          : l10n.researchConsentWithdrawn;
     } on TimeoutException {
-      text = 'Saved on the phone. It will be sent when you are back online.';
+      text = l10n.savedOffline;
     } catch (e) {
-      text = 'Could not save your choice: $e';
+      text = l10n.choiceNotSaved('$e');
     }
     messenger.showSnackBar(SnackBar(content: Text(text)));
   }
@@ -247,10 +253,11 @@ class ProfileScreen extends StatelessWidget {
   /// A reset link to the account's own address, as from the login screen.
   static Future<void> _changePassword(BuildContext context, String email) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       await AuthService.instance.sendPasswordReset(email);
       messenger.showSnackBar(SnackBar(
-        content: Text('We sent a link to $email to choose a new password. Look in the spam folder too.'),
+        content: Text(l10n.resetLinkSentTo(email)),
       ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(AuthService.instance.messageFor(e))));
@@ -303,7 +310,7 @@ class ProfileScreen extends StatelessWidget {
           // Optional photo: tap to take, choose or remove it.
           Semantics(
             button: true,
-            label: 'Change profile photo',
+            label: context.l10n.changeProfilePhoto,
             child: GestureDetector(
               onTap: () => showProfilePhotoSheet(context, uid: p.uid, forClinician: false),
               child: Stack(
@@ -352,8 +359,8 @@ class ProfileScreen extends StatelessWidget {
               spacing: 10,
               runSpacing: 8,
               children: [
-                if (p.age != null) _pill('${p.age} yrs', Icons.cake_outlined),
-                if (p.sex != null) _pill(p.sex!, Icons.person_outline),
+                if (p.age != null) _pill(context.l10n.ageYears(p.age!), Icons.cake_outlined),
+                if (p.sex != null) _pill(context.l10n.sexLabel(p.sex!), Icons.person_outline),
                 if (p.bloodType != null)
                   _pill(p.bloodType!, Icons.water_drop_outlined),
               ],
@@ -382,7 +389,7 @@ class ProfileScreen extends StatelessWidget {
                   size: 16, color: AppColors.warningText(context)),
               const SizedBox(width: 8),
               Text(
-                'Complete your profile',
+                context.l10n.completeProfile,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -393,8 +400,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Adding your conditions, medications and emergency contact '
-            'helps your clinician interpret your readings.',
+            context.l10n.completeProfileNote,
             style: TextStyle(
                 fontSize: 12, color: AppColors.warningText(context)),
           ),
@@ -416,9 +422,9 @@ class ProfileScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text(
-                'Add details',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              child: Text(
+                context.l10n.addDetails,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -448,7 +454,7 @@ class ProfileScreen extends StatelessWidget {
                 color: AppColors.primaryText(context), size: 18),
             const SizedBox(width: 8),
             Text(
-              'Sign Out',
+              context.l10n.signOutButton,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -619,9 +625,8 @@ class _NotificationsRowState extends State<_NotificationsRow> {
     if (!mounted) return;
     setState(() => _allowed = v);
     if (v != true) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Notifications are blocked on this phone. Allow them for TeleMonitor in the '
-            "phone's settings (Apps, TeleMonitor, Notifications)."),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.notificationsBlocked),
       ));
     }
   }
@@ -638,10 +643,10 @@ class _NotificationsRowState extends State<_NotificationsRow> {
               size: 16, color: AppColors.textMuted(context)),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Notifications', style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
+            child: Text(context.l10n.notifications, style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
           ),
           if (allowed)
-            Text('On',
+            Text(context.l10n.notificationsOn,
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.successText(context)))
           else
             TextButton(
@@ -651,7 +656,7 @@ class _NotificationsRowState extends State<_NotificationsRow> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 minimumSize: const Size(0, 36),
               ),
-              child: const Text('Off: turn on', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(context.l10n.notificationsTurnOn, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
             ),
         ],
       ),

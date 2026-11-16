@@ -1,0 +1,1266 @@
+{
+  "@@locale": "en",
+  "languageTitle": "Language",
+  "languageNote": "Notifications and emails come in this language too.",
+  "loginMissingFields": "Please enter both email and password.",
+  "resetLinkSentGeneric": "If an account exists for that address, a reset link has been sent. Check your inbox, and the spam folder too.",
+  "appTagline": "Chronic Disease Telemonitoring",
+  "loginWelcome": "Welcome back",
+  "loginSubtitle": "Sign in to your account",
+  "emailLabel": "Email",
+  "emailHint": "you@example.com",
+  "passwordLabel": "Password",
+  "forgotPassword": "Forgot password?",
+  "signIn": "Sign In",
+  "or": "or",
+  "createAccountLink": "New patient? Create an account",
+  "sameLogin": "Patients and clinicians use the same login",
+  "resetPasswordTitle": "Reset password",
+  "resetPasswordIntro": "Enter the email address of your account and we will send you a link to choose a new password. No access to that email? Ask your clinician: the administrator can reset it.",
+  "cancel": "Cancel",
+  "sendLink": "Send link",
+  "noProfileTitle": "No profile found for this account.",
+  "noProfileBody": "Add a Firestore document at users/{uid} with an email, name, and role field to finish setting up this account.",
+  "@noProfileBody": {
+    "placeholders": {
+      "uid": {
+        "type": "String"
+      }
+    }
+  },
+  "signOut": "Sign out",
+  "appearanceTitle": "Appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeAuto": "Auto",
+  "themeFollowsDevice": "Following your device setting.",
+  "themeAlwaysDark": "Always dark, whatever your device is set to.",
+  "themeAlwaysLight": "Always light, whatever your device is set to.",
+  "myProfile": "My Profile",
+  "editProfile": "Edit profile",
+  "medicalConditions": "Medical Conditions",
+  "currentMedications": "Current Medications",
+  "physicalInfo": "Physical Info",
+  "height": "Height",
+  "weight": "Weight",
+  "contact": "Contact",
+  "phone": "Phone",
+  "emergency": "Emergency",
+  "account": "Account",
+  "clinician": "Clinician",
+  "assigned": "Assigned",
+  "notYetAssigned": "Not yet assigned",
+  "change": "Change",
+  "termsAccepted": "Accepted",
+  "termsAcceptedOn": "Accepted {date}",
+  "@termsAcceptedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyAndConsent": "Privacy and consent",
+  "termsOfUse": "Terms of use",
+  "read": "Read",
+  "researchUseTitle": "Use of my data for research",
+  "researchUseNote": "Without your name, contact details, photo or messages. Your care is the same either way.",
+  "researchConsentGiven": "Thank you. Your data, without your name or contact details, may be used for research.",
+  "researchConsentWithdrawn": "Done. Your data will be left out of new research extracts.",
+  "savedOffline": "Saved on the phone. It will be sent when you are back online.",
+  "choiceNotSaved": "Could not save your choice: {error}",
+  "@choiceNotSaved": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "resetLinkSentTo": "We sent a link to {email} to choose a new password. Look in the spam folder too.",
+  "@resetLinkSentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "changeProfilePhoto": "Change profile photo",
+  "ageYears": "{age} yrs",
+  "@ageYears": {
+    "placeholders": {
+      "age": {
+        "type": "int"
+      }
+    }
+  },
+  "sexMale": "Male",
+  "sexFemale": "Female",
+  "sexOther": "Other",
+  "completeProfile": "Complete your profile",
+  "completeProfileNote": "Adding your conditions, medications and emergency contact helps your clinician interpret your readings.",
+  "addDetails": "Add details",
+  "signOutButton": "Sign Out",
+  "notificationsBlocked": "Notifications are blocked on this phone. Allow them for TeleMonitor in the phone's settings (Apps, TeleMonitor, Notifications).",
+  "notifications": "Notifications",
+  "notificationsOn": "On",
+  "notificationsTurnOn": "Off: turn on",
+  "alternateRemoved": "Alternate removed.",
+  "alternateNamed": "{name} is now your alternate.",
+  "@alternateNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "couldNotSave": "Could not save: {error}",
+  "@couldNotSave": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "conversationNotOpened": "This conversation could not be opened.",
+  "myPatients": "My Patients",
+  "myPhoto": "My photo",
+  "alternateClinician": "Alternate clinician",
+  "queueTab": "Queue ({count})",
+  "@queueTab": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "patientsTab": "Patients",
+  "queueNotLoaded": "Could not load the queue.",
+  "queueEmpty": "No alert to review.",
+  "queueEmptyNote": "Yellow and red readings, model alerts and patients who stopped sending readings appear here, the most urgent first.",
+  "patientsNotLoaded": "Could not load patients.",
+  "noPatientsYet": "No patients connected yet.",
+  "noPatientsYetNote": "Share the code above with a patient so they can register and be linked to you.",
+  "noReadingsYet": "No readings yet",
+  "readingLogged": "Reading logged",
+  "noAlternate": "No alternate named. Alerts you leave unreviewed are escalated to nobody.",
+  "currentAlternate": "Current alternate: {name}.",
+  "@currentAlternate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "colleagueCode": "Colleague's enrolment code",
+  "remove": "Remove",
+  "save": "Save",
+  "enterFullName": "Please enter your full name.",
+  "enterEmail": "Please enter your email address.",
+  "passwordTooShort": "Please choose a password of at least 6 characters.",
+  "codeNotRecognisedSignup": "That code was not recognised. Check it, or clear the field and connect to your clinician later.",
+  "acceptTermsFirst": "Please read and accept the terms of use to create your account.",
+  "createAccount": "Create account",
+  "joinCareTeam": "Join your care team",
+  "joinCareTeamNote": "Create your account to start recording readings. You can connect to a clinician now or later.",
+  "fullName": "Full name",
+  "fullNameHint": "e.g. Jean Mbarga",
+  "emailUseNote": "Use an address you can open: we send a link to confirm it, and it is how you set a new password if you forget yours.",
+  "passwordHint": "At least 6 characters",
+  "clinicianCode": "Clinician code",
+  "optional": "(optional)",
+  "clinicianCodeNote": "Have one from your doctor? Enter it to connect straight away. You can also skip this and connect later from your profile.",
+  "clinicianCodeHint": "e.g. MBARGA-4F7K",
+  "haveAccountSignIn": "Already have an account? Sign in",
+  "clinicianAccountsNote": "Clinician accounts are created by the administrator, not here.",
+  "checkingCode": "Checking code…",
+  "willBeLinkedTo": "You will be linked to {name}",
+  "@willBeLinkedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "codeNotRecognised": "Code not recognised",
+  "acceptTermsTick": "I have read and I accept the terms of use and the privacy notice.",
+  "readTheTerms": "Read the terms",
+  "researchTick": "Optional: my data, without my name, contact details, photo or messages, may be used for medical research. My care is the same if I say no, and I can change this later in my profile.",
+  "emailConfirmed": "Email address confirmed. Thank you.",
+  "emailNotConfirmedYet": "Not confirmed yet. Open the link in the email, then tap this button again.",
+  "emailSentCheckSpam": "Email sent. It can take a few minutes; look in the spam folder too.",
+  "emailSentRecently": "An email was sent a moment ago. Please wait a few minutes before asking again.",
+  "yourAddress": "your address",
+  "confirmEmailTitle": "Confirm your email address",
+  "confirmEmailBody": "We sent a link to {email}. Open it to confirm the address: it is the only way to set a new password if you forget yours.",
+  "@confirmEmailBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "sendItAgain": "Send it again",
+  "iveConfirmedIt": "I've confirmed it",
+  "yourClinician": "Your clinician",
+  "clinicianCodeNotRecognised": "That clinician code was not recognised. Check it with your doctor, or leave it blank and connect later.",
+  "accountNotSetUp": "Your account could not be set up. Please try again. ({error})",
+  "@accountNotSetUp": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mustBeSignedIn": "You must be signed in to do this.",
+  "alreadyConnected": "Your account is already connected to a clinician. Contact your care team if this needs to change.",
+  "codeNotRecognisedCheck": "That code was not recognised. Please check it with your doctor.",
+  "couldNotConnect": "Could not connect to that clinician. ({error})",
+  "@couldNotConnect": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "wrongCredentials": "Incorrect email or password.",
+  "invalidEmail": "That email address doesn't look right.",
+  "emailInUse": "An account already exists for that email. Try signing in.",
+  "accountDisabled": "This account has been disabled.",
+  "tooManyAttempts": "Too many attempts — please wait a moment and try again.",
+  "noInternet": "No internet connection.",
+  "signInFailed": "Sign-in failed ({code}).",
+  "@signInFailed": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "somethingWentWrong": "Something went wrong. Please try again.",
+  "confirmClinician": "Confirm your clinician",
+  "confirmClinicianBody": "You will be connected to {name}. They will be able to see the readings you record.\n\nThis cannot be changed from the app afterwards — contact your care team if you need it corrected.",
+  "@confirmClinicianBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "connect": "Connect",
+  "connectedTo": "Connected to {name}",
+  "@connectedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "connectToClinician": "Connect to your clinician",
+  "enterClinicianCode": "Enter your clinician code",
+  "askDoctorForCode": "Ask your doctor for their code. It looks something like MBARGA-4F7K.",
+  "noCodeYetNote": "Don't have a code yet? You can keep recording your readings without one. They are saved to your account and your clinician will see them from the day you connect.",
+  "logAReading": "Log a reading",
+  "navHome": "Home",
+  "navHistory": "History",
+  "navMessages": "Messages",
+  "navProfile": "Profile",
+  "goodMorning": "Good morning,",
+  "goodAfternoon": "Good afternoon,",
+  "goodEvening": "Good evening,",
+  "alertBpRed": "Blood pressure or pulse out of range — contact your health centre today",
+  "alertGlucoseRed": "Blood glucose out of range — contact your health centre today",
+  "alertBpYellow": "Blood pressure above your home target — see the 7-day check below",
+  "alertGlucoseYellow": "Blood glucose above your target — see the one-day check below",
+  "readingsPending": "{count, plural, =1{1 reading is saved on your phone and will be sent when you are online.} other{{count} readings are saved on your phone and will be sent when you are online.}}",
+  "@readingsPending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "minutesAgo": "{n} min ago",
+  "@minutesAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "hoursAgo": "{n} h ago",
+  "@hoursAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgo": "{n} d ago",
+  "@daysAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "todayAt": "Today, {time}",
+  "@todayAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "yesterdayAt": "Yesterday, {time}",
+  "@yesterdayAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dateAt": "{date}, {time}",
+  "@dateAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "bloodPressure": "Blood pressure",
+  "bloodGlucose": "Blood glucose",
+  "pulse": "Pulse",
+  "camera": "camera",
+  "lastReading": "Last reading",
+  "noneYet": "none yet",
+  "recentReadings": "Recent Readings",
+  "noReadingsLoggedYet": "No readings logged yet",
+  "noValuesRecorded": "No values recorded",
+  "levelGreen": "Green",
+  "levelYellow": "Yellow",
+  "levelRed": "Red",
+  "notMeasured": "Not measured",
+  "ctxFasting": "Fasting (before breakfast)",
+  "ctxBeforeMeal": "Before a meal",
+  "ctxAfterMeal": "About 90 minutes after a meal",
+  "ctxAfterMedication": "After medication",
+  "ctxAfterExercise": "After exercise",
+  "ctxRandom": "Other / not sure",
+  "bpInvalid": "Please enter valid blood pressure values{which}.",
+  "@bpInvalid": {
+    "placeholders": {
+      "which": {
+        "type": "String"
+      }
+    }
+  },
+  "sbpOutOfRange": "Systolic {value}{which} is outside the plausible range ({min}–{max} mmHg). Please re-check the reading.",
+  "@sbpOutOfRange": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "which": {
+        "type": "String"
+      },
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "dbpOutOfRange": "Diastolic {value}{which} is outside the plausible range ({min}–{max} mmHg). Please re-check the reading.",
+  "@dbpOutOfRange": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "which": {
+        "type": "String"
+      },
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "pulsePressureTooLow": "Systolic ({sbp}) should be at least {gap} higher than diastolic ({dbp}){which}. Please re-check the reading.",
+  "@pulsePressureTooLow": {
+    "placeholders": {
+      "sbp": {
+        "type": "int"
+      },
+      "gap": {
+        "type": "int"
+      },
+      "dbp": {
+        "type": "int"
+      },
+      "which": {
+        "type": "String"
+      }
+    }
+  },
+  "hrInvalid": "Please enter a valid heart rate{which}.",
+  "@hrInvalid": {
+    "placeholders": {
+      "which": {
+        "type": "String"
+      }
+    }
+  },
+  "hrOutOfRange": "Heart rate {value}{which} is outside the plausible range ({min}–{max} bpm). Please re-check the reading.",
+  "@hrOutOfRange": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      },
+      "which": {
+        "type": "String"
+      },
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "readingInFuture": "The time of the reading cannot be in the future.",
+  "backdateLimit": "A reading can be dated at most {days} days back.",
+  "@backdateLimit": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "whichReading": " (reading {n})",
+  "@whichReading": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "glucoseInvalid": "Please enter a valid glucose value.",
+  "glucoseOutOfRange": "Glucose {value} is outside the plausible range ({min}–{max} mmol/L). Check your units — this app uses mmol/L, not mg/dL.",
+  "@glucoseOutOfRange": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "glucoseNeedsContext": "Choose when the glucose was measured: your target depends on the meal.",
+  "againstHomeTargets": "Against your home targets",
+  "previewBp": "BP: {sbp}/{dbp} mmHg",
+  "@previewBp": {
+    "placeholders": {
+      "sbp": {
+        "type": "String"
+      },
+      "dbp": {
+        "type": "String"
+      }
+    }
+  },
+  "previewGlucoseNoContext": "Glucose: {value} mmol/L. Choose the measurement context below.",
+  "@previewGlucoseNoContext": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "previewGlucose": "Glucose: {value} mmol/L",
+  "@previewGlucose": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "readingRejected": "A reading was not accepted by the server: {error}",
+  "@readingRejected": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "outOfRangeTitle": "This reading is out of range",
+  "iUnderstand": "I understand",
+  "readingSavedOffline": "Reading saved on your phone. It will be sent when you are online.",
+  "readingSaved": "Reading saved.",
+  "correctAReading": "Correct a Reading",
+  "logAReadingTitle": "Log a Reading",
+  "measurementType": "Measurement type",
+  "whenTaken": "When was it taken?",
+  "readingNumber": "Reading {n}",
+  "@readingNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "reading2Kept": "Reading 2 — kept",
+  "bpMmHg": "Blood Pressure (mmHg)",
+  "unitsNote": "Pressures in mmHg, pulse in beats per minute.",
+  "glucoseMmol": "Blood Glucose (mmol/L)",
+  "example": "e.g. {value}",
+  "@example": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "glucoseExample": "6.1",
+  "glucose": "Glucose",
+  "measurementContext": "Measurement context",
+  "notesOptional": "Notes (optional)",
+  "notesHint": "e.g. Taken after morning medication...",
+  "saveCorrection": "Save Correction",
+  "saveReading": "Save Reading",
+  "correctThisReading": "Correct this reading",
+  "enterYourReading": "Enter your reading",
+  "correctionNote": "Your corrected values replace the old ones on your screens. The old entry stays in your record, marked as corrected, so your clinician can see both.",
+  "entryNote": "Type the values shown on your blood pressure monitor or glucometer. For blood pressure, sit and rest for five minutes, then take two readings one minute apart: the second is the one kept.",
+  "pulseCameraOptional": "Pulse with the phone camera (optional)",
+  "pulseByCamera": "Pulse by camera: {bpm} bpm",
+  "@pulseByCamera": {
+    "placeholders": {
+      "bpm": {
+        "type": "int"
+      }
+    }
+  },
+  "cameraPulseNote": "Right after your monitor's reading, you can also measure your pulse with the camera and flash. It is for information: the alerts use your monitor's values.",
+  "cameraPulseInfo": "For information, beside your monitor's pulse.",
+  "measure": "Measure",
+  "measureAgain": "Measure again",
+  "now": "Now",
+  "earlier": "Earlier…",
+  "twoBpReadings": "Two blood pressure readings",
+  "twoBpNote": "One minute apart; the second is kept.",
+  "systolic": "Systolic",
+  "diastolic": "Diastolic",
+  "pulseOptional": "Pulse (optional)",
+  "measureBoth": "Both",
+  "measureBp": "Blood Pressure",
+  "contextRequired": "Choose (required for glucose)",
+  "optionalWord": "Optional",
+  "filterAll": "All",
+  "readingHistory": "Reading History",
+  "readingsTab": "Readings",
+  "summaryTab": "Summary",
+  "historyEmptyNote": "Your readings will appear here once you log your first one. Tap the + button on the home screen to start.",
+  "noReadingsMatch": "No readings match this filter",
+  "noReadingsMatchNote": "Try another filter to see the rest of your history.",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "tagPending": "saved on your phone, not sent yet",
+  "tagSecondOfTwo": "second of two readings",
+  "tagPulseCamera": "pulse by phone camera",
+  "tagPulseCameraValue": "pulse by phone camera {bpm}",
+  "@tagPulseCameraValue": {
+    "placeholders": {
+      "bpm": {
+        "type": "int"
+      }
+    }
+  },
+  "tagCorrected": "corrected entry",
+  "tagEnteredLater": "entered later",
+  "correct": "Correct",
+  "tagFasting": "fasting",
+  "tagBeforeMeal": "before a meal",
+  "tagAfterMeal": "after a meal",
+  "tagAfterMedication": "after medication",
+  "tagAfterExercise": "after exercise",
+  "tagOtherTime": "other time",
+  "nothingToSummarise": "Nothing to summarise yet",
+  "nothingToSummariseNote": "Once you have logged a few readings, your averages and patterns will appear here.",
+  "avgBloodPressure": "Avg blood pressure",
+  "avgGlucose": "Avg glucose",
+  "totalReadings": "Total readings",
+  "readingsLogged": "{count, plural, =1{reading logged} other{readings logged}}",
+  "@readingsLogged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "readingDistribution": "Reading distribution",
+  "insights": "Insights",
+  "insightHighShare": "{percent}% of your readings were above your home target or out of range.",
+  "@insightHighShare": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "insightAllInTarget": "All your readings so far have been within your home targets.",
+  "insightLogBoth": "Logging blood pressure and glucose together gives your risk score the most to work with.",
+  "insightFourDays": "Your risk tier is worked out from your readings of the last four days.",
+  "instructionRed": "Contact your health centre today. If you feel chest pain, breathlessness, weakness on one side or confusion, go to the hospital now.",
+  "instructionYellow": "Above your home target. Measure again as shown in the check below; your clinician will review the result.",
+  "conditionHaemodynamic": "Blood pressure / pulse",
+  "noData": "No data",
+  "noReadingFourDays": "No reading in the last four days — log a reading to see your level.",
+  "riskTier": "Risk tier",
+  "yourLevel": "Your level",
+  "triageClinician": "Home triage of the last readings: {level}",
+  "@triageClinician": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "profileOffClinician": "; verification profile off target",
+  "triagePatient": "Your last readings against your home targets: {level}",
+  "@triagePatient": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "profileOffPatient": "; your check came out above target",
+  "higherRiskThanLast": "Your recent readings suggest a higher risk than the last value alone.",
+  "conditionProbability": "{condition}: {percent}% calibrated probability of a high or critical reading at the next measurement ({tier}; {model})",
+  "@conditionProbability": {
+    "placeholders": {
+      "condition": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      },
+      "tier": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "stateChangeLine": "State change, last 24 h against the three days before: {value} ({measure})",
+  "@stateChangeLine": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "measure": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceOnlineClinician": "Risk model (online) combined with the home triage; the model can raise the tier, never lower it.",
+  "sourceOnlinePatient": "Checked with your readings and the risk model.",
+  "sourceOfflineClinician": "Home triage only ({reason}).",
+  "@sourceOfflineClinician": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "offline": "offline",
+  "sourceOfflinePatient": "Checked on your phone from your readings.",
+  "provisionalCutpoints": "Model tier cut-points are provisional until set with the clinician.",
+  "evolution": "Evolution",
+  "evolutionNote": "Last 24 hours compared with the three days before",
+  "evolutionEmpty": "Not enough readings yet: log readings on several days to see how they change.",
+  "stable": "stable",
+  "trendTitle": "Systolic trend — last 14 days",
+  "homeTargetBadge": "Home target < 135/85",
+  "noBpIn14Days": "No blood pressure reading in the last 14 days",
+  "greenBandNote": "Green band: your home target for the upper number, from 110 to 134 mmHg (with the lower number below 85). Keeping your blood pressure there lowers the risk of stroke and heart disease.",
+  "routineNote": "Usual routine: blood pressure twice a week, morning and evening, two readings each time; glucose once a week, fasting and 90 minutes after lunch. Measure more often when the app asks for a check.",
+  "actionNone": "No change needed",
+  "actionAdvice": "Advice from your clinician",
+  "actionTreatmentChange": "Your clinician adjusted your treatment",
+  "actionConsultation": "Your clinician asks to see you",
+  "actionReferral": "You are referred for further care",
+  "reviewed": "Reviewed",
+  "fromYourClinician": "From your clinician",
+  "alertReviewed": "Alert of {date}, reviewed {reviewed}",
+  "@alertReviewed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "reviewed": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceRule": "Guideline rule",
+  "sourceModel": "Risk model",
+  "sourceNonTransmission": "No readings received",
+  "verdictConfirmed": "True alert",
+  "verdictNotSignificant": "False alert",
+  "verdictUncertain": "Uncertain",
+  "clinicalActionNone": "No action",
+  "clinicalActionAdvice": "Advice",
+  "clinicalActionTreatment": "Dose or drug change",
+  "clinicalActionConsultation": "Consultation",
+  "clinicalActionReferral": "Referral",
+  "checkupPeriodSuffix": " (checkup period {days} days)",
+  "@checkupPeriodSuffix": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "noReadingSince": "No reading since {date}{period}",
+  "@noReadingSince": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "noReadingInPeriod": "No reading within the checkup period",
+  "noReadingForDays": "No reading for more than {days} days",
+  "@noReadingForDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "bpProfileOff": "7-day profile off target: mean {sbp}/{dbp} mmHg over {readings} readings, {days} days",
+  "@bpProfileOff": {
+    "placeholders": {
+      "sbp": {
+        "type": "String"
+      },
+      "dbp": {
+        "type": "String"
+      },
+      "readings": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "glucoseProfileOff": "Glucose profile off target: mean {before} before and {after} mmol/L after meals",
+  "@glucoseProfileOff": {
+    "placeholders": {
+      "before": {
+        "type": "String"
+      },
+      "after": {
+        "type": "String"
+      }
+    }
+  },
+  "triggerPulse": "pulse {value} bpm",
+  "@triggerPulse": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "triggerGlucose": "glucose {value} mmol/L",
+  "@triggerGlucose": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "trendRising": "rising",
+  "trendFalling": "falling",
+  "trendTooFew": "too few readings",
+  "escalated": "Escalated",
+  "neverReviewed": "never reviewed",
+  "daysSinceReview": "{days} d since last review",
+  "@daysSinceReview": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "escalatedToYou": "Escalated to you as alternate: another clinician's patient",
+  "trendLine": "14-day trend: systolic {sbp}, glucose {glucose}",
+  "@trendLine": {
+    "placeholders": {
+      "sbp": {
+        "type": "String"
+      },
+      "glucose": {
+        "type": "String"
+      }
+    }
+  },
+  "thresholdsLine": "Thresholds {version}",
+  "@thresholdsLine": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "modelSuffix": " · model {version}",
+  "@modelSuffix": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "probabilitySuffix": " · calibrated P(alert) {percent}%",
+  "@probabilitySuffix": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "verdict": "Verdict",
+  "eventOpen": "Open",
+  "reviewedSuffix": " · reviewed {date}",
+  "@reviewedSuffix": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "verdictNotSaved": "Could not save the verdict: {error}",
+  "@verdictNotSaved": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "actionTaken": "Action taken",
+  "verdictCommentHint": "Comment (optional) — serves as the clinical note",
+  "sendCommentToPatient": "Send the comment to the patient",
+  "saving": "Saving…",
+  "closeAlert": "Close the alert",
+  "ageNotRecorded": "age not recorded",
+  "ageBand": "{low}–{high} yrs",
+  "@ageBand": {
+    "placeholders": {
+      "low": {
+        "type": "int"
+      },
+      "high": {
+        "type": "int"
+      }
+    }
+  },
+  "messagePatient": "Message patient",
+  "readingHistoryTitle": "Reading history",
+  "noClinicalInfo": "No clinical information recorded for this patient yet.",
+  "conditions": "Conditions",
+  "medications": "Medications",
+  "readingsNotLoaded": "Could not load readings.\n{error}",
+  "@readingsNotLoaded": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "patientNoReadings": "This patient has not logged any readings yet.",
+  "provReplaced": "replaced by a correction",
+  "provCorrection": "correction of an earlier entry",
+  "provSecondOfTwo": "second of two readings (first {first})",
+  "@provSecondOfTwo": {
+    "placeholders": {
+      "first": {
+        "type": "String"
+      }
+    }
+  },
+  "provEntered": "entered {date}",
+  "@provEntered": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "provQuality": "quality check: {flag}",
+  "@provQuality": {
+    "placeholders": {
+      "flag": {
+        "type": "String"
+      }
+    }
+  },
+  "bpmByCamera": "bpm by phone camera",
+  "checkupPeriod": "Checkup period",
+  "periodDays": "{days, plural, =1{1 day} other{{days} days}}",
+  "@periodDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "currentSuffix": "  (current)",
+  "alertsAndVerdicts": "Alerts and verdicts",
+  "checkupEvery": "Checkup every {days} d",
+  "@checkupEvery": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "defaultSuffix": " (default)",
+  "alertsNotLoaded": "Could not load alerts: {error}",
+  "@alertsNotLoaded": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noAlertForPatient": "No alert recorded for this patient.",
+  "noClinicianWithCode": "No clinician has this code.",
+  "ownCode": "This is your own code.",
+  "enterYourName": "Please enter your name.",
+  "ageRange": "Please enter an age between 1 and 120.",
+  "profileUpdated": "Profile updated",
+  "editProfileTitle": "Edit Profile",
+  "aboutYou": "About you",
+  "age": "Age",
+  "sex": "Sex",
+  "bloodType": "Blood type",
+  "medical": "Medical",
+  "conditionsHint": "One per line\ne.g. Hypertension\nType 2 Diabetes",
+  "currentMedicationsField": "Current medications",
+  "medicationsHint": "One per line\ne.g. Amlodipine 5mg",
+  "emergencyContact": "Emergency contact",
+  "saveChanges": "Save Changes",
+  "managedByCareTeam": "Managed by your care team",
+  "accountType": "Account type",
+  "patient": "Patient",
+  "assignedClinician": "Assigned clinician",
+  "linked": "Linked",
+  "notSet": "Not set",
+  "noBackCamera": "This phone has no back camera to measure the pulse.",
+  "cameraNotStarted": "The camera could not start: {error}",
+  "@cameraNotStarted": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraNotAllowed": "TeleMonitor is not allowed to use the camera. Allow it in the phone settings (Apps, TeleMonitor, Permissions), then try again.",
+  "cameraNotStartedCode": "The camera could not start ({code}).",
+  "@cameraNotStartedCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "pulseWithCamera": "Pulse with the camera",
+  "noFlash": "The flash could not be turned on: measure near a bright light.",
+  "pulseHowTo": "Stay seated. Cover the back camera and the flash with the tip of your index finger, without pressing, and keep still for about 20 seconds. The flash lights your finger and the camera follows the blood that each heartbeat brings. No picture or video is kept.",
+  "pulseFingerMoved": "Your finger moved, so the measurement starts again. Cover the camera and the flash.",
+  "pulseCover": "Cover the camera and the flash with your fingertip.",
+  "pulseStarting": "Starting the camera…",
+  "pulseFingerDetected": "Finger detected. Keep still…",
+  "pulseMeasuring": "Measuring. Keep still and breathe normally.",
+  "pulseResultNote": "Measured with the phone camera. It is shown to you and your clinician for information: your monitor's pulse remains the reference, and the alerts use your monitor's readings.",
+  "pulseVeryLow": "This pulse is very low. Sit, rest for five minutes and measure again; if your monitor shows a pulse, enter it too. If you feel unwell (chest pain, breathlessness, fainting), go to the nearest health centre without waiting.",
+  "pulseVeryHigh": "This pulse is very high. Sit, rest for five minutes and measure again; if your monitor shows a pulse, enter it too. If you feel unwell (chest pain, breathlessness, fainting), go to the nearest health centre without waiting.",
+  "useThisValue": "Use this value",
+  "pulseFailed": "The signal was not steady enough to give a pulse. Keep the finger still and press lightly: pressing hard stops the blood. Cold fingers give a weak signal; warm your hand first. If it still fails, use your monitor's pulse.",
+  "tryAgain": "Try again",
+  "photoOf": "Photo of {name}",
+  "@photoOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profilePhoto": "Profile photo",
+  "photoNoteClinician": "Optional. Your patients see it beside your messages, so they know who follows them.",
+  "photoNotePatient": "Optional. Only you and your clinician can see it; it helps your clinician recognise you at the health centre. You can remove it at any time.",
+  "takePhoto": "Take a photo",
+  "chooseFromGallery": "Choose from the gallery",
+  "removePhoto": "Remove the photo",
+  "photoRemoved": "Photo removed.",
+  "photoSaved": "Photo saved.",
+  "photoNotUpdated": "Could not update the photo: {error}",
+  "@photoNotUpdated": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notAnImage": "This file is not an image the app can read.",
+  "photoTooLarge": "This photo is too large. Please choose another one.",
+  "noEnrolmentCode": "No enrolment code has been issued for your account yet. Contact the system administrator — without one, patients cannot register to you.",
+  "yourEnrolmentCode": "Your enrolment code",
+  "codeCopied": "Code copied",
+  "copy": "Copy",
+  "giveCodeNote": "Give this code to a patient so they can register and be linked to you.",
+  "bpCheckTitle": "7-day blood pressure check",
+  "glucoseCheckTitle": "One-day glucose check",
+  "bpCheckHow": "Every morning and every evening for 7 days: sit and rest 5 minutes, then take two readings one minute apart and log both.",
+  "glucoseCheckHow": "During one day: before and 90 minutes after each of your three meals (6 readings). Choose \"Before meal\" or \"After meal\" when you log each one.",
+  "bpCheckProgress": "{readings} of {expected} readings · {days} · until {date}",
+  "@bpCheckProgress": {
+    "placeholders": {
+      "readings": {
+        "type": "int"
+      },
+      "expected": {
+        "type": "int"
+      },
+      "days": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "glucoseCheckProgress": "Before meals: {before} of 3 · after meals: {after} of 3 · until {date}",
+  "@glucoseCheckProgress": {
+    "placeholders": {
+      "before": {
+        "type": "int"
+      },
+      "after": {
+        "type": "int"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "bpCheckMean": "Average {value} mmHg (target below 135/85)",
+  "@bpCheckMean": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "meanBeforeMeals": "before meals: {value} mmol/L (target 7 or less)",
+  "@meanBeforeMeals": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "meanAfterMeals": "after meals: {value} mmol/L (target 10 or less)",
+  "@meanAfterMeals": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "averageOf": "Average {value}",
+  "@averageOf": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "joinedBySemicolon": "{first}; {second}",
+  "@joinedBySemicolon": {
+    "placeholders": {
+      "first": {
+        "type": "String"
+      },
+      "second": {
+        "type": "String"
+      }
+    }
+  },
+  "checkInProgressClinician": "In progress.",
+  "checkOffTargetClinician": "Off target: teleconsultation (red event in the queue).",
+  "checkOffTargetPatient": "Your average is above the target. Your clinician has the result; contact your health centre.",
+  "checkOnTargetClinician": "On target.",
+  "checkOnTargetPatient": "Your average is on target. Keep measuring as usual.",
+  "checkIncompleteClinician": "Incomplete: too few readings to conclude.",
+  "checkIncompletePatient": "Not enough readings to conclude. Contact your health centre or start the check again.",
+  "inProgress": "In progress",
+  "aboveTarget": "Above target",
+  "onTarget": "On target",
+  "incomplete": "Incomplete",
+  "noClinicianYet": "No clinician connected yet",
+  "noClinicianYetNote": "Enter the code your doctor gives you to start a conversation with them.",
+  "connectToAClinician": "Connect to a clinician",
+  "couldNotSend": "Could not send: {error}",
+  "@couldNotSend": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "messagesNotLoaded": "Could not load messages.\n{error}",
+  "@messagesNotLoaded": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noMessagesYet": "No messages yet.\nStart the conversation below.",
+  "typeAMessage": "Type a message...",
+  "presenceOffline": "Offline",
+  "presenceOnline": "Online",
+  "lastSeenMinutes": "Last seen {n} min ago",
+  "@lastSeenMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenHours": "Last seen {n} h ago",
+  "@lastSeenHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenYesterday": "Last seen yesterday",
+  "lastSeenDays": "Last seen {n} days ago",
+  "@lastSeenDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "noClinicianConnected": "No clinician connected",
+  "noClinicianConnectedNote": "You can record readings now, but nobody is reviewing them yet. Enter the code your doctor gives you to connect.",
+  "findCareNearYou": "Find care near you",
+  "findHospitalNearYou": "Find a hospital near you",
+  "tapCategory": "Tap a category to see what is nearby in Google Maps.",
+  "careUrgentNote": "Your recent readings are in a range that needs attention. If you feel unwell, go to a hospital rather than waiting for your next appointment.",
+  "mapsNotOpened": "Could not open Maps on this device. Please search for \"pharmacie near me\" in your browser.",
+  "locationNote": "TeleMonitor does not access or store your location. The search is handled by Google Maps on your device.",
+  "carePharmacy": "Pharmacy",
+  "careHospital": "Hospital",
+  "careClinic": "Clinic / Health centre",
+  "careLaboratory": "Laboratory",
+  "carePharmacyNote": "Collect medication, or have your blood pressure checked — many pharmacies offer this.",
+  "careHospitalNote": "For urgent care, or when your readings are in the high or critical range.",
+  "careClinicNote": "For a routine consultation or follow-up visit.",
+  "careLaboratoryNote": "For blood glucose, HbA1c and other laboratory tests.",
+  "latestReadingNeedsAttention": "Your latest reading needs attention",
+  "careKinds": "Pharmacies, clinics, hospitals and laboratories",
+  "assistantGreeting": "Hello. I can explain your readings, answer general questions about blood pressure and diabetes, and help you decide whether something needs a doctor.\n\nI cannot advise on medication — only your clinician can do that.",
+  "healthAssistant": "Health Assistant",
+  "notYourDoctor": "Automated — not your doctor",
+  "assistantDisclaimer": "General information only. It cannot diagnose you or advise on medication. For anything urgent, go to a health facility.",
+  "askHealthQuestion": "Ask a health question...",
+  "askHealthAssistant": "Ask the Health Assistant",
+  "understandReadings": "Understand your readings and your condition",
+  "assistantOffline": "The assistant needs an internet connection. Your readings are still saved and will sync when you are back online.",
+  "assistantBusy": "The assistant is busy right now. Please try again in a few minutes.",
+  "assistantBlocked": "I am not able to answer that. If it concerns your health, please speak to your clinician.",
+  "assistantError": "Something went wrong reaching the assistant. Please try again.",
+  "suggestReadings": "What do my last readings mean?",
+  "suggestDanger": "Why is high blood pressure dangerous?",
+  "suggestFood": "What foods should I be careful with?",
+  "suggestHowOften": "How often should I measure?",
+  "open": "Open",
+  "riskServiceNotConfigured": "risk service not configured",
+  "riskServiceUnreachable": "risk service unreachable",
+  "termsS1Title": "What TeleMonitor is",
+  "termsS1P1": "TeleMonitor helps you follow your blood pressure and blood sugar at home with your clinician. You enter your readings; the app compares them with your home targets and your clinician reviews the alerts.",
+  "termsS1P2": "TeleMonitor does not replace a consultation and is not an emergency service. It never changes your treatment: only your clinician can. If you feel very unwell, go to the nearest health centre or hospital without waiting for an answer in the app.",
+  "termsS2Title": "The information the app keeps",
+  "termsS2B1": "• Your account: name and email address.",
+  "termsS2B2": "• Your profile, if you fill it in: age, sex, height, weight, conditions, medications, phone, emergency contact and an optional photo.",
+  "termsS2B3": "• Your readings (blood pressure, heart rate, blood sugar, when you measured and your notes), the alerts they raise and your clinician's review of them.",
+  "termsS2B4": "• If you measure your pulse with the phone camera, the pulse found: the images of the camera are read on the phone and dropped at once, never kept or sent.",
+  "termsS2B5": "• The messages you exchange with your clinician.",
+  "termsS2B6": "• What the service needs to work: when you last used the app, and the address used to send notifications to your phone.",
+  "termsS3Title": "Who can see it",
+  "termsS3B1": "• You.",
+  "termsS3B2": "• The clinician you connect to, and the colleague they name to replace them when an alert waits too long.",
+  "termsS3B3": "• The administrator of the system, only to keep it working.",
+  "termsS3P1": "Your information is stored on Google Firebase servers and travels encrypted. Access rules let each person see only what they are allowed to see.",
+  "termsS3P2": "When you use the health assistant, your question, age, sex, conditions, medications and recent readings are sent to Google's Gemini service to prepare the answer, never your name or contact details. Do not type your name or other personal details in the assistant.",
+  "termsS4Title": "Research, only if you agree",
+  "termsS4P1": "If you tick the research box, your information may also be used for medical research on the home follow-up of hypertension and diabetes, by the TeleMonitor project of the GISDIA laboratory, National Higher Polytechnic School of Douala (ENSPD), University of Douala.",
+  "termsS4P2": "Before any use, your name, email, phone numbers, emergency contact, photo, messages and notes are removed, and your account is replaced by a code. Results are published only as figures about groups of patients, in which no one can be recognised.",
+  "termsS4P3": "Saying no changes nothing in your care. You can change your choice at any time in your profile; from then on, your information is left out of new research extracts.",
+  "termsS5Title": "Your rights",
+  "termsS5P1": "Under Law No. 2024/017 of 23 December 2024 on the protection of personal data in Cameroon, you can see your information (the app shows it to you), have it corrected, withdraw your research consent, and ask for your account and your information to be deleted. For a deletion or any question, ask your clinician or the administrator.",
+  "termsS6Title": "Keeping your account safe",
+  "termsS6P1": "Keep your password to yourself. Confirm your email address: it is the only way to set a new password if you forget yours. On a shared phone, sign out when you finish.",
+  "termsS7Title": "Changes to these terms",
+  "termsS7P1": "If these terms change, the app shows you the new version and asks you to accept it before you continue.",
+  "termsVersionOf": "Version of {date}",
+  "@termsVersionOf": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "updatedTerms": "Updated terms of use",
+  "termsChanged": "The terms have changed. Please read them and accept them to continue.",
+  "readAndAcceptTerms": "Please read the terms of use and accept them to continue.",
+  "acceptAndContinue": "Accept and continue",
+  "messageNotSent": "A message was not sent: {error}",
+  "@messageNotSent": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "verdictNotSavedServer": "A verdict was not saved: {error}",
+  "@verdictNotSavedServer": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
+}

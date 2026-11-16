@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
+import '../l10n/l10n.dart';
 
 /// Lets the user choose Light, Dark, or follow the device setting.
 ///
@@ -34,7 +35,7 @@ class ThemeSelectorCard extends StatelessWidget {
                       size: 16, color: AppColors.primaryText(context)),
                   const SizedBox(width: 8),
                   Text(
-                    'Appearance',
+                    context.l10n.appearanceTitle,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -46,22 +47,23 @@ class ThemeSelectorCard extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  _option(context, ThemeMode.light, 'Light',
+                  _option(context, ThemeMode.light, context.l10n.themeLight,
                       Icons.light_mode_outlined, current),
                   const SizedBox(width: 8),
-                  _option(context, ThemeMode.dark, 'Dark',
+                  _option(context, ThemeMode.dark, context.l10n.themeDark,
                       Icons.dark_mode_outlined, current),
                   const SizedBox(width: 8),
-                  _option(context, ThemeMode.system, 'Auto',
+                  _option(context, ThemeMode.system, context.l10n.themeAuto,
                       Icons.phone_android_outlined, current),
                 ],
               ),
               const SizedBox(height: 10),
               Text(
                 current == ThemeMode.system
-                    ? 'Following your device setting.'
-                    : 'Always ${current == ThemeMode.dark ? 'dark' : 'light'}, '
-                        'whatever your device is set to.',
+                    ? context.l10n.themeFollowsDevice
+                    : current == ThemeMode.dark
+                        ? context.l10n.themeAlwaysDark
+                        : context.l10n.themeAlwaysLight,
                 style: TextStyle(
                   fontSize: 11,
                   color: AppColors.textMuted(context),

@@ -302,8 +302,9 @@ service cloud.firestore {
     // address from Firebase Auth, never from here, and records sentAt.
     match /mail_requests/{userId} {
       allow create, update: if isSelf(userId)
-        && request.resource.data.keys().hasOnly(['kind', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(['kind', 'requestedAt', 'language'])
         && request.resource.data.kind == 'verify_email'
+        && request.resource.data.get('language', 'en') in ['en', 'fr']
         && request.resource.data.requestedAt == request.time
         && (resource == null
             || request.time > resource.data.requestedAt + duration.value(60, 's'));
@@ -316,7 +317,8 @@ service cloud.firestore {
     // account's own address, a few times a day at most, and deletes the
     // requests of addresses that have no account.
     match /password_resets/{address} {
-      allow create, update: if request.resource.data.keys().hasOnly(['requestedAt'])
+      allow create, update: if request.resource.data.keys().hasOnly(['requestedAt', 'language'])
+        && request.resource.data.get('language', 'en') in ['en', 'fr']
         && request.resource.data.requestedAt == request.time
         && address.size() <= 254
         && address == address.lower()

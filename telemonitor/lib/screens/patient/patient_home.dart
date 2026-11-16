@@ -6,6 +6,7 @@ import 'history_screen.dart';
 import 'log_reading_screen.dart';
 import 'patient_dashboard.dart';
 import 'profile_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// The patient's shell: four tabs (home, history, messages, profile) and one
 /// primary action, logging a reading, always one tap away on the home and
@@ -58,20 +59,26 @@ class _PatientHomeState extends State<PatientHome> {
           ? FloatingActionButton.extended(
               onPressed: _log,
               icon: const Icon(Icons.add),
-              label: const Text('Log a reading', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              label: Text(context.l10n.logAReading, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+        destinations: [
           NavigationDestination(
-              icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
+              icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: context.l10n.navHome),
           NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Messages'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+              icon: const Icon(Icons.history_outlined),
+              selectedIcon: const Icon(Icons.history),
+              label: context.l10n.navHistory),
+          NavigationDestination(
+              icon: const Icon(Icons.chat_bubble_outline),
+              selectedIcon: const Icon(Icons.chat_bubble),
+              label: context.l10n.navMessages),
+          NavigationDestination(
+              icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: context.l10n.navProfile),
         ],
       ),
     );

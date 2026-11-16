@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Reminder on the patient's dashboard until their email address is
 /// confirmed (auth_service.dart, "Email confirmation"): the link sent at
@@ -21,6 +22,7 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
   Future<void> _check() async {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       final ok = await AuthService.instance.refreshEmailVerified();
       if (!mounted) return;
@@ -29,8 +31,8 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
         SnackBar(
           content: Text(
             ok
-                ? 'Email address confirmed. Thank you.'
-                : 'Not confirmed yet. Open the link in the email, then tap this button again.',
+                ? l10n.emailConfirmed
+                : l10n.emailNotConfirmedYet,
           ),
         ),
       );
@@ -44,17 +46,18 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
   Future<void> _resend() async {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       await AuthService.instance.sendEmailVerification();
       messenger.showSnackBar(
-        const SnackBar(content: Text('Email sent. It can take a few minutes; look in the spam folder too.')),
+        SnackBar(content: Text(l10n.emailSentCheckSpam)),
       );
     } on fb_auth.FirebaseAuthException catch (e) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
             e.code == 'too-many-requests'
-                ? 'An email was sent a moment ago. Please wait a few minutes before asking again.'
+                ? l10n.emailSentRecently
                 : AuthService.instance.messageFor(e),
           ),
         ),
@@ -69,7 +72,7 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
   @override
   Widget build(BuildContext context) {
     if (_verified) return const SizedBox.shrink();
-    final email = AuthService.instance.currentProfile?.email ?? 'your address';
+    final email = AuthService.instance.currentProfile?.email ?? context.l10n.yourAddress;
     // the neutral card style: amber and red belong to the clinical levels
     final fg = AppColors.primaryText(context);
     return Container(
@@ -90,7 +93,7 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Confirm your email address',
+                  context.l10n.confirmEmailTitle,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: fg),
                 ),
               ),
@@ -98,8 +101,7 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
           ),
           const SizedBox(height: 6),
           Text(
-            'We sent a link to $email. Open it to confirm the address: it is the only way '
-            'to set a new password if you forget yours.',
+            context.l10n.confirmEmailBody(email),
             style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.textSecondary(context)),
           ),
           const SizedBox(height: 4),
@@ -112,12 +114,12 @@ class _VerifyEmailCardState extends State<VerifyEmailCard> {
                 TextButton(
                   onPressed: _busy ? null : _resend,
                   style: TextButton.styleFrom(foregroundColor: fg),
-                  child: const Text('Send it again'),
+                  child: Text(context.l10n.sendItAgain),
                 ),
                 TextButton(
                   onPressed: _busy ? null : _check,
                   style: TextButton.styleFrom(foregroundColor: fg),
-                  child: const Text("I've confirmed it", style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(context.l10n.iveConfirmedIt, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),

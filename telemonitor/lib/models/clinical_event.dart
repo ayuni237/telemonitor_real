@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'risk_assessment.dart';
+import '../l10n/l10n.dart';
 
 /// What raised an event (thesis ch.4, Table "Content of a queue row"): a
 /// guideline threshold crossing, the risk model, or a patient who stopped
@@ -43,29 +44,29 @@ T? _decode<T>(Map<T, String> codes, Object? code) {
 extension TriggerSourceCode on TriggerSource {
   String get code => _sourceCodes[this]!;
   String get label => switch (this) {
-        TriggerSource.rule => 'Guideline rule',
-        TriggerSource.model => 'Risk model',
-        TriggerSource.nonTransmission => 'No readings received',
+        TriggerSource.rule => l10nNow.sourceRule,
+        TriggerSource.model => l10nNow.sourceModel,
+        TriggerSource.nonTransmission => l10nNow.sourceNonTransmission,
       };
 }
 
 extension VerdictCode on Verdict {
   String get code => _verdictCodes[this]!;
   String get label => switch (this) {
-        Verdict.confirmed => 'True alert',
-        Verdict.notSignificant => 'False alert',
-        Verdict.uncertain => 'Uncertain',
+        Verdict.confirmed => l10nNow.verdictConfirmed,
+        Verdict.notSignificant => l10nNow.verdictNotSignificant,
+        Verdict.uncertain => l10nNow.verdictUncertain,
       };
 }
 
 extension ClinicalActionCode on ClinicalAction {
   String get code => _actionCodes[this]!;
   String get label => switch (this) {
-        ClinicalAction.none => 'No action',
-        ClinicalAction.advice => 'Advice',
-        ClinicalAction.treatmentChange => 'Dose or drug change',
-        ClinicalAction.consultation => 'Consultation',
-        ClinicalAction.referral => 'Referral',
+        ClinicalAction.none => l10nNow.clinicalActionNone,
+        ClinicalAction.advice => l10nNow.clinicalActionAdvice,
+        ClinicalAction.treatmentChange => l10nNow.clinicalActionTreatment,
+        ClinicalAction.consultation => l10nNow.clinicalActionConsultation,
+        ClinicalAction.referral => l10nNow.clinicalActionReferral,
       };
 }
 

@@ -4,6 +4,7 @@ import '../models/reading.dart';
 import '../services/readings_repository.dart';
 import '../screens/patient/care_finder_screen.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Entry point to the care finder.
 ///
@@ -90,9 +91,7 @@ class _FindCareCardState extends State<FindCareCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        urgent
-                            ? 'Find a hospital near you'
-                            : 'Find care near you',
+                        urgent ? context.l10n.findHospitalNearYou : context.l10n.findCareNearYou,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -101,9 +100,7 @@ class _FindCareCardState extends State<FindCareCard> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        urgent
-                            ? 'Your latest reading needs attention'
-                            : 'Pharmacies, clinics, hospitals and laboratories',
+                        urgent ? context.l10n.latestReadingNeedsAttention : context.l10n.careKinds,
                         style: TextStyle(
                           fontSize: 11,
                           color: urgent

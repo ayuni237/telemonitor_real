@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/care_finder_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 /// Lets a patient find care facilities near them.
 ///
@@ -30,9 +31,9 @@ class CareFinderScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text(
-          'Find care near you',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          context.l10n.findCareNearYou,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
       body: ListView(
@@ -40,7 +41,7 @@ class CareFinderScreen extends StatelessWidget {
         children: [
           if (urgent) _urgentBanner(context),
           Text(
-            'Tap a category to see what is nearby in Google Maps.',
+            context.l10n.tapCategory,
             style: TextStyle(
               fontSize: 13,
               color: AppColors.textSecondary(context),
@@ -78,9 +79,7 @@ class CareFinderScreen extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Your recent readings are in a range that needs attention. '
-              'If you feel unwell, go to a hospital rather than waiting for '
-              'your next appointment.',
+              context.l10n.careUrgentNote,
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.dangerText(context),
@@ -187,10 +186,7 @@ class CareFinderScreen extends StatelessWidget {
     // Say so rather than leaving the tap looking unresponsive.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
-          'Could not open Maps on this device. Please search for '
-          '"pharmacie near me" in your browser.',
-        ),
+        content: Text(context.l10n.mapsNotOpened),
         backgroundColor: AppColors.danger,
         duration: const Duration(seconds: 5),
       ),
@@ -212,8 +208,7 @@ class CareFinderScreen extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'TeleMonitor does not access or store your location. The '
-              'search is handled by Google Maps on your device.',
+              context.l10n.locationNote,
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_alerts">Alertes et rappels</string>
+    <string name="channel_alerts_description">Mesures qui demandent de l\'attention, rappels de mesure et examens de votre clinicien</string>
+    <string name="channel_messages">Messages</string>
+    <string name="channel_messages_description">Nouveaux messages de votre clinicien ou de vos patients</string>
+</resources>

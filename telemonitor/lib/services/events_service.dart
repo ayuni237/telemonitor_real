@@ -9,6 +9,7 @@ import 'auth_service.dart';
 import 'clinical_levels.dart';
 import 'home_protocol.dart';
 import 'risk_assessment_service.dart';
+import '../l10n/l10n.dart';
 
 /// The event record (thesis ch.4 §Data structure) and the functions that
 /// fill it from the applications; the local worker (telemonitor-research,
@@ -172,8 +173,8 @@ class EventsService {
       return null;
     }
     final found = await AuthService.instance.lookupClinicianCode(code);
-    if (found == null) throw const FormatException('No clinician has this code.');
-    if (found.clinicianId == me.uid) throw const FormatException('This is your own code.');
+    if (found == null) throw FormatException(l10nNow.noClinicianWithCode);
+    if (found.clinicianId == me.uid) throw FormatException(l10nNow.ownCode);
     await users.doc(me.uid).update(
         {'alternateClinicianId': found.clinicianId, 'alternateClinicianName': found.clinicianName});
     await AuthService.instance.fetchCurrentUserProfile();
@@ -197,7 +198,7 @@ class EventsService {
     events(e.patientId)
         .doc(e.id)
         .update(ClinicalEvent.verdictData(clinicianId: me.uid, verdict: verdict, action: action, comment: comment))
-        .catchError((Object err) => AppMessenger.show('A verdict was not saved: $err', error: true));
+        .catchError((Object err) => AppMessenger.show(l10nNow.verdictNotSavedServer('$err'), error: true));
   }
 
   /// Checkup period of a patient, set by their clinician.

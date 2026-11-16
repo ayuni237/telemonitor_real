@@ -2,6 +2,7 @@ import '../models/reading.dart';
 import '../models/risk_assessment.dart';
 import 'home_protocol.dart';
 import 'risk_api_client.dart';
+import '../l10n/l10n.dart';
 
 /// Turns a patient's readings into a risk assessment — thesis ch.3
 /// §Thresholds and the three levels, ch.4 §triage.
@@ -78,7 +79,7 @@ class RiskAssessmentService {
       ruleLevel: level,
       ruleTier: ruleTier,
       profiles: profiles,
-      offlineReason: _api.isConfigured ? null : 'risk service not configured',
+      offlineReason: _api.isConfigured ? null : l10nNow.riskServiceNotConfigured,
     );
     if (!_api.isConfigured || readings.isEmpty) return offline;
     try {
@@ -101,7 +102,7 @@ class RiskAssessmentService {
         ruleLevel: level,
         ruleTier: ruleTier,
         profiles: profiles,
-        offlineReason: e is RiskApiException ? e.message : 'risk service unreachable',
+        offlineReason: e is RiskApiException ? e.message : l10nNow.riskServiceUnreachable,
       );
     }
   }

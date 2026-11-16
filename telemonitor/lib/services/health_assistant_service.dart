@@ -6,6 +6,7 @@ import '../models/reading.dart';
 import 'auth_service.dart';
 import 'readings_repository.dart';
 import 'risk_assessment_service.dart';
+import '../l10n/l10n.dart';
 
 /// Conversational health assistant backed by Gemini via Firebase AI Logic.
 ///
@@ -142,6 +143,10 @@ class HealthAssistantService {
       '- Reply in the same language the patient writes in. Cameroon is '
       'bilingual: if they write in French, reply in French; if in '
       'English, reply in English.',
+    );
+    buffer.writeln(
+      '- The patient has set the app in ${l10nNow.localeName == 'fr' ? 'French' : 'English'}: '
+      'use that language until they write in the other one.',
     );
     buffer.writeln(
       '- Keep answers short — usually three or four sentences. This is a '
@@ -284,28 +289,23 @@ class HealthAssistantService {
         s.contains('socket') ||
         s.contains('unavailable') ||
         s.contains('timeout')) {
-      return 'The assistant needs an internet connection. Your readings '
-          'are still saved and will sync when you are back online.';
+      return l10nNow.assistantOffline;
     }
     if (s.contains('quota') || s.contains('resource_exhausted')) {
-      return 'The assistant is busy right now. Please try again in a few '
-          'minutes.';
+      return l10nNow.assistantBusy;
     }
     if (s.contains('blocked') || s.contains('safety')) {
-      return 'I am not able to answer that. If it concerns your health, '
-          'please speak to your clinician.';
+      return l10nNow.assistantBlocked;
     }
-    return 'Something went wrong reaching the assistant. Please try '
-        'again.';
+    return l10nNow.assistantError;
   }
 
-  /// Starting points for patients who are not sure what to ask.
-  static const List<String> suggestedQuestions = [
-    'What do my last readings mean?',
-    'Why is high blood pressure dangerous?',
-    'What foods should I be careful with?',
-    'How often should I measure?',
-  ];
+  /// Starting points for patients who are not sure what to ask, in the
+  /// language of the app.
+  static List<String> suggestedQuestions() {
+    final l10n = l10nNow;
+    return [l10n.suggestReadings, l10n.suggestDanger, l10n.suggestFood, l10n.suggestHowOften];
+  }
 }
 
 class AssistantException implements Exception {

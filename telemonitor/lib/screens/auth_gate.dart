@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import 'terms_screen.dart';
 import 'patient/patient_home.dart';
 import 'clinician/clinician_home_screen.dart';
+import '../l10n/l10n.dart';
 
 /// Root routing widget: Login vs Patient view vs Clinician view, based
 /// on live Firebase Auth state plus the role stored in Firestore.
@@ -66,6 +67,8 @@ class _ProfileGateState extends State<_ProfileGate> {
         }
         // idempotent: registers this device for the worker's notifications
         PushService.instance.start(profile.uid);
+        // the account takes the phone's language (for the worker), or the reverse
+        LocaleController.instance.syncWithAccount(profile.uid, profile.language);
 
         if (profile.role == UserRole.clinician) {
           return const ClinicianHomeScreen();
@@ -142,22 +145,21 @@ class _NoProfileScreen extends StatelessWidget {
                   size: 48, color: AppColors.textMuted(context)),
               const SizedBox(height: 16),
               Text(
-                'No profile found for this account.',
+                context.l10n.noProfileTitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontWeight: FontWeight.w600, color: AppColors.textPrimary(context)),
               ),
               const SizedBox(height: 8),
               Text(
-                'Add a Firestore document at users/$uid with an email, '
-                'name, and role field to finish setting up this account.',
+                context.l10n.noProfileBody(uid),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
               ),
               const SizedBox(height: 20),
               TextButton(
                 onPressed: () => AuthService.instance.signOut(),
-                child: const Text('Sign out'),
+                child: Text(context.l10n.signOut),
               ),
             ],
           ),

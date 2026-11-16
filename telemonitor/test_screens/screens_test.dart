@@ -10,6 +10,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telemonitor/l10n/l10n.dart';
 import 'package:telemonitor/models/app_user.dart';
 import 'package:telemonitor/models/clinical_event.dart';
 import 'package:telemonitor/models/reading.dart';
@@ -107,7 +110,7 @@ ClinicalEvent ev(String id, RiskTier tier, TriggerSource src, int hoursAgo,
       tier: tier,
       trigger: src == TriggerSource.nonTransmission
           ? {'checkupPeriodDays': 3}
-          : {'sbp': 182, 'dbp': 112, 'hr': 96, 'glucose': null, 'context': 'Morning'},
+          : {'sbp': 182, 'dbp': 112, 'hr': 96, 'glucose': null, 'context': 'Fasting'},
       thresholdVersion: '2026-10-19',
       score: src == TriggerSource.model ? 0.34 : null,
       modelVersion: src == TriggerSource.model ? 'haemodynamic-catboost-1a2b3c' : null,
@@ -120,7 +123,7 @@ ClinicalEvent ev(String id, RiskTier tier, TriggerSource src, int hoursAgo,
     );
 
 Widget queueScreen() => Scaffold(
-      appBar: AppBar(title: const Text('My Patients')),
+      appBar: AppBar(title: Text(l10nNow.myPatients)),
       body: Builder(builder: (context) {
         return ListView(padding: const EdgeInsets.all(16), children: [
           QueueRow(
@@ -184,25 +187,38 @@ const largeText = ['home', 'log_reading', 'history', 'queue', 'signup', 'accept_
 void main() {
   setUpAll(() async {
     await _loadFonts();
+    await initializeDateFormatting(); // French month names, as main() does
+    SharedPreferences.setMockInitialValues({}); // the language choice is saved there
     AuthService.instance.debugProfile = patient;
     // the reminder card of an address not yet confirmed, on the dashboard
     AuthService.instance.debugEmailVerified = false;
     ReadingsRepository.instance.debugSetReadings(readings);
   });
 
-  for (final (dark, scale) in [(false, 1.0), (true, 1.0), (false, 1.3)]) {
+  // French too: its sentences are longer, and nothing may overflow either
+  for (final (dark, scale, lang) in [
+    (false, 1.0, 'en'),
+    (true, 1.0, 'en'),
+    (false, 1.3, 'en'),
+    (false, 1.0, 'fr'),
+    (false, 1.3, 'fr'),
+  ]) {
     for (final e in screens.entries) {
       if (scale != 1.0 && !largeText.contains(e.key)) continue;
-      final name = '${e.key}_${dark ? 'dark' : 'light'}${scale != 1.0 ? '_large' : ''}';
+      final name = '${e.key}_${dark ? 'dark' : 'light'}${scale != 1.0 ? '_large' : ''}${lang == 'en' ? '' : '_$lang'}';
       testWidgets(name, (tester) async {
         tester.view.physicalSize = const Size(1080, 2340);
         tester.view.devicePixelRatio = 2.75;
         addTearDown(tester.view.reset);
+        await LocaleController.instance.choose(lang); // services and dates in the same language
         await tester.pumpWidget(MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+          locale: Locale(lang),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
             child: child!,

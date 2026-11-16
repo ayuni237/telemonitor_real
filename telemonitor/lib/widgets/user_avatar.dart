@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/profile_photo_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Initials of a name: first letters of the first and last words, '?' if empty.
 String initialsOf(String name) {
@@ -93,7 +94,7 @@ class _UserAvatarState extends State<UserAvatar> {
                     height: widget.size,
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
-                    semanticLabel: 'Photo of ${widget.name}',
+                    semanticLabel: context.l10n.photoOf(widget.name),
                   ),
           );
     final circle = widget.radius == null;
@@ -129,38 +130,35 @@ Future<void> showProfilePhotoSheet(BuildContext context,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-              child: Text('Profile photo',
+              child: Text(sheet.l10n.profilePhoto,
                   style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primaryText(sheet))),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
               child: Text(
-                forClinician
-                    ? 'Optional. Your patients see it beside your messages, so they know who follows them.'
-                    : 'Optional. Only you and your clinician can see it; it helps your clinician recognise you '
-                        'at the health centre. You can remove it at any time.',
+                forClinician ? sheet.l10n.photoNoteClinician : sheet.l10n.photoNotePatient,
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary(sheet), height: 1.4),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
+              title: Text(sheet.l10n.takePhoto),
               onTap: () => _act(sheet, context, () => ProfilePhotoService.instance.pickAndSave(ImageSource.camera)),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from the gallery'),
+              title: Text(sheet.l10n.chooseFromGallery),
               onTap: () => _act(sheet, context, () => ProfilePhotoService.instance.pickAndSave(ImageSource.gallery)),
             ),
             if (snap.data != null)
               ListTile(
                 leading: Icon(Icons.delete_outline, color: AppColors.dangerText(sheet)),
-                title: Text('Remove the photo', style: TextStyle(color: AppColors.dangerText(sheet))),
+                title: Text(sheet.l10n.removePhoto, style: TextStyle(color: AppColors.dangerText(sheet))),
                 onTap: () => _act(sheet, context, () async {
                   await ProfilePhotoService.instance.remove();
                   return true;
-                }, done: 'Photo removed.'),
+                }, done: sheet.l10n.photoRemoved),
               ),
             const SizedBox(height: 8),
           ],
@@ -171,17 +169,18 @@ Future<void> showProfilePhotoSheet(BuildContext context,
 }
 
 Future<void> _act(BuildContext sheet, BuildContext page, Future<bool> Function() action,
-    {String done = 'Photo saved.'}) async {
+    {String? done}) async {
+  final l10n = sheet.l10n;
+  done ??= l10n.photoSaved;
   Navigator.pop(sheet);
   final messenger = ScaffoldMessenger.of(page);
   try {
     if (await action()) messenger.showSnackBar(SnackBar(content: Text(done)));
   } on TimeoutException {
-    messenger.showSnackBar(const SnackBar(
-        content: Text('Saved on the phone. It will be sent when you are back online.')));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.savedOffline)));
   } on FormatException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not update the photo: $e')));
+    messenger.showSnackBar(SnackBar(content: Text(l10n.photoNotUpdated('$e'))));
   }
 }

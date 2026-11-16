@@ -6,6 +6,7 @@ import '../services/home_protocol.dart';
 import '../services/events_service.dart';
 import '../services/risk_assessment_service.dart';
 import '../theme/app_theme.dart';
+import '../l10n/l10n.dart';
 
 /// Shows the risk tier of a patient (green, yellow, red) and where it comes
 /// from: the guideline rule on the last readings, raised if needed by the
@@ -97,20 +98,22 @@ class _RiskCardState extends State<RiskCard> {
   /// today and, with emergency symptoms, go to hospital; at yellow, the
   /// verification profile of the home protocol. Never a dose.
   static String? patientInstruction(RiskTier t) => switch (t) {
-        RiskTier.red => 'Contact your health centre today. If you feel chest pain, breathlessness, '
-            'weakness on one side or confusion, go to the hospital now.',
-        RiskTier.yellow => 'Above your home target. Measure again as shown in the check below; '
-            'your clinician will review the result.',
+        RiskTier.red => l10nNow.instructionRed,
+        RiskTier.yellow => l10nNow.instructionYellow,
         RiskTier.green => null,
       };
 
   (Color, Color, String) _tierStyle(BuildContext context, RiskTier t) => switch (t) {
-        RiskTier.red => (AppColors.dangerText(context), AppColors.dangerBg(context), 'Red'),
-        RiskTier.yellow => (AppColors.warningText(context), AppColors.warningBg(context), 'Yellow'),
-        RiskTier.green => (AppColors.successText(context), AppColors.successBg(context), 'Green'),
+        RiskTier.red => (AppColors.dangerText(context), AppColors.dangerBg(context), context.l10n.levelRed),
+        RiskTier.yellow => (AppColors.warningText(context), AppColors.warningBg(context), context.l10n.levelYellow),
+        RiskTier.green => (AppColors.successText(context), AppColors.successBg(context), context.l10n.levelGreen),
       };
 
-  static const _conditionNames = {'haemodynamic': 'Blood pressure / pulse', 'glycaemic': 'Glucose'};
+  static String _conditionName(AppLocalizations l10n, String c) => switch (c) {
+        'haemodynamic' => l10n.conditionHaemodynamic,
+        'glycaemic' => l10n.glucose,
+        _ => c,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -124,14 +127,14 @@ class _RiskCardState extends State<RiskCard> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-        child: Text(a.hasData ? label : 'No data',
+        child: Text(a.hasData ? label : context.l10n.noData,
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
       );
     }
 
     if (!a.hasData) {
       return _shell(
-        child: Text('No reading in the last four days — log a reading to see your level.',
+        child: Text(context.l10n.noReadingFourDays,
             style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context))),
       );
     }
@@ -146,7 +149,7 @@ class _RiskCardState extends State<RiskCard> {
           Row(children: [
             Icon(Icons.insights_outlined, size: 16, color: fg),
             const SizedBox(width: 8),
-            Text(widget.forClinician ? 'Risk tier' : 'Your level',
+            Text(widget.forClinician ? context.l10n.riskTier : context.l10n.yourLevel,
                 style: TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
             const Spacer(),
@@ -159,29 +162,30 @@ class _RiskCardState extends State<RiskCard> {
           const SizedBox(height: 10),
           Text(
               widget.forClinician
-                  ? 'Home triage of the last readings: ${HomeProtocol.name(a.ruleLevel)}'
-                      '${profileOff ? '; verification profile off target' : ''}'
-                  : 'Your last readings against your home targets: ${HomeProtocol.name(a.ruleLevel)}'
-                      '${profileOff ? '; your check came out above target' : ''}',
+                  ? context.l10n.triageClinician(context.l10n.homeLevel(a.ruleLevel)) +
+                      (profileOff ? context.l10n.profileOffClinician : '')
+                  : context.l10n.triagePatient(context.l10n.homeLevel(a.ruleLevel)) +
+                      (profileOff ? context.l10n.profileOffPatient : ''),
               style: muted),
           if (!widget.forClinician && a.tier.index > a.ruleTier.index) ...[
             const SizedBox(height: 4),
-            Text('Your recent readings suggest a higher risk than the last value alone.', style: muted),
+            Text(context.l10n.higherRiskThanLast, style: muted),
           ],
           if (widget.forClinician)
             for (final e in a.conditions.entries) ...[
               const SizedBox(height: 4),
               Text(
-                  '${_conditionNames[e.key] ?? e.key}: '
-                  '${(e.value.alertProbability * 100).toStringAsFixed(0)}% calibrated probability of a high or '
-                  'critical reading at the next measurement (${e.value.tier.name}; ${e.value.model})',
+                  context.l10n.conditionProbability(
+                      _conditionName(context.l10n, e.key),
+                      (e.value.alertProbability * 100).toStringAsFixed(0),
+                      context.l10n.homeLevel(e.value.tier.index).toLowerCase(),
+                      e.value.model),
                   style: muted),
             ],
           if (widget.forClinician && a.stateChange != null) ...[
             const SizedBox(height: 4),
             Text(
-                'State change, last 24 h against the three days before: '
-                '${a.stateChange!.toStringAsFixed(1)} (${a.stateChangeMeasure})',
+                context.l10n.stateChangeLine(a.stateChange!.toStringAsFixed(1), '${a.stateChangeMeasure}'),
                 style: muted),
           ],
           if (!widget.forClinician && patientInstruction(a.tier) != null) ...[
@@ -195,15 +199,15 @@ class _RiskCardState extends State<RiskCard> {
           Text(
             a.source == RiskSource.online
                 ? (widget.forClinician
-                    ? 'Risk model (online) combined with the home triage; the model can raise the tier, never lower it.'
-                    : 'Checked with your readings and the risk model.')
+                    ? context.l10n.sourceOnlineClinician
+                    : context.l10n.sourceOnlinePatient)
                 : (widget.forClinician
-                    ? 'Home triage only (${a.offlineReason ?? 'offline'}).'
-                    : 'Checked on your phone from your readings.'),
+                    ? context.l10n.sourceOfflineClinician(a.offlineReason ?? context.l10n.offline)
+                    : context.l10n.sourceOfflinePatient),
             style: TextStyle(fontSize: 11, color: AppColors.textMuted(context)),
           ),
           if (widget.forClinician && a.provisionalThresholds && a.source == RiskSource.online)
-            Text('Model tier cut-points are provisional until set with the clinician.',
+            Text(context.l10n.provisionalCutpoints,
                 style: TextStyle(fontSize: 11, color: AppColors.textMuted(context))),
         ],
       ),

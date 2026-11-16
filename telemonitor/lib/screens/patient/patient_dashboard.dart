@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../services/home_protocol.dart';
 import '../../models/reading.dart';
 import '../../services/auth_service.dart';
@@ -16,6 +17,7 @@ import '../../widgets/assistant_card.dart';
 import '../../widgets/assistant_bubble.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/verify_email_card.dart';
+import '../../l10n/l10n.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -49,7 +51,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   String get _greeting {
     final h = DateTime.now().hour;
-    return h < 12 ? 'Good morning,' : (h < 18 ? 'Good afternoon,' : 'Good evening,');
+    return h < 12 ? context.l10n.goodMorning : (h < 18 ? context.l10n.goodAfternoon : context.l10n.goodEvening);
   }
 
   String get _patientName =>
@@ -75,16 +77,16 @@ class _PatientDashboardState extends State<PatientDashboard> {
     if (r == null) return '';
     // Red first, then yellow (home triage, HomeProtocol).
     if (r.haemodynamicLevel == HomeProtocol.red) {
-      return 'Blood pressure or pulse out of range — contact your health centre today';
+      return context.l10n.alertBpRed;
     }
     if (r.glycaemicLevel == HomeProtocol.red) {
-      return 'Blood glucose out of range — contact your health centre today';
+      return context.l10n.alertGlucoseRed;
     }
     if (r.haemodynamicLevel == HomeProtocol.yellow) {
-      return 'Blood pressure above your home target — see the 7-day check below';
+      return context.l10n.alertBpYellow;
     }
     if (r.glycaemicLevel == HomeProtocol.yellow) {
-      return 'Blood glucose above your target — see the one-day check below';
+      return context.l10n.alertGlucoseYellow;
     }
     return '';
   }
@@ -197,9 +199,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            n == 1
-                ? '1 reading is saved on your phone and will be sent when you are online.'
-                : '$n readings are saved on your phone and will be sent when you are online.',
+            context.l10n.readingsPending(n),
             style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
           ),
         ),
@@ -250,10 +250,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
   }
 
   String _ago(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inMinutes < 60) return '${d.inMinutes.clamp(0, 59)} min ago';
-    if (d.inHours < 24) return '${d.inHours} h ago';
-    return '${d.inDays} d ago';
+    return context.l10n.ago(t);
   }
 
   Widget _buildMetricCards() {
@@ -272,33 +269,33 @@ class _PatientDashboardState extends State<PatientDashboard> {
       childAspectRatio: 1.4,
       children: [
         _metricCard(
-          label: 'Blood pressure',
+          label: context.l10n.bloodPressure,
           value: bp == null ? '—' : '${bp.sbp}/${bp.dbp}',
           unit: bp == null ? 'mmHg' : 'mmHg · ${_ago(bp.timestamp)}',
           icon: Icons.favorite_outline,
           level: bp?.haemodynamicLevel,
         ),
         _metricCard(
-          label: 'Blood glucose',
+          label: context.l10n.bloodGlucose,
           value: glu == null ? '—' : '${glu.glucose}',
           unit: glu == null ? 'mmol/L' : 'mmol/L · ${_ago(glu.timestamp)}',
           icon: Icons.water_drop_outlined,
           level: glu?.glycaemicLevel,
         ),
         _metricCard(
-          label: 'Pulse',
+          label: context.l10n.pulse,
           value: hr == null ? '—' : '${hr.hr ?? hr.hrCamera}',
-          unit: hr == null ? 'bpm' : 'bpm${byCamera ? ' · camera' : ''} · ${_ago(hr.timestamp)}',
+          unit: hr == null ? 'bpm' : 'bpm${byCamera ? ' · ${context.l10n.camera}' : ''} · ${_ago(hr.timestamp)}',
           icon: byCamera ? Icons.photo_camera_outlined : Icons.monitor_heart_outlined,
           // the camera's pulse is not graded: it is not relied upon
           level: hr == null || byCamera ? null : HomeProtocol.pulse(hr.hr),
         ),
         _metricCard(
-          label: 'Last reading',
+          label: context.l10n.lastReading,
           value: last == null
               ? '—'
               : '${last.timestamp.hour.toString().padLeft(2, '0')}:${last.timestamp.minute.toString().padLeft(2, '0')}',
-          unit: last == null ? 'none yet' : _ago(last.timestamp),
+          unit: last == null ? context.l10n.noneYet : _ago(last.timestamp),
           icon: Icons.schedule,
           level: null,
         ),
@@ -388,7 +385,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Recent Readings',
+            context.l10n.recentReadings,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -398,7 +395,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           const SizedBox(height: 12),
           if (recent.isEmpty)
             Text(
-              'No readings logged yet',
+              context.l10n.noReadingsLoggedYet,
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textMuted(context),
@@ -418,23 +415,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final diff = today.difference(that).inDays;
     final time =
         '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
-    if (diff == 0) return 'Today, $time';
-    if (diff == 1) return 'Yesterday, $time';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${ts.day} ${months[ts.month - 1]}, $time';
+    if (diff == 0) return context.l10n.todayAt(time);
+    if (diff == 1) return context.l10n.yesterdayAt(time);
+    return context.l10n.dateAt(DateFormat('d MMM').format(ts), time);
   }
 
   Widget _readingRow(Reading reading) {
@@ -447,7 +430,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ? '${reading.sbp}/${reading.dbp} mmHg'
         : reading.hasGlucose
         ? '${reading.glucose} mmol/L'
-        : 'No values recorded';
+        : context.l10n.noValuesRecorded;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

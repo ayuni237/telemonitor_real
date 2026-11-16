@@ -120,15 +120,34 @@ def pseudonym(uid: str) -> str:
     return f"P-{uid[:6].upper()}"
 
 
-def describe(trigger: dict) -> str:
+LANGUAGES = ("en", "fr")                  # the app's languages (users/{uid}.language)
+_WORDS = {"en": {"pulse": "pulse", "glucose": "glucose", "none": "no values"},
+          "fr": {"pulse": "pouls", "glucose": "glycémie", "none": "aucune valeur"}}
+
+
+def language(user: dict | None) -> str:
+    """The language a user chose in the app; English when unknown."""
+    lang = (user or {}).get("language")
+    return lang if lang in LANGUAGES else "en"
+
+
+def _mail_language(request: dict, user: dict) -> str:
+    """The language of the app when the email was asked for (the request's), else
+    the account's: "Forgot password?" may be used in French on a phone whose
+    account last said English."""
+    return request["language"] if request.get("language") in LANGUAGES else language(user)
+
+
+def describe(trigger: dict, lang: str = "en") -> str:
+    w = _WORDS[lang]
     parts = []
     if trigger.get("sbp") is not None:
         parts.append(f"{trigger['sbp']}/{trigger['dbp']} mmHg")
     if trigger.get("hr") is not None:
-        parts.append(f"pulse {trigger['hr']}")
+        parts.append(f"{w['pulse']} {trigger['hr']}")
     if trigger.get("glucose") is not None:
-        parts.append(f"glucose {trigger['glucose']} mmol/L")
-    return ", ".join(parts) or "no values"
+        parts.append(f"{w['glucose']} {trigger['glucose']} mmol/L")
+    return ", ".join(parts) or w["none"]
 
 
 def standing(docs: list[Doc]) -> list[Doc]:
@@ -378,12 +397,23 @@ class Worker:
             stats["non_transmission_events"] += 1
 
     # ------------------------------------------------------------- notification, queue age, verdict
+    def _texts(self, lang: str) -> dict:
+        """The notification texts of a language (configs/worker.yaml: notify, notify_fr)."""
+        return self.cfg["notify_fr"] if lang == "fr" else self.cfg["notify"]
+
+    def _for(self, uid: str, e: dict) -> tuple[dict, dict]:
+        """A clinician's texts, and the event's fields, in that clinician's language."""
+        lang = language(self.store.user(uid))
+        t = self._texts(lang)
+        return t, {"pseudonym": pseudonym(e.get("patientId", "")), "trigger": describe(e.get("trigger") or {}, lang),
+                   "tier": t["tiers"].get(e.get("tier", ""), e.get("tier", ""))}
+
     def _events(self, uid: str, profile: dict, now: datetime, stats: Counter) -> None:
-        n = self.cfg["notify"]
+        n = self._texts(language(profile))          # the patient's texts
         clinician = profile.get("assignedClinicianId")
         for eid, e in self.store.events(uid):
             trig = e.get("trigger") or {}
-            fields = {"pseudonym": pseudonym(uid), "trigger": describe(trig), "tier": e.get("tier", "")}
+            e = {**e, "patientId": uid}
             if e.get("status") == "open":
                 if "notifiedAt" not in e and not self._recent(e.get("tsTriggered"), now):
                     self.store.update_event(uid, eid, {"notifiedAt": SERVER_TIME})   # backlog: marked, not sent
@@ -396,9 +426,10 @@ class Worker:
                         msgs = n.get(e.get("tier"), {})
                         if msgs.get("patient"):
                             stats["pushes"] += self.store.push(uid, "TeleMonitor", msgs["patient"])
-                        if msgs.get("clinician") and clinician:
-                            stats["pushes"] += self.store.push(clinician, "TeleMonitor alert",
-                                                               msgs["clinician"].format(**fields))
+                        if self.cfg["notify"].get(e.get("tier"), {}).get("clinician") and clinician:
+                            t, fields = self._for(clinician, e)
+                            stats["pushes"] += self.store.push(clinician, t["titles"]["alert"],
+                                                               t[e["tier"]]["clinician"].format(**fields))
                     self.store.update_event(uid, eid, {"notifiedAt": SERVER_TIME})
                     stats["events_notified"] += 1
                 elif e.get("triggerSource") == "non_transmission":
@@ -415,9 +446,10 @@ class Worker:
                 if limit is not None and "escalatedAt" not in e and age_h >= limit:
                     alternate = (self.store.user(clinician) or {}).get("alternateClinicianId") if clinician else None
                     self.store.update_event(uid, eid, {"escalatedAt": SERVER_TIME, "escalatedTo": alternate})
-                    text = n["escalation"]["clinician"].format(age=int(age_h), **fields)
                     for to in {clinician, alternate} - {None}:
-                        stats["pushes"] += self.store.push(to, "TeleMonitor escalation", text)
+                        t, fields = self._for(to, e)
+                        stats["pushes"] += self.store.push(to, t["titles"]["escalation"],
+                                                           t["escalation"]["clinician"].format(age=int(age_h), **fields))
                     stats["escalated"] += 1
             elif e.get("status") == "closed" and "patientNotifiedAt" not in e:
                 if not self._recent(e.get("tsReviewed"), now):
@@ -436,17 +468,17 @@ class Worker:
         so it brings no push. Who wrote, never what: a locked screen shows it."""
         now = now or datetime.now(timezone.utc)
         stats: Counter = Counter()
-        texts = self.cfg["notify"]["message"]
         for patient, role, ids, unread in inbox.due(now, timedelta(seconds=self.cfg["message_delay_seconds"]),
                                                     timedelta(hours=self.cfg["max_age_hours"])):
             # marked first: a failed write must not bring the same push at every tick
             inbox.notified(patient, ids)
             try:
                 if role == "clinician":
-                    to, text = patient, texts["patient"]
+                    to, side = patient, "patient"
                 else:
-                    to, text = (self.store.user(patient) or {}).get("assignedClinicianId"), texts["clinician"]
+                    to, side = (self.store.user(patient) or {}).get("assignedClinicianId"), "clinician"
                 if to:
+                    text = self._texts(language(self.store.user(to)))["message"][side]   # in the recipient's language
                     body = text[0 if unread == 1 else 1].format(count=unread, pseudonym=pseudonym(patient))
                     # one notification per conversation: the next one replaces it, with the new count
                     stats["pushes"] += self.store.push(to, "TeleMonitor", body, channel=MESSAGE_CHANNEL,
@@ -494,8 +526,9 @@ class Worker:
         elif account[1]:
             outcome = "emails_already_confirmed"
         else:
-            name = (self.store.user(uid) or {}).get("name")
-            self.mailer.send(account[0], *verification_email(name, self.store.verification_link(account[0])))
+            user = self.store.user(uid) or {}
+            self.mailer.send(account[0], *verification_email(user.get("name"), self.store.verification_link(account[0]),
+                                                             _mail_language(req, user)))
             outcome = "emails_sent"
         self.store.update_mail_request(uid, {"sentAt": SERVER_TIME, "outcome": outcome})
         return outcome
@@ -517,8 +550,9 @@ class Worker:
                 outcome = "resets_limited"
             else:
                 uid, email = account[0], account[1]
-                name = (self.store.user(uid) or {}).get("name")
-                self.mailer.send(email, *password_reset_email(name, self.store.password_reset_link(email)))
+                user = self.store.user(uid) or {}
+                self.mailer.send(email, *password_reset_email(user.get("name"), self.store.password_reset_link(email),
+                                                              _mail_language(req, user)))
                 sent.append(now)
                 outcome = "resets_sent"
         self.store.update_password_reset(address, {"sentAt": SERVER_TIME, "outcome": outcome})
@@ -738,8 +772,8 @@ def test_mail(store, mailer: Mailer | None, email: str) -> int:
     if account is None or not account[0]:
         log.error("no account with the email %s", email)
         return 1
-    name = (store.user(uid) or {}).get("name")
-    mailer.send(account[0], *verification_email(name, store.verification_link(account[0])))
+    user = store.user(uid) or {}
+    mailer.send(account[0], *verification_email(user.get("name"), store.verification_link(account[0]), language(user)))
     log.info("confirmation email sent to %s from %s", account[0], mailer.from_address)
     return 0
 

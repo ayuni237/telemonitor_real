@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/app_user.dart';
 import '../../models/clinical_event.dart';
@@ -14,6 +15,7 @@ import '../../widgets/risk_card.dart';
 import '../../widgets/user_avatar.dart';
 import '../../theme/app_theme.dart';
 import 'patient_chat_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// One patient as seen by their assigned clinician: profile details on
 /// top, the model's risk assessment, then the full reading history.
@@ -40,7 +42,7 @@ class PatientDetailScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           IconButton(
-            tooltip: 'Message patient',
+            tooltip: context.l10n.messagePatient,
             icon: const Icon(Icons.chat_bubble_outline, size: 20),
             onPressed: () => Navigator.push(
               context,
@@ -93,7 +95,7 @@ class PatientDetailScreen extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
                   child: Text(
-                    'Reading history',
+                    context.l10n.readingHistoryTitle,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -220,7 +222,7 @@ class _ProfileCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                'No clinical information recorded for this patient yet.',
+                context.l10n.noClinicalInfo,
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary(context),
@@ -234,9 +236,9 @@ class _ProfileCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 if (patient.age != null)
-                  _pill(context, '${patient.age} yrs', Icons.cake_outlined),
+                  _pill(context, context.l10n.ageYears(patient.age!), Icons.cake_outlined),
                 if (_has(patient.sex))
-                  _pill(context, patient.sex!, Icons.person_outline),
+                  _pill(context, context.l10n.sexLabel(patient.sex!), Icons.person_outline),
                 // Units appended here rather than stored, so an older
                 // profile saved as plain "162" still reads correctly.
                 if (_has(patient.height))
@@ -260,7 +262,7 @@ class _ProfileCard extends StatelessWidget {
               const SizedBox(height: 16),
               _sectionTitle(
                 context,
-                'Conditions',
+                context.l10n.conditions,
                 Icons.medical_information_outlined,
               ),
               const SizedBox(height: 8),
@@ -271,7 +273,7 @@ class _ProfileCard extends StatelessWidget {
 
             if (patient.medications.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _sectionTitle(context, 'Medications', Icons.medication_outlined),
+              _sectionTitle(context, context.l10n.medications, Icons.medication_outlined),
               const SizedBox(height: 8),
               ...patient.medications.map(
                 (m) => _bullet(context, m, AppColors.primaryText(context)),
@@ -280,11 +282,11 @@ class _ProfileCard extends StatelessWidget {
 
             if (hasPhone || hasEmergency) ...[
               const SizedBox(height: 16),
-              _sectionTitle(context, 'Contact', Icons.phone_outlined),
+              _sectionTitle(context, context.l10n.contact, Icons.phone_outlined),
               const SizedBox(height: 8),
-              if (hasPhone) _kv(context, 'Phone', patient.phone!),
+              if (hasPhone) _kv(context, context.l10n.phone, patient.phone!),
               if (hasEmergency)
-                _kv(context, 'Emergency', patient.emergencyContact!),
+                _kv(context, context.l10n.emergency, patient.emergencyContact!),
             ],
           ],
         ],
@@ -414,7 +416,7 @@ class _ReadingsSliver extends StatelessWidget {
           return SliverToBoxAdapter(
             child: _note(
               context,
-              'Could not load readings.\n${snapshot.error}',
+              context.l10n.readingsNotLoaded('${snapshot.error}'),
             ),
           );
         }
@@ -437,7 +439,7 @@ class _ReadingsSliver extends StatelessWidget {
           return SliverToBoxAdapter(
             child: _note(
               context,
-              'This patient has not logged any readings yet.',
+              context.l10n.patientNoReadings,
             ),
           );
         }
@@ -483,35 +485,19 @@ class _ReadingTile extends StatelessWidget {
   const _ReadingTile({required this.reading, this.superseded = false});
 
   String _formatted(DateTime ts) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final time =
-        '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
-    return '${ts.day} ${months[ts.month - 1]} · $time';
+    return DateFormat('d MMM · HH:mm').format(ts);
   }
 
   /// How the reading was obtained: protocol pair, correction, late entry.
   String get _provenance => [
-        if (superseded) 'replaced by a correction',
-        if (reading.isCorrection) 'correction of an earlier entry',
+        if (superseded) l10nNow.provReplaced,
+        if (reading.isCorrection) l10nNow.provCorrection,
         if (reading.readingCount == 2)
-          'second of two readings (first ${reading.firstSbp}/${reading.firstDbp})',
+          l10nNow.provSecondOfTwo('${reading.firstSbp}/${reading.firstDbp}'),
         if (reading.isBackdated && reading.recordedAt != null)
-          'entered ${_formatted(reading.recordedAt!)}',
+          l10nNow.provEntered(_formatted(reading.recordedAt!)),
         if (reading.qualityFlag != null && reading.qualityFlag != 'ok')
-          'quality check: ${reading.qualityFlag!.replaceAll('_', ' ')}',
+          l10nNow.provQuality(reading.qualityFlag!.replaceAll('_', ' ')),
       ].join(' · ');
 
   @override
@@ -589,7 +575,7 @@ class _ReadingTile extends StatelessWidget {
                   context,
                   Icons.photo_camera_outlined,
                   '${reading.hrCamera}',
-                  'bpm by phone camera',
+                  context.l10n.bpmByCamera,
                   false,
                 ),
             ],
@@ -660,12 +646,12 @@ class _EventsSection extends StatelessWidget {
     final days = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Checkup period'),
+        title: Text(ctx.l10n.checkupPeriod),
         children: [
           for (final d in const [1, 2, 3, 5, 7, 14, 30])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, d),
-              child: Text('$d day${d == 1 ? '' : 's'}${d == current ? '  (current)' : ''}'),
+              child: Text(ctx.l10n.periodDays(d) + (d == current ? ctx.l10n.currentSuffix : '')),
             ),
         ],
       ),
@@ -675,7 +661,7 @@ class _EventsSection extends StatelessWidget {
       await EventsService.instance.setCheckupPeriod(patient.uid, days);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.couldNotSave('$e'))));
       }
     }
   }
@@ -689,12 +675,12 @@ class _EventsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Text('Alerts and verdicts', style: title),
+          Text(context.l10n.alertsAndVerdicts, style: title),
           const Spacer(),
           TextButton.icon(
             onPressed: () => _editPeriod(context, period),
             icon: const Icon(Icons.timer_outlined, size: 16),
-            label: Text('Checkup every $period d${patient.checkupPeriodDays == null ? ' (default)' : ''}',
+            label: Text(context.l10n.checkupEvery(period) + (patient.checkupPeriodDays == null ? context.l10n.defaultSuffix : ''),
                 style: const TextStyle(fontSize: 12)),
           ),
         ]),
@@ -702,13 +688,13 @@ class _EventsSection extends StatelessWidget {
           stream: EventsService.instance.watch(patient.uid, limit: 20),
           builder: (context, snap) {
             if (snap.hasError) {
-              return Text('Could not load alerts: ${snap.error}',
+              return Text(context.l10n.alertsNotLoaded('${snap.error}'),
                   style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)));
             }
             final events = snap.data;
             if (events == null) return const SizedBox(height: 24);
             if (events.isEmpty) {
-              return Text('No alert recorded for this patient.',
+              return Text(context.l10n.noAlertForPatient,
                   style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)));
             }
             return Column(children: [for (final e in events) EventLogTile(event: e)]);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/health_assistant_service.dart';
 import '../../theme/app_theme.dart';
+import '../../l10n/l10n.dart';
 
 class _AssistantMessage {
   final String text;
@@ -37,13 +38,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
   void initState() {
     super.initState();
     HealthAssistantService.instance.startSession();
-    _messages.add(const _AssistantMessage(
-      'Hello. I can explain your readings, answer general questions about '
-      'blood pressure and diabetes, and help you decide whether something '
-      'needs a doctor.\n\n'
-      'I cannot advise on medication — only your clinician can do that.',
-      fromUser: false,
-    ));
+    _messages.add(_AssistantMessage(l10nNow.assistantGreeting, fromUser: false));
   }
 
   @override
@@ -114,14 +109,14 @@ class _AssistantScreenState extends State<AssistantScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Health Assistant',
-                    style: TextStyle(
+                Text(context.l10n.healthAssistant,
+                    style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600)),
-                Text('Automated — not your doctor',
-                    style: TextStyle(fontSize: 11, color: Colors.white70)),
+                Text(context.l10n.notYourDoctor,
+                    style: const TextStyle(fontSize: 11, color: Colors.white70)),
               ],
             ),
           ],
@@ -160,8 +155,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'General information only. It cannot diagnose you or advise '
-              'on medication. For anything urgent, go to a health facility.',
+              context.l10n.assistantDisclaimer,
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),
@@ -181,7 +175,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: HealthAssistantService.suggestedQuestions.map((q) {
+        children: HealthAssistantService.suggestedQuestions().map((q) {
           return Material(
             color: AppColors.card(context),
             borderRadius: BorderRadius.circular(20),
@@ -324,7 +318,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
               style: TextStyle(
                   fontSize: 13, color: AppColors.textPrimary(context)),
               decoration: InputDecoration(
-                hintText: 'Ask a health question...',
+                hintText: context.l10n.askHealthQuestion,
                 hintStyle: TextStyle(
                     color: AppColors.textMuted(context), fontSize: 13),
                 filled: true,

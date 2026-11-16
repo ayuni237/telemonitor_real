@@ -3,6 +3,7 @@
 library;
 
 import '../models/reading.dart';
+import '../l10n/l10n.dart';
 
 enum TrendDirection { rising, falling, stable, unknown }
 
@@ -54,9 +55,9 @@ TrendDirection glucoseTrend(List<Reading> readings, {DateTime? now}) => trendOf(
 
 /// Five-year age band, as in the patient record of ch.4.
 String ageBand(int? age) {
-  if (age == null) return 'age not recorded';
+  if (age == null) return l10nNow.ageNotRecorded;
   final lo = age ~/ 5 * 5;
-  return '$lo–${lo + 4} yrs';
+  return l10nNow.ageBand(lo, lo + 4);
 }
 
 /// Pseudonym shown on a queue row: identification without identity. Built

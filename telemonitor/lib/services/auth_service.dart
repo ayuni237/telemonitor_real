@@ -7,6 +7,7 @@ import '../models/app_user.dart';
 import 'consent_service.dart';
 import 'push_service.dart';
 import 'readings_repository.dart';
+import '../l10n/l10n.dart';
 
 /// Result of looking up a clinician enrolment code.
 class ClinicianCode {
@@ -57,7 +58,8 @@ class AuthService {
 
   Stream<fb_auth.User?> get authStateChanges => _auth.authStateChanges();
 
-  fb_auth.User? get currentFirebaseUser => _auth.currentUser;
+  // null where Firebase is not initialised (screen tests)
+  fb_auth.User? get currentFirebaseUser => Firebase.apps.isEmpty ? null : _auth.currentUser;
 
   // ---------------------------------------------------------------
   // Sign in / out / reset
@@ -89,7 +91,8 @@ class AuthService {
   Future<void> sendPasswordReset(String email) async {
     final address = email.trim().toLowerCase();
     if (_mailAddress.hasMatch(address) && address.length <= 254 && await _workerSendsMail()) {
-      if (await _askWorker(_db.collection('password_resets').doc(address), {})) return;
+      // the language of the screen it was asked from, for the email
+      if (await _askWorker(_db.collection('password_resets').doc(address), {'language': l10nNow.localeName})) return;
     }
     await _auth.sendPasswordResetEmail(email: email.trim());
   }
@@ -138,7 +141,8 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return;
     if (await _workerSendsMail() &&
-        await _askWorker(_db.collection('mail_requests').doc(user.uid), {'kind': 'verify_email'})) {
+        await _askWorker(
+            _db.collection('mail_requests').doc(user.uid), {'kind': 'verify_email', 'language': l10nNow.localeName})) {
       return;
     }
     await user.sendEmailVerification();
@@ -183,7 +187,7 @@ class AuthService {
       return ClinicianCode(
         code: code,
         clinicianId: clinicianId,
-        clinicianName: (data['name'] as String?)?.trim() ?? 'Your clinician',
+        clinicianName: (data['name'] as String?)?.trim() ?? l10nNow.yourClinician,
       );
     } catch (e) {
       // The previous version let this fail silently, which is why the
@@ -223,7 +227,7 @@ class AuthService {
   }) async {
     // the form requires the tick; the security rules require the fields
     if (!acceptedTerms) {
-      throw const SignUpException('Please read and accept the terms of use to create your account.');
+      throw SignUpException(l10nNow.acceptTermsFirst);
     }
     if (debugSignUp != null) return debugSignUp!();
 
@@ -234,10 +238,7 @@ class AuthService {
     if (trimmedCode.isNotEmpty) {
       code = await lookupClinicianCode(trimmedCode);
       if (code == null) {
-        throw const SignUpException(
-          'That clinician code was not recognised. Check it with your '
-          'doctor, or leave it blank and connect later.',
-        );
+        throw SignUpException(l10nNow.clinicianCodeNotRecognised);
       }
     }
 
@@ -263,6 +264,8 @@ class AuthService {
         // that the field is ABSENT, so an explicit null would block it.
         if (code != null) 'assignedClinicianId': code.clinicianId,
         'createdAt': FieldValue.serverTimestamp(),
+        // the worker writes the confirmation email in it (LocaleController)
+        'language': l10nNow.localeName,
         ...ConsentService.acceptanceFields(research: researchConsent),
       });
     } catch (e) {
@@ -272,9 +275,7 @@ class AuthService {
         // If deletion also fails the account can be cleaned up from the
         // console; surfacing the original error is more useful.
       }
-      throw SignUpException(
-        'Your account could not be set up. Please try again. ($e)',
-      );
+      throw SignUpException(l10nNow.accountNotSetUp('$e'));
     }
 
     // The confirmation link; a failure here (offline, quota) does not undo
@@ -303,21 +304,16 @@ class AuthService {
   Future<ClinicianCode> linkToClinician(String rawCode) async {
     final me = _auth.currentUser;
     if (me == null) {
-      throw const SignUpException('You must be signed in to do this.');
+      throw SignUpException(l10nNow.mustBeSignedIn);
     }
 
     if (_currentProfile?.isAssigned ?? false) {
-      throw const SignUpException(
-        'Your account is already connected to a clinician. Contact your '
-        'care team if this needs to change.',
-      );
+      throw SignUpException(l10nNow.alreadyConnected);
     }
 
     final code = await lookupClinicianCode(rawCode);
     if (code == null) {
-      throw const SignUpException(
-        'That code was not recognised. Please check it with your doctor.',
-      );
+      throw SignUpException(l10nNow.codeNotRecognisedCheck);
     }
 
     try {
@@ -325,7 +321,7 @@ class AuthService {
         'assignedClinicianId': code.clinicianId,
       });
     } catch (e) {
-      throw SignUpException('Could not connect to that clinician. ($e)');
+      throw SignUpException(l10nNow.couldNotConnect('$e'));
     }
 
     await fetchCurrentUserProfile();
@@ -373,23 +369,23 @@ class AuthService {
         case 'user-not-found':
         case 'wrong-password':
         case 'invalid-credential':
-          return 'Incorrect email or password.';
+          return l10nNow.wrongCredentials;
         case 'invalid-email':
-          return "That email address doesn't look right.";
+          return l10nNow.invalidEmail;
         case 'email-already-in-use':
-          return 'An account already exists for that email. Try signing in.';
+          return l10nNow.emailInUse;
         case 'weak-password':
-          return 'Please choose a password of at least 6 characters.';
+          return l10nNow.passwordTooShort;
         case 'user-disabled':
-          return 'This account has been disabled.';
+          return l10nNow.accountDisabled;
         case 'too-many-requests':
-          return 'Too many attempts — please wait a moment and try again.';
+          return l10nNow.tooManyAttempts;
         case 'network-request-failed':
-          return 'No internet connection.';
+          return l10nNow.noInternet;
         default:
-          return 'Sign-in failed (${error.code}).';
+          return l10nNow.signInFailed(error.code);
       }
     }
-    return 'Something went wrong. Please try again.';
+    return l10nNow.somethingWentWrong;
   }
 }

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -117,6 +118,44 @@ def test_red_reading_raises_one_rule_event_and_notifies_both():
     # second cycle: nothing new, nothing sent again
     s.pushed.clear()
     assert w.cycle(NOW).get("rule_events", 0) == 0 and s.pushed == []
+
+
+def test_each_recipient_is_told_in_the_language_chosen_in_the_app():
+    s = FakeStore()
+    s.users["pat1"]["language"] = "fr"            # the patient chose French, the clinician did not
+    s.add_reading("r1", 2, sbp=185, dbp=110, hr=80)
+    worker(s).cycle(NOW)
+    said = dict(s.pushed)
+    assert said["pat1"].startswith("Votre dernière mesure est dans la zone rouge")
+    assert said["doc1"] == "Red alert: P-PAT1, 185/110 mmHg, pulse 80"
+    s.pushed.clear()
+    s.users["doc1"]["language"] = "fr"
+    s.add_reading("r2", 1, sbp=190, dbp=112, hr=81)
+    worker(s).cycle(NOW)
+    assert dict(s.pushed)["doc1"] == "Alerte rouge : P-PAT1, 190/112 mmHg, pouls 81"
+    # escalation, in the language of each clinician who receives it
+    s.pushed.clear()
+    s.evs["pat1"]["rule_x"] = {"status": "open", "tier": "red", "triggerSource": "rule",
+                              "tsTriggered": NOW - timedelta(hours=5), "notifiedAt": NOW, "trigger": {}}
+    worker(s).cycle(NOW)
+    said = dict(s.pushed)
+    assert said["doc1"] == "Alerte non examinée pour P-PAT1 depuis 5 h (rouge)"
+    assert said["doc2"] == "Unreviewed alert for P-PAT1 since 5 h (red)"
+
+
+def test_the_french_texts_have_the_fields_of_the_english_ones():
+    cfg = W.load_config()
+
+    def fields(node):
+        if isinstance(node, dict):
+            return {k: fields(v) for k, v in node.items() if k not in ("titles", "tiers")}
+        if isinstance(node, list):
+            return [fields(x) for x in node]
+        return None if node is None else sorted(re.findall(r"\{(\w+)\}", node))
+
+    assert fields(cfg["notify_fr"]) == fields(cfg["notify"])
+    assert cfg["notify_fr"]["titles"].keys() == cfg["notify"]["titles"].keys()
+    assert cfg["notify_fr"]["tiers"].keys() == cfg["notify"]["tiers"].keys()
 
 
 def test_yellow_notifies_the_patient_only():
@@ -454,11 +493,36 @@ def test_resets_for_one_account_are_capped_per_day():
     assert w.resets(resets, later) == {"resets_sent": 1}                     # a day later: sent again
 
 
+def test_emails_come_in_the_language_of_the_app():
+    s, mailer = FakeStore(), FakeMailer()
+    w = mail_worker(s, mailer)
+    s.users["pat1"]["language"] = "fr"
+    requests = W.MailRequests()
+    requests.apply([("pat1", request())])                         # no language in the request: the account's
+    w.emails(requests, NOW)
+    _, subject, text, body = mailer.sent[-1]
+    assert subject == "Confirmez votre adresse e-mail pour TeleMonitor"
+    assert text.startswith("Bonjour Aline,") and "Confirmer mon adresse e-mail" in body
+    assert "lang=fr" in text and '<html lang="fr">' in body      # Firebase's page in French too
+    # "Forgot password?" asked in English on the phone: English, whatever the account says
+    resets = W.MailRequests()
+    resets.apply([("aline@example.org", reset(language="en"))])
+    w.resets(resets, NOW)
+    _, subject, text, _ = mailer.sent[-1]
+    assert subject == M.RESET_SUBJECT and text.startswith("Hello Aline,") and "lang=en" in text
+
+
+def test_a_link_keeps_its_parameters_with_the_language():
+    link = "https://telemonitor.firebaseapp.com/__/auth/action?mode=resetPassword&oobCode=Q%2B1&apiKey=K&lang=en"
+    assert M.localized_link(link, "fr") == (
+        "https://telemonitor.firebaseapp.com/__/auth/action?mode=resetPassword&oobCode=Q%2B1&apiKey=K&lang=fr")
+
+
 def test_the_email_escapes_the_name_and_carries_the_logo_inline():
     link = "https://telemonitor.firebaseapp.com/__/auth/action?mode=verifyEmail&oobCode=Q"
     subject, text, body = M.verification_email('<script>alert(1)</script> Eve', link)
     assert "<script>" not in body and "&lt;script&gt;" in body
-    assert 'href="https://telemonitor.firebaseapp.com/__/auth/action?mode=verifyEmail&amp;oobCode=Q"' in body
+    assert 'href="https://telemonitor.firebaseapp.com/__/auth/action?mode=verifyEmail&amp;oobCode=Q&amp;lang=en"' in body
     assert M.verification_email(None, link)[1].startswith("Hello,\n")
     msg = M.message("aline@example.org", ("TeleMonitor", "telemonitor.app@example.org"), subject, text, body)
     assert msg["From"] == "TeleMonitor <telemonitor.app@example.org>"
