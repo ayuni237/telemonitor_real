@@ -332,3 +332,6 @@ telemonitor/AUTHSERVICE_PATCH.md
 
 # Old copy of the research folder (old pipeline, synthetic results, patient data): never commit
 telemonitor/research/
+
+# Office lock files
+~$*
