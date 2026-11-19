@@ -20,8 +20,13 @@ Decisions of 27 October 2026:
    on the title page (GISDIA laboratory model since 6 November 2026). Logos in `figures/logos/`:
    `enspd.png` from enspd-udo.cm (left), `udo.png` from univ-douala.cm (right; the official file
    is 109×142 px, enlarged ×4; replace it with a sharper copy under the same name if one is found).
-8. Defaults until you say otherwise: H2 (warning 24–48 h ahead) is reported as **not tested**
-   unless you run it; the TRIPOD+AI checklist becomes a **one-page appendix**.
+8. H2 (24 and 48 h ahead) was run on 18–19 November 2026 and is reported in §4.3.5; the
+   TRIPOD+AI checklist becomes a **one-page appendix**.
+9. On 19 November 2026 the thesis was brought level with the app of 16 November: English and
+   French, camera pulse (kept beside the device's pulse, never used for decisions), terms and a
+   separate research consent, pseudonymised research extract, profile photos, message and
+   account e-mails (ch.3 §Interfaces, §Server functions, §Security, §Ethics; ch.4 Table 4.14);
+   test counts 199 Python + 86 app = 285. Still 115 pages.
 
 ## 0. Status on 5 November 2026
 
@@ -130,7 +135,7 @@ Every number of chapter 4 comes from a script of `telemonitor-research`:
 | Appendices A–F | `07_appendices.tex` | 11 |
 
 Still missing: the acknowledgments (after the Declaration) and, if you want them, the logos.
-H2 (24 and 48 hours ahead) is reported as not tested until the runs at 12 and 36 h are made.
+H2 (24 and 48 hours ahead) was tested on 18–19 November 2026 (runs at 12 and 36 h, `results/leads.tex`).
 
 The old 125-page chapters (`parts/archive_125p/`) and the earlier versions `final_memoire` and
 `correction memoir` are kept on the author's machine only, out of git; so is the French
@@ -192,8 +197,8 @@ sample's, which alone saves about a fifth of the pages.
 | 4.2 Risk models | nested benchmark by hospital; comparison with persistence; selected family; subgroups; weight stability; importance | `06_benchmark.py`, `13_results_tables.py`, `15_results_details.py` | yes (15/15 folds per task) |
 | 4.3 External validation on Douala | before and after intercept update | same | yes |
 | 4.4 State evolution | eight measures, AUROC with intervals | `12_state_comparison.py` | yes |
-| 4.5 System verification | parity tests, rules, offline behaviour, worker; assistant adversarial set | test suites; `integration_test/` | tests yes (172 Python, 48 Flutter); rules deployed 4 Nov; assistant **on a phone** pending |
-| 4.6 Discussion | research questions, literature, implications, limitations | — | yes; H2 not tested |
+| 4.5 System verification | parity tests, rules, offline behaviour, worker; assistant adversarial set | test suites; `integration_test/` | tests yes (199 Python, 86 Flutter on 19 Nov 2026); rules deployed 4 Nov; assistant **on a phone** pending |
+| 4.6 Discussion | research questions, literature, implications, limitations | — | yes; H2 supported at 24 h for blood pressure, not at 48 h, not for glucose |
 
 Each results table will be produced by a script from the saved outputs (no number typed by
 hand), as for the figures.
@@ -203,9 +208,8 @@ hand), as for the figures.
 1. Read the thesis and tell me what to cut or change.
 2. Send the acknowledgments, and the logos of the University of Douala and of NHPSD (PNG)
    if you want them on the title page (academic year 2025–2026 confirmed).
-3. For H2 and RQ3: `powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchmarks.ps1 -Leads "12 36"`
-   (about a day and a half), then `python scripts\13_results_tables.py`, which writes
-   `results/leads.tex`; the lead-time paragraph, RQ3 and the key points are then written from it.
+3. Done on 19 November 2026: the H2 runs (`-Leads "12 36"`, 33 h), `results/leads.tex`, §4.3.5,
+   RQ3, the hypotheses table, the synthesis, the Abstract, the Résumé and the Conclusion.
 4. On a phone: run the 22-question assistant set (the Firestore rules and index were deployed on 4 November)
    (§4.5 reports both as pending).
 
@@ -252,7 +256,7 @@ Each answer uses only what the work shows; the section that supports it is in br
    states. Analyses use elapsed time, not dates; the data are not in the repository. The
    assistant receives no name or identifier, and the transfer abroad is discussed under Law
    2024/017 (ch.3 §Ethics, §The health assistant).
-10. **Has anyone used the system?** No. It is built and verified by 220 automated tests,
+10. **Has anyone used the system?** No. It is built and verified by 285 automated tests (199 Python, 86 app),
     including the parity of the phone's triage with the Python reference; the pilot, the
     emulator test of the security rules (deployed on 4 November) and the assistant test on a phone are pending (ch.4
     §System verification).
@@ -264,5 +268,11 @@ Each answer uses only what the work shows; the section that supports it is in br
     runs; each run folder keeps its configuration, a copy of the code and every prediction; the
     tables are written by scripts 13 and 15; the library versions are pinned and available as a
     Docker image (ch.3 §Reproducibility; README).
-13. **Why is H2 not tested?** The runs at embargoes of 12 and 36 h take about a day and a half;
-    the script and the table are ready (§4 point 3). Until they are run, RQ3 is reported as open.
+13. **Why does the advantage hold 24 h ahead and not 48 h ahead?** At 24 h, three families and
+    the procedure beat persistence (ΔRPS −0.0036 to −0.0057, p ≤ 0.006), and the procedure picks
+    the ridge value forecast in all 15 folds. At 48 h the value forecasts keep nearly their margin
+    on 2 341 samples (p = 0.07 and 0.08), so the question stays open for them, while the margin of
+    CatBoost disappears (−0.0007, p = 0.67). A forecast of the pressure can draw the last reading
+    towards the patient's usual level (ch.1, why one reading is not enough), which persistence
+    cannot. The deployed CatBoost serves the next reading; a service answering 24 h ahead would
+    serve the value forecast.

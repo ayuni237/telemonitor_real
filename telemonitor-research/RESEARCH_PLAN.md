@@ -295,6 +295,6 @@ can be redone.
 | Non-significance read as equality | H3 | I49, fixed |
 | Equal budgets; search levelled off | `benchmark.yaml`; `summary.json` `search_kept_after_15` | I50, stated; M1 |
 | Score dominated by one channel | state distance in raw units | I51, stated; M2 |
-| Experiments described but not run | H2 runs, physician relabelling (U2), assistant set (P4), Firestore rules, full eICU (A1): the thesis states each as not done or planned | Pass; open items in §6 |
+| Experiments described but not run | physician relabelling (U2) (H2 runs done 18–19 Nov 2026), assistant set (P4), Firestore rules, full eICU (A1): the thesis states each as not done or planned | Pass; open items in §6 |
 | Same configuration, same result | would need one fold rerun | Not verified |
 

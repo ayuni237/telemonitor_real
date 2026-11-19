@@ -518,12 +518,14 @@ HEARTS indicators produced from the record & \textcite{who2023hypertension} & no
 pressure from a validated cuff, glucose from a glucometer & \textcite{who2023hypertension,alhaddad2022} & manual entry from any validated device; Bluetooth acquisition specified, not built \\
 measurement time kept apart from arrival time & offline synchronisation & built: two timestamps per reading \\
 one glucose unit; implausible values refused & \textcite{liu2025review} (unit errors) & built: mmol/L only, ranges checked on the phone and on the server \\
+pulse from the phone camera evaluated before it is relied on & \textcite{liu2025ppg,alessa2019} & built: kept beside the device's pulse, never used by the triage or the model \\
 \addlinespace
 \multicolumn{3}{@{}l}{\textit{Architecture}} \\
 an edge tier that grades readings without a network & \textcite{mucchi2021,segun2025} & built: triage and red warning on the phone \\
 offline-first storage with merge on reconnection & \textcite{efendi2025} & built: local cache of the database \\
 series keyed by measurement time; validation at write; record that cannot be altered & \textcite{liu2025review} & built: append-only readings; security rules deployed on 4 November 2026 \\
 role-based access; no identifier outside the record & \textcite{alhammad2024} & built: patient and clinician roles; risk service and assistant receive no identifier \\
+research use of the data only with a separate, revocable consent & \cref{sec:ethics} & built: consent at sign-up, changed from the profile; pseudonymised extract \\
 storage region chosen under the applicable law & \textcite{alhammad2024}; \cref{sec:ethics} & to be fixed before deployment \\
 \addlinespace
 \multicolumn{3}{@{}l}{\textit{Modelling}} \\
@@ -574,9 +576,9 @@ Each patient's readings, events and messages are subcollections of their profile
   head/.style={font=\footnotesize\bfseries, text=cMain},
   arr/.style={semithick, cMain!70}]
   \node[coll, fill=cMain!8, text width=5.2cm] (user) at (0,0) {{\footnotesize\bfseries\color{cMain} users/\{uid\}}\\[1pt]
-    role (patient or clinician), assigned clinician, checkup period, named alternate};
+    role (patient or clinician), assigned clinician, checkup period, named alternate, language, terms and research consent};
   \node[coll] (read) at (-5.0,-2.6) {{\footnotesize\bfseries\color{cMain} readings/\{id\}} \hfill append-only\\[1pt]
-    measurement time, arrival time (server), SBP, DBP, pulse, glucose and its context, number of readings and first pair, supersedes, quality flag};
+    measurement time, arrival time (server), SBP, DBP, pulse, camera pulse, glucose and its context, number of readings and first pair, supersedes, quality flag};
   \node[coll] (ev) at (0,-2.6) {{\footnotesize\bfseries\color{cMain} events/\{id\}} \hfill closed once\\[1pt]
     source (rule, model or no transmission; a profile off target is a red rule event), tier, score, trigger, threshold and model versions, status, verdict, action, escalation};
   \node[coll] (msg) at (5.0,-2.6) {{\footnotesize\bfseries\color{cMain} messages/\{id\}}\\[1pt]
@@ -604,10 +606,12 @@ Each patient's readings, events and messages are subcollections of their profile
 Measurement check & new reading & quality controls of \cref{sec:quality}; quality flag \\
 Escalation & yellow or red home level & event added to the clinician's queue \\
 Scoring & latest reading & rule and model, same code as the risk service; event if the model raises the tier \\
-Notification & new event & red: patient and clinician; yellow: patient, prompt for the verification profile \\
+Notification & new event & red: patient and clinician; yellow: patient, prompt for the verification profile; in each user's language \\
 Non-transmission & no reading for longer than the checkup period & event; daily reminder to the patient \\
 Queue age & event open 4~h (red) or 3 days (yellow) & escalated to the clinician's named alternate \\
 Verdict & event closed & the patient is told it was reviewed \\
+Message & message unread 20~s after arrival & the recipient is told who wrote, never the text \\
+Account e-mail & request to confirm the address or reset the password & e-mail carrying Firebase's link; a reset only to an existing account's own address, five a day at most \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -642,6 +646,8 @@ Verdict & event closed & the patient is told it was reviewed \\
 \subsection{Interfaces}\label{sec:patient-app}\label{sec:dashboard}
 
 The \textbf{patient} enters the two pressure readings of the protocol, of which the second is retained, and may date a reading taken earlier; the glucose unit is fixed to mmol/L, a value outside its plausible range is refused with a message naming the unit, and the measurement context is required for glucose because the target depends on it. A reading at the red level brings up a local warning at once, whatever the connectivity. The home screen shows the level of the latest readings with the one instruction the patient may receive---contact the health centre, or seek care today---never a dose and never a probability; the verification profile to carry out and its progress; the fourteen-day trend with the target band; the evolution of each channel; and the outcome of the clinician's reviews. The \textbf{clinician} works from a queue of unreviewed events, red before yellow and then oldest first, each row showing the source of the alert, the triggering value, the fourteen-day trend and the versions, and closes an event with a verdict (true alert, false alert, uncertain) and the action taken in two or three taps; the verdicts are the clinically adjudicated labels that escape the circularity of rule-derived labels. \Cref{app:screens} shows the screens.
+
+The application is in English and French, the official languages of Cameroon; each user chooses on the sign-in screen, the profile or the clinician's bar, and notifications and e-mails follow that choice. The patient may also measure the pulse with the phone's camera, a fingertip over the lens with the flash on (photoplethysmography): after twenty seconds, a value is given only if the dominant frequency of the signal and the median interval between beats agree and the beats are regular. Since smartphone photoplethysmography is to be evaluated before it is relied upon (\cref{sec:cuffless}), the value is kept beside the device's pulse and never used by the triage or the model; the readings that carry both give the paired data of a Bland--Altman comparison. Patients and clinicians may add a profile photo, seen only by the person and their clinician or patients.
 
 Two display rules apply on the clinician's side. A raw score from a weighted model is never displayed, since an output of 0.5 may correspond to a true probability of 0.02 (\cref{sec:evaluation}); only the corrected value is shown, and the tier with its reason often communicates more honestly than any decimal. And the trigger source is always shown: a rule trigger is a guideline threshold crossing, whereas a model trigger, on samples of this size, is weaker evidence, and showing both the same way would make the system distrusted after its first false alarm. The dashboard must also replace a task rather than add one, since health professionals in the region see telemedicine as additional work \parencite{dodoo2022}: the verdict both closes the alert and serves as the clinical note.
 
@@ -717,12 +723,12 @@ Security is set by the weakest segment \parencite{mucchi2021}, so the design enu
 \toprule
 \textbf{Segment} & \textbf{Built} & \textbf{To add before use} \\
 \midrule
-Phone & local cache in the application's storage; no identifier sent to the risk service or the assistant & device encryption required \\
+Phone & local cache in the application's storage; no identifier sent to the risk service or the assistant; camera images analysed on the phone, never kept & device encryption required \\
 Phone to cloud & encrypted transport (TLS) of the database client & certificate pinning \\
 Cloud & encryption at rest by the provider; security rules enforcing roles, field validation and append-only readings (deployed on 4 November 2026) & emulator test of the rules; access log \\
 Clinician & authenticated session; role checked by the rules & short sessions; no local caching \\
 Risk service, worker & run locally; the service receives four days of readings without identifier & hosting with authentication \\
-Research export & de-identified analysis files (\cref{sec:ethics}) & -- \\
+Research export & patients who consented only; no name, contact, photo or message; patients and readings coded by a keyed hash (\cref{sec:ethics}) & -- \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -756,16 +762,16 @@ Record and notifications & Cloud Firestore; Firebase Cloud Messaging plugins & 6
 \end{tabularx}
 \end{table}
 
-\paragraph{Reproducibility} The labelling rule, the home triage, the quality controls, the sample-size criteria and the measures are implemented once and checked by automated tests (172 in the research package, 48 in the application), including the parity of the levels computed on the phone with the Python reference on every threshold boundary. Thresholds, the selection cost, search spaces and the delays of the worker are kept in versioned configuration files, and exact package versions in a lock file. Every benchmark run is saved in a folder named after a hash of everything that determines its results, with its configuration, a copy of the code, every trial, every prediction and the fitted models, so that each figure is redrawn from saved outputs and an interrupted run resumes where it stopped. The seed is fixed. Code and configurations are versioned; the Douala data are not published, and the eICU data are available from PhysioNet under its licence.
+\paragraph{Reproducibility} The labelling rule, the home triage, the quality controls, the sample-size criteria and the measures are implemented once and checked by automated tests (199 in the research package, 86 in the application), including the parity of the levels computed on the phone with the Python reference on every threshold boundary. Thresholds, the selection cost, search spaces and the delays of the worker are kept in versioned configuration files, and exact package versions in a lock file. Every benchmark run is saved in a folder named after a hash of everything that determines its results, with its configuration, a copy of the code, every trial, every prediction and the fitted models, so that each figure is redrawn from saved outputs and an interrupted run resumes where it stopped. The seed is fixed. Code and configurations are versioned; the Douala data are not published, and the eICU data are available from PhysioNet under its licence.
 
 %--------------------------------------------------------------------------
 \section{Ethical Considerations}\label{sec:ethics-considerations}\label{sec:ethics}\label{sec:legal}
 
 The research involves real patients and their health data. Three principles apply: informed consent where patients are involved directly, anonymity and confidentiality of the data, and compliance with the applicable ethical and legal standards.
 
-The eICU data are de-identified and distributed by PhysioNet under its terms \parencite{pollard2018,goldberger2000}. The Douala charts are a secondary use of routine records, transcribed without names under the research authorisation of the Laquintinie Hospital of Douala (No.~185/\allowbreak AR/\allowbreak MINSANTE/\allowbreak DHL/\allowbreak CM of 25 September 2026, for the period from 28 September to 4 November 2026). The authorisation places the work under the supervision of an endocrinologist of the hospital and under the hospital's code of ethics and professional conduct, and requires that any publication preserve the interests of the hospital and of its staff and that a copy be deposited at its documentation centre. A prospective study with home measurements, which involves patients directly, would in addition require the opinion of a research ethics committee. Removing names is not enough to anonymise a small cohort: before any analysis file is shared, ages are grouped in five-year bands and calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses. Personal data in Cameroon are governed by Law No.~2024/017 on the protection of personal data \parencite{cameroon2024data}, which makes any transfer abroad conditional on the authorisation of a supervisory authority, and the security of electronic communications by Law No.~2010/012 \parencite{cameroon2010cyber}; the region of the database is therefore chosen before the first write, since it is fixed at creation and cannot be changed without migrating the data. The health assistant sends conditions, medications and readings to a provider outside Cameroon, which requires the patient's informed consent.
+The eICU data are de-identified and distributed by PhysioNet under its terms \parencite{pollard2018,goldberger2000}. The Douala charts are a secondary use of routine records, transcribed without names under the research authorisation of the Laquintinie Hospital of Douala (No.~185/\allowbreak AR/\allowbreak MINSANTE/\allowbreak DHL/\allowbreak CM of 25 September 2026, for the period from 28 September to 4 November 2026). The authorisation places the work under the supervision of an endocrinologist of the hospital and under the hospital's code of ethics and professional conduct, and requires that any publication preserve the interests of the hospital and of its staff and that a copy be deposited at its documentation centre. A prospective study with home measurements, which involves patients directly, would in addition require the opinion of a research ethics committee. Removing names is not enough to anonymise a small cohort: before any analysis file is shared, ages are grouped in five-year bands and calendar dates replaced by the time elapsed since each patient's first reading, which is all the analysis uses. Personal data in Cameroon are governed by Law No.~2024/017 on the protection of personal data \parencite{cameroon2024data}, which makes any transfer abroad conditional on the authorisation of a supervisory authority, and the security of electronic communications by Law No.~2010/012 \parencite{cameroon2010cyber}; the region of the database is therefore chosen before the first write, since it is fixed at creation and cannot be changed without migrating the data. The health assistant sends conditions, medications and readings to a provider outside Cameroon, which requires the patient's informed consent. The application asks for consent at sign-up with two separate ticks, the terms of use, required, and the research use of the data, optional and revocable from the profile; each choice carries the server time, checked by the security rules. A research extract takes only the patients whose consent holds when it runs, leaves out names, contact details, photos, messages and notes, and codes each patient and reading by a keyed hash (HMAC-SHA256) of its identifier, stable across extracts and not traceable without the key, which is kept apart from the data.
 
-The trial of \textcite{mihevc2025} complied with the European General Data Protection Regulation because it took place in the European Union. A system operated in Cameroon for Cameroonian patients falls outside its scope, and claiming compliance with it would hide the need to identify the law that does apply. Its principles---lawfulness, purpose limitation, data minimisation, storage limitation, integrity and confidentiality---are adopted here as a voluntary standard, while the applicable framework is Cameroonian. Under a prospective collection, the consent document would cover eight points: what is collected; who sees it; where it is stored and under which law; how long it is kept; that participation does not replace clinical care; that withdrawal is possible; what happens to collected data on withdrawal; and who keeps the link between pseudonym and identity. The legal framework thus determines the storage region and the consent document, which must both precede any collection.
+The trial of \textcite{mihevc2025} complied with the European General Data Protection Regulation because it took place in the European Union. A system operated in Cameroon for Cameroonian patients falls outside its scope, and claiming compliance with it would hide the need to identify the law that does apply. Its principles---lawfulness, purpose limitation, data minimisation, storage limitation, integrity and confidentiality---are adopted here as a voluntary standard, while the applicable framework is Cameroonian. Under a prospective collection, the consent document would cover eight points: what is collected; who sees it; where it is stored and under which law; how long it is kept; that participation does not replace clinical care; that withdrawal is possible; what happens to collected data on withdrawal; and who keeps the link between pseudonym and identity. The terms of use of the application state five of them; the storage period, the region and the keeper of the key remain to be added. The legal framework thus determines the storage region and the consent document, which must both precede any collection.
 
 %--------------------------------------------------------------------------
 \section{Limitations of the Methodology}\label{sec:meth-limits}
@@ -799,7 +805,7 @@ Type and approach & applied design-science research; experimental and descriptiv
 Setting & NHPSD laboratory; Laquintinie Hospital of Douala, under the supervision of an endocrinologist \\
 Population & adults with hypertension and/or type~2 diabetes; inpatients and intensive-care stays in the data used \\
 Data & eICU demonstration subset (development and comparison); Douala inpatient charts (external validation); Douala consultation records (description) \\
-Instruments & unnamed devices in the Douala wards, inferred from terminal digits; routine monitoring in eICU \\
+Instruments & unnamed devices in Douala, inferred from terminal digits; routine monitoring in eICU \\
 Samples & eICU: 4\,182 haemodynamic and 1\,356 glycaemic samples of 700 patients in 174 hospitals; Douala: 282 and 190 samples of 32 patients \\
 Treatment & two-phase preprocessing; quality flags; absence as information; one label per condition from sourced thresholds \\
 Models & eight candidate families of five types, with two baselines; eight-feature primary set \\
@@ -810,4 +816,4 @@ Ethics & research authorisation of the hospital; de-identified eICU data under P
 \end{tabularx}
 \end{table}
 
-Following the design-science approach, the results are presented in two parts in the next chapter: the data and the evaluation of the predictive models against hypotheses H1 to H4 first, then the verification of the system that answers RQ1.
+The next chapter presents the data and the evaluation of the predictive models against H1 to H4, then the verification of the system that answers RQ1.

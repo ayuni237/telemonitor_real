@@ -1,0 +1,26 @@
+\begin{table}[htbp]
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\caption{Lead time (hypothesis H2): difference in RPS with persistence (negative is better) and corrected resampled $t$ test, mean over the outer folds, for targets 24 and 48~hours ahead (embargoes of 12 and 36~hours); the next reading is in \cref{tab:bench-haemodynamic,tab:bench-glycaemic}. Samples: development samples of one repeat.}\label{tab:leads}
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+ & \multicolumn{4}{c}{\textbf{Haemodynamic task}} & \multicolumn{4}{c}{\textbf{Glycaemic task}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+ & \multicolumn{2}{c}{24 h ahead} & \multicolumn{2}{c}{48 h ahead} & \multicolumn{2}{c}{24 h ahead} & \multicolumn{2}{c}{48 h ahead} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+\textbf{Model} & $\Delta$RPS & $p$ & $\Delta$RPS & $p$ & $\Delta$RPS & $p$ & $\Delta$RPS & $p$ \\
+\midrule
+Samples & \multicolumn{2}{c}{3\,389} & \multicolumn{2}{c}{2\,341} & \multicolumn{2}{c}{1\,138} & \multicolumn{2}{c}{832} \\
+Persistence (RPS) & \multicolumn{2}{c}{0.1423} & \multicolumn{2}{c}{0.1547} & \multicolumn{2}{c}{0.1348} & \multicolumn{2}{c}{0.1417} \\
+\midrule
+Ordinal logistic & $-$0.0008 & 0.626 & +0.0004 & 0.818 & $-$0.0019 & 0.619 & +0.0020 & 0.552 \\
+Logistic on PCA & +0.0022 & 0.186 & +0.0026 & 0.181 & +0.0026 & 0.534 & +0.0008 & 0.824 \\
+Random forest & $-$0.0034 & 0.056 & $-$0.0015 & 0.187 & $-$0.0019 & 0.418 & +0.0018 & 0.552 \\
+CatBoost & $-$0.0037 & 0.006 & $-$0.0007 & 0.665 & $-$0.0011 & 0.722 & +0.0036 & 0.301 \\
+Value forecast (ridge) & $-$0.0057 & 0.002 & $-$0.0037 & 0.082 & +0.0074 & 0.111 & +0.0126 & 0.120 \\
+Value forecast (CatBoost) & $-$0.0036 & 0.005 & $-$0.0017 & 0.363 & +0.0098 & 0.035 & +0.0154 & 0.049 \\
+GRU-D & $-$0.0034 & 0.096 & $-$0.0013 & 0.558 & $-$0.0045 & 0.214 & +0.0037 & 0.406 \\
+Masked LSTM & $-$0.0037 & 0.081 & $-$0.0007 & 0.794 & $-$0.0015 & 0.673 & +0.0049 & 0.221 \\
+Selected (procedure) & $-$0.0057 & 0.002 & $-$0.0038 & 0.067 & $-$0.0033 & 0.385 & +0.0035 & 0.301 \\
+\bottomrule
+\end{tabular}
+\end{table}

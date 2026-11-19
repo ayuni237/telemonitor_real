@@ -48,7 +48,6 @@ downloaded, place it in a folder with the same structure and point `DEMO` in
 |---|---|---|---|
 | `01_douala_audit.py` | 2 | cohort description, quality controls, terminal digits (electronic device), label uncertainty (27 / 39 / 56 %), distributions → `out/audit_cohort.json` | seconds |
 | `02_label_rules.py` | 1 | old rule against the sourced rule, capped variant, 103 readings reclassified if all NEWS2 bands are used → `out/label_rules.csv` | seconds |
-| `03_pca_exploration.py` | — | exploratory PCA of the old pipeline (≈ 7 effective dimensions; logistic regression on 2 components ≈ XGBoost on 16 variables) | ≈ 5 min |
 | `04_sample_size.py` | 4 | Riley criteria (Douala and eICU demo), parity with `pmsampsize` (n = 662); option `--no-eicu` | ≈ 2 min |
 | `05_eicu_cohort.py` | 4 | eICU eligibility, harmonisation to the rhythm of the charts, samples and prevalences | ≈ 1 min |
 | `06_benchmark.py` | 6–9 | nested benchmark on eICU and external validation on Douala → a run folder `out/runs/<task>_<lead>h_<id>/` (see below) | `--quick`: minutes; full: ≈ 12 h per task |
@@ -118,7 +117,9 @@ powershell -ExecutionPolicy Bypass -File C:\Projects\infra\windows\rerun_benchma
 python scripts\13_results_tables.py          (then: ..\memoire\results\leads.tex)
 ```
 
-The runs at lead 0 are left untouched: each lead has its own folder.
+The runs at lead 0 are left untouched: each lead has its own folder. Done on 18–19 November
+2026 in 33 h: `haemodynamic_12h_2aee07071f`, `haemodynamic_36h_4dacbd49e8`,
+`glycaemic_12h_f48360b53b`, `glycaemic_36h_0011678908` (thesis §4.3.5, Table 4.11).
 
 ## 4. Where to change a choice
 

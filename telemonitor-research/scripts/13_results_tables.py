@@ -15,7 +15,9 @@ From the saved results only (no refit), for each task:
                          outputs: the Brier score and net benefit after the intercept update
                          fitted on the other Douala patients (the update in external.csv is
                          fitted and scored on the same patients), and, per family, the share
-                         of searches whose kept configuration came after the 15th trial
+                         of searches whose kept configuration came after the 15th trial;
+                         for the runs at leads 12 and 36 h, the family chosen in each outer
+                         fold and the Douala RPS of each candidate ("leads_detail")
 
 The tables above leads.tex use the runs at lead 0 only. A run that is not complete is
 refused, so that partial numbers do not reach the thesis; --partial writes them anyway,
@@ -160,36 +162,47 @@ def samples_per_repeat(folds: pd.DataFrame) -> int:
 
 
 def leads_table(leads: dict) -> tuple[str, dict]:
-    """Hypothesis H2: RPS difference with persistence and its test, per task and lead."""
-    cols = sorted({lead for by_lead in leads.values() for lead in by_lead})
-    width = 1 + 2 * len(cols)
-    head = " & ".join(rf"\multicolumn{{2}}{{c}}{{\textbf{{{LEAD_NAMES.get(lead, f'{lead:g} h embargo')}}}}}"
-                      for lead in cols)
-    rule = "".join(rf"\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}" for i in range(len(cols)))
-    rows, out = [], {}
-    for task, by_lead in leads.items():
-        rows += [r"\midrule", rf"\multicolumn{{{width}}}{{@{{}}l}}{{\textit{{{task.capitalize()} task}}}} \\"]
-        span = lambda f: " & ".join(rf"\multicolumn{{2}}{{c}}{{{f(by_lead[l]) if l in by_lead else '--'}}}" for l in cols)
-        rows.append("Samples & " + span(lambda v: f"{v[1]:,}".replace(",", r"\,")) + r" \\")
-        rows.append("Persistence (RPS) & " + span(lambda v: fmt(v[0].loc["persistence", "rps_mean"], 4)) + r" \\")
-        for c in ORDER:
-            if c in ("prior", "persistence") or not any(c in v[0].index for v in by_lead.values()):
-                continue
-            cells = []
-            for lead in cols:
-                s = by_lead[lead][0] if lead in by_lead else None
-                ok = s is not None and c in s.index
-                cells += [fmt(s.loc[c, "d_rps"], 4, sign=True) if ok else "--", p_cell(s.loc[c].get("p")) if ok else "--"]
-            rows.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
-        out[task] = {f"{lead:g}": {"samples": v[1], "outer": v[0].reset_index()[["candidate", "rps_mean", "d_rps", "p"]]
-                                   .to_dict("records")} for lead, v in by_lead.items()}
+    """Hypothesis H2: RPS difference with persistence and its test, per task and lead.
+
+    The tasks sit side by side, one pair of columns per lead other than 0: the next
+    reading is already in the benchmark tables (tab:bench-<task>). summary.json keeps
+    every lead, 0 included."""
+    tasks = sorted(leads, key=lambda t: list(TASKS).index(t) if t in TASKS else len(TASKS))
+    cols = [(t, lead) for t in tasks for lead in sorted(leads[t]) if lead != 0]
+    per_task = {t: [lead for tt, lead in cols if tt == t] for t in tasks}
+    name = lambda lead: LEAD_NAMES.get(lead, f"{lead:g} h embargo")
+    span = lambda f: " & ".join(rf"\multicolumn{{2}}{{c}}{{{f(leads[t][lead])}}}" for t, lead in cols)
+    heads, rules, i = [], [], 2
+    for t in tasks:
+        n = 2 * len(per_task[t])
+        heads.append(rf"\multicolumn{{{n}}}{{c}}{{\textbf{{{t.capitalize()} task}}}}")
+        rules.append(rf"\cmidrule(lr){{{i}-{i + n - 1}}}")
+        i += n
+    rows = ["Samples & " + span(lambda v: f"{v[1]:,}".replace(",", r"\,")) + r" \\",
+            "Persistence (RPS) & " + span(lambda v: fmt(v[0].loc["persistence", "rps_mean"], 4)) + r" \\",
+            r"\midrule"]
+    for c in ORDER:
+        if c in ("prior", "persistence") or not any(c in leads[t][lead][0].index for t, lead in cols):
+            continue
+        cells = []
+        for t, lead in cols:
+            s = leads[t][lead][0]
+            ok = c in s.index
+            cells += [fmt(s.loc[c, "d_rps"], 4, sign=True) if ok else "--", p_cell(s.loc[c].get("p")) if ok else "--"]
+        rows.append(f"{NAMES[c]} & " + " & ".join(cells) + r" \\")
+    out = {t: {f"{lead:g}": {"samples": v[1], "outer": v[0].reset_index()[["candidate", "rps_mean", "d_rps", "p"]]
+                             .to_dict("records")} for lead, v in leads[t].items()} for t in tasks}
+    refs = r"\cref{" + ",".join(f"tab:bench-{t}" for t in tasks) + "}"
     tex = "\n".join([
-        r"\begin{table}[htbp]", r"\centering\footnotesize\setlength{\tabcolsep}{4pt}",
+        r"\begin{table}[htbp]", r"\centering\footnotesize\setlength{\tabcolsep}{3.5pt}",
         r"\caption{Lead time (hypothesis H2): difference in RPS with persistence (negative is better) and corrected "
-        r"resampled $t$ test, mean over the outer folds, for the next reading and for targets 24 and 48~hours ahead "
-        r"(embargoes of 12 and 36~hours). Samples: development samples of one repeat.}\label{tab:leads}",
+        r"resampled $t$ test, mean over the outer folds, for targets 24 and 48~hours ahead (embargoes of 12 and "
+        rf"36~hours); the next reading is in {refs}. Samples: development samples of one repeat.}}\label{{tab:leads}}",
         rf"\begin{{tabular}}{{@{{}}l{'cc' * len(cols)}@{{}}}}", r"\toprule",
-        rf" & {head} \\", rule, r"\textbf{Model} & " + " & ".join([r"$\Delta$RPS & $p$"] * len(cols)) + r" \\",
+        " & " + " & ".join(heads) + r" \\", "".join(rules),
+        " & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{{name(lead)}}}" for _, lead in cols) + r" \\",
+        "".join(rf"\cmidrule(lr){{{2 + 2 * k}-{3 + 2 * k}}}" for k in range(len(cols))),
+        r"\textbf{Model} & " + " & ".join([r"$\Delta$RPS & $p$"] * len(cols)) + r" \\", r"\midrule",
         *rows, r"\bottomrule", r"\end{tabular}", r"\end{table}", ""])
     return tex, out
 
@@ -232,7 +245,14 @@ if __name__ == "__main__":
         s = outer_summary(folds)
         leads.setdefault(task, {})[lead] = (s, samples_per_repeat(folds))
         if lead != 0:
-            print(f"{run.name}: lead {lead:g} h, used in leads.tex only")
+            detail = {"run": run.name, "selected_family": selected_table(task, folds)[1]}
+            ext_csv = run / "external" / "external.csv"
+            if ext_csv.exists():
+                ext = pd.read_csv(ext_csv)
+                detail["external"] = ext[["candidate", "n", "patients", "rps", "rps_lo", "rps_hi",
+                                          "auroc_alert"]].to_dict("records")
+            summary.setdefault("leads_detail", {}).setdefault(task, {})[f"{lead:g}"] = detail
+            print(f"{run.name}: lead {lead:g} h, used in leads.tex and leads_detail only")
             continue
         (a.out / f"benchmark_{task}.tex").write_text(benchmark_table(task, s, extra), encoding="utf8")
         sel_tex, counts = selected_table(task, folds)
