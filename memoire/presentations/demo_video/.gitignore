@@ -1,0 +1,7 @@
+# Media stay on this PC: recordings, AI clips, voice, music and the rendered film
+ai/
+music/
+voice/
+rec/
+out/
+__pycache__/

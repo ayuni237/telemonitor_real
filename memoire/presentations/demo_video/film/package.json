@@ -1,0 +1,21 @@
+{
+  "name": "telemonitor-film",
+  "private": true,
+  "description": "TeleMonitor defence film (1 min 45 s), edited in Remotion",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Film out/TeleMonitor_film.mp4 --codec h264 --crf 18",
+    "still": "remotion still src/index.ts Film"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.541",
+    "@remotion/media-utils": "4.0.541",
+    "remotion": "4.0.541",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}
