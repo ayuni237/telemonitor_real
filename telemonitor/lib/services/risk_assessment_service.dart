@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/reading.dart';
 import '../models/risk_assessment.dart';
 import 'home_protocol.dart';
@@ -96,6 +98,8 @@ class RiskAssessmentService {
         stateChangeMeasure: online.stateChangeMeasure,
       );
     } catch (e) {
+      // the patient sees only "checked on your phone"; the reason goes to the device log
+      debugPrint('TeleMonitor risk service unreachable: $e');
       return RiskAssessment(
         tier: ruleTier,
         source: RiskSource.rule,

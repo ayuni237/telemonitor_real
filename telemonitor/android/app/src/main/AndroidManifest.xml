@@ -12,7 +12,13 @@
     <application
         android:label="TeleMonitor"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <!-- Plain HTTP to the local risk service only (res/xml/network_security_config.xml);
+             Flutter applies the same policy to its own HTTP client. -->
+        <meta-data
+            android:name="io.flutter.network-policy"
+            android:resource="@xml/network_security_config" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

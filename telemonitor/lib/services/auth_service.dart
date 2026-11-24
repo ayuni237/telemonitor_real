@@ -256,7 +256,9 @@ class AuthService {
 
     try {
       await _db.collection('users').doc(uid).set({
-        'email': email.trim(),
+        // As Firebase Auth holds it (lower case): the rules compare it with
+        // the token, and phone keyboards capitalise the first letter.
+        'email': cred.user!.email ?? email.trim().toLowerCase(),
         'name': name.trim(),
         'role': 'patient',
         // Omitted entirely when unassigned rather than written as null.
